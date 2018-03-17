@@ -12,6 +12,7 @@ from PyQt5.uic import loadUi
 
 import numpy as np
 from util import *
+import yaml
 
 PEAK_SIZE = 12
 
@@ -81,6 +82,8 @@ class GUI(QMainWindow):
                         'value': self.show_view2},
                     {'name': 'show win2', 'type': 'bool',
                         'value': self.show_win2},
+                    {'name': 'save hit finding conf file', 'type': 'action'},
+                    {'name': 'load hit finding conf file', 'type': 'action'}
                 ]
             },
             {
@@ -130,6 +133,14 @@ class GUI(QMainWindow):
         self.params.param(
             'Basic Operation', 'refine on').sigValueChanged.connect(
             self.apply_refine)
+        self.params.param(
+            'Basic Operation', 'save hit finding conf file'
+        ).sigActivated.connect(
+            self.save_conf)
+        self.params.param(
+            'Basic Operation', 'load hit finding conf file'
+        ).sigActivated.connect(
+            self.load_conf)
         self.params.param(
             'Hit Finder Parameters', 'gaussian filter sigma'
         ).sigValueChanged.connect(
@@ -201,8 +212,9 @@ class GUI(QMainWindow):
         set_as_mask = menu.addAction('set as mask')
         action = menu.exec_(self.file_list.mapToGlobal(pos))
         if action == set_as_mask:
-            self.params.param('File Info', 'mask file').setValue(filepath)
+            self.mask_file = filepath
             self.mask = read_image(filepath)
+            self.params.param('File Info', 'mask file').setValue(filepath)
 
     @pyqtSlot(object, object)
     def apply_mask(self, _, mask_on):
@@ -234,6 +246,68 @@ class GUI(QMainWindow):
     def change_hit_finding(self, _, hit_finding_on):
         self.hit_finding_on = hit_finding_on
         self.update_display()
+
+    @pyqtSlot(object)
+    def save_conf(self, _):
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Save Hit Finding Conf File", "", "Yaml Files (*.yml)")
+        conf_dict = {
+            'mask file': self.mask_file,
+            'refine on': self.refine_on,
+            'gaussian filter sigma': self.gaussian_sigma,
+            'min peak num': self.min_peak_num,
+            'max peak num': self.max_peak_num,
+            'min gradient': self.min_gradient,
+            'min distance': self.min_distance,
+            'min snr': self.min_snr,
+        }
+        with open(filepath, 'w') as f:
+            yaml.dump(conf_dict, f, default_flow_style=False)
+
+    @pyqtSlot(object)
+    def load_conf(self, _):
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, "Open Hit Finding Conf File", "", "Yaml Files (*.yml)")
+        with open(filepath, 'r') as f:
+            conf_dict = yaml.load(f)
+        if 'mask file' in conf_dict.keys():
+            self.mask_file = conf_dict['mask file']
+            self.params.param(
+                'File Info', 'mask file').setValue(self.mask_file)
+        if 'refine on' in conf_dict.keys():
+            self.refine_on = conf_dict['refine on']
+            self.params.param('Basic Operation', 'refine on').setValue(
+                self.refine_on)
+        if 'gaussian filter sigma' in conf_dict.keys():
+            self.gaussian_sigma = conf_dict['gaussian filter sigma']
+            self.params.param(
+                'Hit Finder Parameters', 'gaussian filter sigma'
+            ).setValue(self.gaussian_sigma)
+        if 'min peak num' in conf_dict.keys():
+            self.min_peak_num = conf_dict['min peak num']
+            self.params.param(
+                'Hit Finder Parameters', 'min peak num'
+            ).setValue(self.min_peak_num)
+        if 'max peak num' in conf_dict.keys():
+            self.max_peak_num = conf_dict['max peak num']
+            self.params.param(
+                'Hit Finder Parameters', 'max peak num'
+            ).setValue(self.max_peak_num)
+        if 'min gradient' in conf_dict.keys():
+            self.min_gradient = conf_dict['min gradient']
+            self.params.param(
+                'Hit Finder Parameters', 'min gradient'
+            ).setValue(self.min_gradient)
+        if 'min distance' in conf_dict.keys():
+            self.min_distance = conf_dict['min distance']
+            self.params.param(
+                'Hit Finder Parameters', 'min distance'
+            ).setValue(self.min_distance)
+        if 'min snr' in conf_dict.keys():
+            self.min_snr = conf_dict['min snr']
+            self.params.param(
+                'Hit Finder Parameters', 'min snr'
+            ).setValue(self.min_snr)
 
     @pyqtSlot(object, object)
     def change_gaussian_sigma(self, _, gaussian_sigma):
