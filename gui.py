@@ -1,15 +1,25 @@
 import sys
 import os
+from functools import partial
 
 import pyqtgraph as pg
 from pyqtgraph.parametertree import ParameterTree, Parameter
-from PyQt5 import QtCore
-from PyQt5.QtCore import pyqtSlot, QObject
-from PyQt5.QtWidgets import QMainWindow, QApplication, QListWidgetItem
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtCore import pyqtSlot, QObject, Qt, QPoint
+from PyQt5.QtWidgets import QMainWindow, QApplication
+from PyQt5.QtWidgets import QListWidgetItem, QDialog, QMenu
 from PyQt5.uic import loadUi
 
 import numpy as np
+from scipy.ndimage.filters import gaussian_filter
+from skimage.measure import label
+from scipy.ndimage.morphology import generate_binary_structure
+from scipy.ndimage import gaussian_gradient_magnitude
+from skimage.feature import peak_local_max
 from util import *
+
+
+PEAK_SIZE = 12
 
 
 class GUI(QMainWindow):
@@ -18,18 +28,41 @@ class GUI(QMainWindow):
 
         # setup layout
         loadUi('gui.ui', self)
-        self.splitter.setSizes([0.7*self.width(), 0.3*self.width()])
+        self.win2 = QDialog()
+        self.win2.setWindowFlags(Qt.WindowStaysOnTopHint)
+        loadUi('win2.ui', self.win2)
+        self.dataset_diag = QDialog()
+        loadUi('dataset_diag.ui', self.dataset_diag)
+        self.splitter.setSizes(
+            [0.7*self.width(), 0.0*self.width(), 0.3*self.width()])
+        self.image_view_2.hide()
         self.setAcceptDrops(True)
 
-        self.accepted_file_types = ('lst', 'h5')
-        self.files = []
+        self.accepted_file_types = ('h5', 'npy', 'cxi')
+        self.mask_file = None
+        self.file = None
+        self.h5_obj = None
+        self.h5_dataset = None
+        self.h5_dataset_def = ''
         self.frame = 0
-        self.hit_finding_on = True
+        self.show_view2 = False
+        self.show_win2 = False
+        self.mask_on = False
+        self.refine_on = False
+        self.hit_finding_on = False
+        self.gaussian_sigma = 1
+        self.min_snr = 4.
         self.min_peak_num = 0
         self.min_intensity = 0.
+        self.min_gradient = 0.
         self.min_distance = 10
 
+        self.img = None
+        self.img2 = None
+        self.mask = None
         self.peak_item = None
+        self.opt_peak_item = None
+        self.strong_peak_item = None
 
         # setup parameter tree
         params_list = [
@@ -37,23 +70,35 @@ class GUI(QMainWindow):
                 'name': 'File Info', 'type': 'group', 'children': [
                     {'name': 'filepath', 'type': 'str', 'readonly': True},
                     {'name': 'image num', 'type': 'str', 'readonly': True},
-                    {'name': 'current image', 'type': 'str', 'readonly': True},
+                    {'name': 'mask file', 'type': 'str', 'readonly': True},
                 ]
             },
             {
                 'name': 'Basic Operation', 'type': 'group', 'children': [
                     {'name': 'frame', 'type': 'int', 'value': self.frame},
                     {'name': 'hit finding on', 'type': 'bool',
-                     'value': self.hit_finding_on}
+                        'value': self.hit_finding_on},
+                    {'name': 'mask on', 'type': 'bool',
+                        'value': self.mask_on},
+                    {'name': 'refine on', 'type': 'bool',
+                        'value': self.refine_on},
+                    {'name': 'show view2', 'type': 'bool',
+                        'value': self.show_view2},
+                    {'name': 'show win2', 'type': 'bool',
+                        'value': self.show_win2},
                 ]
             },
             {
                 'name': 'Hit Finder Parameters', 'type': 'group', 'children': [
+                    {'name': 'gaussian filter sigma', 'type': 'float',
+                        'value': self.gaussian_sigma},
                     {'name': 'min peak num', 'type': 'int', 'value': '10'},
-                    {'name': 'min intensity', 'type': 'float',
-                        'value': self.min_intensity},
+                    {'name': 'min gradient', 'type': 'float',
+                        'value': self.min_gradient},
                     {'name': 'min distance', 'type': 'int',
-                        'value': self.min_distance}
+                        'value': self.min_distance},
+                    {'name': 'min snr', 'type': 'float',
+                        'value': self.min_snr},
                 ]
             },
         ]
@@ -62,26 +107,134 @@ class GUI(QMainWindow):
         self.hit_finder_tree.setParameters(self.params, showTop=False)
 
         # signal and slot
+        self.image_view.scene.sigMouseMoved.connect(
+            partial(self.mouse_moved, flag=1))
+        self.image_view_2.scene.sigMouseMoved.connect(
+            partial(self.mouse_moved, flag=2))
         self.file_list.itemDoubleClicked.connect(self.load_file)
+        self.file_list.customContextMenuRequested.connect(
+            self.show_menu)
         self.line_edit.returnPressed.connect(self.add_file)
         self.params.param('Basic Operation', 'frame').sigValueChanged.connect(
             self.change_frame)
         self.params.param(
             'Basic Operation', 'hit finding on').sigValueChanged.connect(
-                self.change_hit_finding)
+            self.change_hit_finding)
+        self.params.param(
+            'Basic Operation', 'show view2').sigValueChanged.connect(
+            self.change_show_view2)
+        self.params.param(
+            'Basic Operation', 'show win2').sigValueChanged.connect(
+            self.change_show_win2)
+        self.params.param(
+            'Basic Operation', 'mask on').sigValueChanged.connect(
+            self.apply_mask)
+        self.params.param(
+            'Basic Operation', 'refine on').sigValueChanged.connect(
+            self.apply_refine)
+        self.params.param(
+            'Hit Finder Parameters', 'gaussian filter sigma'
+        ).sigValueChanged.connect(
+            self.change_gaussian_sigma)
         self.params.param(
             'Hit Finder Parameters', 'min peak num').sigValueChanged.connect(
-                self.change_min_peak_num)
+            self.change_min_peak_num)
         self.params.param(
-            'Hit Finder Parameters', 'min intensity').sigValueChanged.connect(
-                self.change_min_intensity)
+            'Hit Finder Parameters', 'min gradient').sigValueChanged.connect(
+            self.change_min_gradient)
         self.params.param(
             'Hit Finder Parameters', 'min distance').sigValueChanged.connect(
-                self.change_min_distance)
+            self.change_min_distance)
+        self.params.param(
+            'Hit Finder Parameters', 'min snr').sigValueChanged.connect(
+            self.change_min_snr)
+
+    @pyqtSlot(object)
+    def mouse_moved(self, pos, flag=None):
+        if self.file is None:
+            return
+        if flag == 1:  # in image_view
+            mouse_point = self.image_view.view.mapToView(pos)
+        elif flag == 2:  # in image_view_2
+            mouse_point = self.image_view_2.view.mapToView(pos)
+        x, y = int(mouse_point.x()), int(mouse_point.y())
+        if 0 <= x < self.img.shape[0] and 0 <= y < self.img.shape[1]:
+            self.statusbar.showMessage(
+                "x:%d y:%d I1:%.2E I2: %.2E" %
+                (x, y, self.img[x, y], self.img2[x, y]), 5000)
+        else:
+            return
+        if self.show_win2:  # show data inspector
+            # out of bound check
+            if x-3 < 0 or x+4 > self.img.shape[0]:
+                return
+            elif y-3 < 0 or y+4 > self.img.shape[1]:
+                return
+            # calculate snr
+            ROI = self.img[x-3:x+4, y-3:y+4]
+            snr = calc_snr(ROI)
+            self.win2.snr_label.setText('SNR@(%d, %d):' % (x, y))
+            self.win2.snr_value.setText('%.1f' % (snr))
+            # set table values
+            for i in range(5):
+                for j in range(5):
+                    v1 = self.img[x+i-2, y+j-2]
+                    if self.show_view2:
+                        v2 = self.img2[x+i-2, y+j-2]
+                        item = QtGui.QTableWidgetItem('%d\n%d' % (v1, v2))
+                    else:
+                        item = QtGui.QTableWidgetItem('%d' % v1)
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.win2.data_table.setItem(j, i, item)
+
+    @pyqtSlot(QPoint)
+    def show_menu(self, pos):
+        menu = QMenu()
+        item = self.file_list.currentItem()
+        if not isinstance(item, QListWidgetItem):
+            return
+        filepath = item.text()
+        ext = filepath.split('.')[-1]
+        set_as_mask = menu.addAction('set as mask')
+        action = menu.exec_(self.file_list.mapToGlobal(pos))
+        if action == set_as_mask:
+            self.params.param('File Info', 'mask file').setValue(filepath)
+            self.mask = read_image(filepath)
+
+    @pyqtSlot(object, object)
+    def apply_mask(self, _, mask_on):
+        self.mask_on = mask_on
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def apply_refine(self, _, refine_on):
+        self.refine_on = refine_on
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_show_view2(self, _, show_view2):
+        self.show_view2 = show_view2
+        if self.show_view2:
+            self.image_view_2.show()
+        else:
+            self.image_view_2.hide()
+
+    @pyqtSlot(object, object)
+    def change_show_win2(self, _, show_win2):
+        self.show_win2 = show_win2
+        if self.show_win2:
+            self.win2.show()
+        else:
+            self.win2.hide()
 
     @pyqtSlot(object, object)
     def change_hit_finding(self, _, hit_finding_on):
         self.hit_finding_on = hit_finding_on
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_gaussian_sigma(self, _, gaussian_sigma):
+        self.gaussian_sigma = gaussian_sigma
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -90,13 +243,18 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot(object, object)
-    def change_min_intensity(self, _, min_intensity):
-        self.min_intensity = min_intensity
+    def change_min_gradient(self, _, min_gradient):
+        self.min_gradient = min_gradient
         self.update_display()
 
     @pyqtSlot(object, object)
     def change_min_distance(self, _, min_distance):
         self.min_distance = min_distance
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_min_snr(self, _, min_snr):
+        self.min_snr = min_snr
         self.update_display()
 
     @pyqtSlot()
@@ -107,39 +265,163 @@ class GUI(QMainWindow):
     def change_frame(self, _, frame):
         if frame < 0:
             frame = 0
-        elif frame > (len(self.files) - 1):
-            frame = len(self.files) - 1
+        elif frame > self.nb_frame - 1:
+            frame = self.nb_frame - 1
         self.frame = frame
-        self.params.param('File Info', 'current image').setValue(
-            self.files[self.frame])
         self.params.param('Basic Operation', 'frame').setValue(self.frame)
         self.update_display()
+
+    def choose_dataset(self, filepath):
+        combo_box = self.dataset_diag.combo_box
+        combo_box.clear()
+        data_info = get_h5_info(filepath)
+        for i in range(len(data_info)):
+            combo_box.addItem(
+                '%s  %s' %
+                (data_info[i]['key'], data_info[i]['shape']),
+                userData=data_info[i]['key'])
+        self.dataset_diag.show()
+        if self.dataset_diag.exec_() == QDialog.Accepted:
+            id_select = combo_box.currentIndex()
+            h5_dataset = combo_box.itemData(id_select)
+            if self.dataset_diag.check_box.isChecked():
+                self.h5_dataset_def = h5_dataset
+            return h5_dataset
+        else:
+            return ''
 
     @pyqtSlot('QListWidgetItem*')
     def load_file(self, file_item):
         print('loading %s' % file_item.text())
         filepath = file_item.text()
-        with open(filepath, 'r') as f:
-            files = f.readlines()
-        for f in files:
-            self.files.append(f[:-1])  # remove the last '\n'
+        ext = QtCore.QFileInfo(filepath).suffix()
+        if ext == 'npy':
+            self.file = filepath
+            self.nb_frame = 1
+        elif ext in ('h5', 'cxi'):
+            h5_obj = h5py.File(filepath, 'r')
+            if self.h5_dataset_def not in h5_obj:  # check default dataset
+                h5_dataset = self.choose_dataset(filepath)
+            else:
+                h5_dataset = self.h5_dataset_def
+            if h5_dataset in h5_obj:
+                self.file = filepath
+                self.h5_obj = h5_obj
+                self.h5_dataset = h5_dataset
+                if len(h5_obj[h5_dataset].shape) == 3:
+                    self.nb_frame = h5_obj[h5_dataset].shape[0]
+                else:
+                    self.nb_frame = 1
+        else:
+            return
         # update file info and display
         self.params.param('File Info', 'filepath').setValue(filepath)
-        self.params.param('File Info', 'image num').setValue(len(self.files))
-        self.params.param('File Info', 'current image').setValue(
-            self.files[self.frame])
+        self.params.param('File Info', 'image num').setValue(self.nb_frame)
         self.update_display()
 
     def update_display(self):
-        img = read_image(self.files[self.frame])
-        self.image_view.setImage(img)
+        if self.file is None:
+            return
+        self.img = read_image(
+            self.file, frame=self.frame,
+            h5_obj=self.h5_obj, h5_dataset=self.h5_dataset
+            ).astype(np.float32)
+        self.img[0, -1] = 5000.
+        self.image_view.setImage(self.img, autoRange=False,
+                                 autoLevels=False, autoHistogramRange=False)
+        # smooth the image
+        if self.gaussian_sigma > 0:
+            self.img2 = gaussian_filter(self.img, self.gaussian_sigma)
+        else:
+            self.img2 = self.img.copy()
+        # calculate gradient
+        grad = np.gradient(self.img2.astype(np.float32))
+        self.img2 = np.sqrt(grad[0]**2. + grad[1]**2.)
+        self.image_view_2.setImage(self.img2, autoRange=False,
+                                   autoLevels=False, autoHistogramRange=False)
+
+        if self.peak_item is not None:
+            self.peak_item.clear()
+        if self.opt_peak_item is not None:
+            self.opt_peak_item.clear()
+        if self.strong_peak_item is not None:
+            self.strong_peak_item.clear()
         if self.hit_finding_on:
-            peaks = eval_image(img, self.min_intensity, self.min_distance)
-            if self.peak_item is not None:
-                self.peak_item.clear()
+            # peaks = peak_local_max(
+            #     self.img2,
+            #     min_distance=int(round((self.min_distance-1.)/2.)),
+            #     threshold_abs=self.min_gradient)
+            peaks = find_peaks(
+                self.img,
+                mask=self.mask,
+                gaussian_sigma=self.gaussian_sigma,
+                min_gradient=self.min_gradient,
+                min_distance=self.min_distance,
+                refine=True)
+
+            print('%d peaks found' % len(peaks))
+            # remove peaks in mask area
+            if self.mask_on and self.mask is not None:
+                valid_peak_ids = []
+                for i in range(peaks.shape[0]):
+                    peak = np.round(peaks[i].astype(np.int))
+                    if self.mask[peak[0], peak[1]] == 1:
+                        valid_peak_ids.append(i)
+                peaks = peaks[valid_peak_ids]
+                print('%d peaks remaining after mask cleaning' % len(peaks))
+
+            peaks = peaks[:500]  # only show first 500 peaks
             self.peak_item = pg.ScatterPlotItem(
-                pos=peaks, symbol='x', pen='r')
+                pos=peaks+0.5, symbol='x', size=PEAK_SIZE,
+                pen='r', brush=(255, 255, 255, 0))
             self.image_view.getView().addItem(self.peak_item)
+
+            # refine peak postion
+            if self.refine_on:
+                opt_peaks = peaks.copy().astype(np.float)
+                for i in range(peaks.shape[0]):
+                    x, y = np.round(peaks[i]).astype(np.int)
+                    if x-4 < 0 or x+5 > self.img.shape[0]:
+                        continue
+                    elif y-4 < 0 or y+5 > self.img.shape[1]:
+                        continue
+                    crop = self.img[x-4:x+5, y-4:y+5].astype(np.float32)
+                    crop_1d = np.sort(crop.flatten())
+                    crop_1d_smooth = np.convolve(
+                        crop_1d, np.ones(3), mode='same')
+                    grad = np.gradient(crop_1d_smooth)
+                    thres = crop_1d[np.argmax(grad)]
+                    signal_mask = (crop >= thres).astype(np.int)
+                    ids = (np.indices((9, 9)) - 4).astype(np.float)
+                    weight = np.sum(crop*signal_mask)
+                    opt_peaks[i, 0] += np.sum(crop*ids[0]*signal_mask) / weight
+                    opt_peaks[i, 1] += np.sum(crop*ids[1]*signal_mask) / weight
+                self.opt_peak_item = pg.ScatterPlotItem(
+                    pos=opt_peaks+0.5, symbol='+', size=PEAK_SIZE,
+                    pen='y', brush=(255, 255, 255, 0))
+                self.image_view.getView().addItem(self.opt_peak_item)
+
+                # filtering peaks using snr threshold
+                strong_peak_ids = []
+                for i in range(len(opt_peaks)):
+                    x, y = np.round(opt_peaks[i]).astype(np.int)
+                    if x-3 < 0 or x+4 > self.img.shape[0]:
+                        continue
+                    elif y-3 < 0 or y+4 > self.img.shape[1]:
+                        continue
+                    ROI = self.img[x-3:x+4, y-3:y+4]
+                    snr = calc_snr(ROI)
+                    if snr > self.min_snr:
+                        strong_peak_ids.append(i)
+                strong_peaks = opt_peaks[strong_peak_ids]
+                print('%d strong peaks' % (len(strong_peak_ids)))
+
+                # plot strong peaks
+                if len(strong_peak_ids) > 0:
+                    self.strong_peak_item = pg.ScatterPlotItem(
+                        pos=strong_peaks+0.5, symbol='o', size=PEAK_SIZE,
+                        pen='g', brush=(255, 255, 255, 0))
+                    self.image_view.getView().addItem(self.strong_peak_item)
 
     def dragEnterEvent(self, event):
         urls = event.mimeData().urls()
@@ -159,7 +441,7 @@ class GUI(QMainWindow):
             self.maybe_add_file(drop_file)
 
     def maybe_add_file(self, drop_file):
-        ext = QtCore.QFileInfo(drop_file).suffix()
+        ext = drop_file.split('.')[-1]
         if ext in self.accepted_file_types:
             if os.path.exists(drop_file):
                 self.file_list.addItem(drop_file)

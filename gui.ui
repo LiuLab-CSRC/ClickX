@@ -21,6 +21,7 @@
        <enum>Qt::Horizontal</enum>
       </property>
       <widget class="ImageView" name="image_view"/>
+      <widget class="ImageView" name="image_view_2"/>
       <widget class="QTabWidget" name="tab">
        <property name="currentIndex">
         <number>0</number>
@@ -33,7 +34,11 @@
          <item>
           <layout class="QVBoxLayout" name="verticalLayout_3">
            <item>
-            <widget class="QListWidget" name="file_list"/>
+            <widget class="QListWidget" name="file_list">
+             <property name="contextMenuPolicy">
+              <enum>Qt::CustomContextMenu</enum>
+             </property>
+            </widget>
            </item>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout">
