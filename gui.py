@@ -3,21 +3,15 @@ import os
 from functools import partial
 
 import pyqtgraph as pg
-from pyqtgraph.parametertree import ParameterTree, Parameter
+from pyqtgraph.parametertree import Parameter
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import pyqtSlot, QObject, Qt, QPoint
+from PyQt5.QtCore import pyqtSlot, Qt, QPoint
 from PyQt5.QtWidgets import QMainWindow, QApplication
-from PyQt5.QtWidgets import QListWidgetItem, QDialog, QMenu
+from PyQt5.QtWidgets import QListWidgetItem, QDialog, QMenu, QFileDialog
 from PyQt5.uic import loadUi
 
 import numpy as np
-from scipy.ndimage.filters import gaussian_filter
-from skimage.measure import label
-from scipy.ndimage.morphology import generate_binary_structure
-from scipy.ndimage import gaussian_gradient_magnitude
-from skimage.feature import peak_local_max
 from util import *
-
 
 PEAK_SIZE = 12
 
@@ -34,7 +28,7 @@ class GUI(QMainWindow):
         self.dataset_diag = QDialog()
         loadUi('dataset_diag.ui', self.dataset_diag)
         self.splitter.setSizes(
-            [0.7*self.width(), 0.0*self.width(), 0.3*self.width()])
+            [0.7 * self.width(), 0.0 * self.width(), 0.3 * self.width()])
         self.image_view_2.hide()
         self.setAcceptDrops(True)
 
@@ -53,6 +47,7 @@ class GUI(QMainWindow):
         self.gaussian_sigma = 1
         self.min_snr = 4.
         self.min_peak_num = 0
+        self.max_peak_num = 500
         self.min_intensity = 0.
         self.min_gradient = 0.
         self.min_distance = 10
@@ -91,14 +86,17 @@ class GUI(QMainWindow):
             {
                 'name': 'Hit Finder Parameters', 'type': 'group', 'children': [
                     {'name': 'gaussian filter sigma', 'type': 'float',
-                        'value': self.gaussian_sigma},
-                    {'name': 'min peak num', 'type': 'int', 'value': '10'},
+                     'value': self.gaussian_sigma},
+                    {'name': 'min peak num', 'type': 'int',
+                        'value': self.min_peak_num},
+                    {'name': 'max peak num', 'type': 'int',
+                        'value': self.max_peak_num},
                     {'name': 'min gradient', 'type': 'float',
-                        'value': self.min_gradient},
+                     'value': self.min_gradient},
                     {'name': 'min distance', 'type': 'int',
-                        'value': self.min_distance},
+                     'value': self.min_distance},
                     {'name': 'min snr', 'type': 'float',
-                        'value': self.min_snr},
+                     'value': self.min_snr},
                 ]
             },
         ]
@@ -140,6 +138,9 @@ class GUI(QMainWindow):
             'Hit Finder Parameters', 'min peak num').sigValueChanged.connect(
             self.change_min_peak_num)
         self.params.param(
+            'Hit Finder Parameters', 'max peak num').sigValueChanged.connect(
+            self.change_max_peak_num)
+        self.params.param(
             'Hit Finder Parameters', 'min gradient').sigValueChanged.connect(
             self.change_min_gradient)
         self.params.param(
@@ -157,6 +158,8 @@ class GUI(QMainWindow):
             mouse_point = self.image_view.view.mapToView(pos)
         elif flag == 2:  # in image_view_2
             mouse_point = self.image_view_2.view.mapToView(pos)
+        else:
+            return
         x, y = int(mouse_point.x()), int(mouse_point.y())
         if 0 <= x < self.img.shape[0] and 0 <= y < self.img.shape[1]:
             self.statusbar.showMessage(
@@ -166,21 +169,22 @@ class GUI(QMainWindow):
             return
         if self.show_win2:  # show data inspector
             # out of bound check
-            if x-3 < 0 or x+4 > self.img.shape[0]:
+            if x - 3 < 0 or x + 4 > self.img.shape[0]:
                 return
-            elif y-3 < 0 or y+4 > self.img.shape[1]:
+            elif y - 3 < 0 or y + 4 > self.img.shape[1]:
                 return
             # calculate snr
-            ROI = self.img[x-3:x+4, y-3:y+4]
-            snr = calc_snr(ROI)
+            crop = self.img[x - 3:x + 4, y - 3:y + 4]
+            crop = np.reshape(crop, (-1, 7, 7))
+            snr = calc_snr(crop)
             self.win2.snr_label.setText('SNR@(%d, %d):' % (x, y))
             self.win2.snr_value.setText('%.1f' % (snr))
             # set table values
             for i in range(5):
                 for j in range(5):
-                    v1 = self.img[x+i-2, y+j-2]
+                    v1 = self.img[x + i - 2, y + j - 2]
                     if self.show_view2:
-                        v2 = self.img2[x+i-2, y+j-2]
+                        v2 = self.img2[x + i - 2, y + j - 2]
                         item = QtGui.QTableWidgetItem('%d\n%d' % (v1, v2))
                     else:
                         item = QtGui.QTableWidgetItem('%d' % v1)
@@ -194,7 +198,6 @@ class GUI(QMainWindow):
         if not isinstance(item, QListWidgetItem):
             return
         filepath = item.text()
-        ext = filepath.split('.')[-1]
         set_as_mask = menu.addAction('set as mask')
         action = menu.exec_(self.file_list.mapToGlobal(pos))
         if action == set_as_mask:
@@ -240,6 +243,11 @@ class GUI(QMainWindow):
     @pyqtSlot(object, object)
     def change_min_peak_num(self, _, min_peak_num):
         self.min_peak_num = min_peak_num
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_max_peak_num(self, _, max_peak_num):
+        self.max_peak_num = max_peak_num
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -325,7 +333,7 @@ class GUI(QMainWindow):
         self.img = read_image(
             self.file, frame=self.frame,
             h5_obj=self.h5_obj, h5_dataset=self.h5_dataset
-            ).astype(np.float32)
+        ).astype(np.float32)
         self.img[0, -1] = 5000.
         self.image_view.setImage(self.img, autoRange=False,
                                  autoLevels=False, autoHistogramRange=False)
@@ -336,7 +344,7 @@ class GUI(QMainWindow):
             self.img2 = self.img.copy()
         # calculate gradient
         grad = np.gradient(self.img2.astype(np.float32))
-        self.img2 = np.sqrt(grad[0]**2. + grad[1]**2.)
+        self.img2 = np.sqrt(grad[0] ** 2. + grad[1] ** 2.)
         self.image_view_2.setImage(self.img2, autoRange=False,
                                    autoLevels=False, autoHistogramRange=False)
 
@@ -347,18 +355,10 @@ class GUI(QMainWindow):
         if self.strong_peak_item is not None:
             self.strong_peak_item.clear()
         if self.hit_finding_on:
-            # peaks = peak_local_max(
-            #     self.img2,
-            #     min_distance=int(round((self.min_distance-1.)/2.)),
-            #     threshold_abs=self.min_gradient)
-            peaks = find_peaks(
-                self.img,
-                mask=self.mask,
-                gaussian_sigma=self.gaussian_sigma,
-                min_gradient=self.min_gradient,
-                min_distance=self.min_distance,
-                refine=True)
-
+            peaks = peak_local_max(
+                self.img2,
+                min_distance=int(round((self.min_distance - 1.) / 2.)),
+                threshold_abs=self.min_gradient, num_peaks=self.max_peak_num)
             print('%d peaks found' % len(peaks))
             # remove peaks in mask area
             if self.mask_on and self.mask is not None:
@@ -369,23 +369,21 @@ class GUI(QMainWindow):
                         valid_peak_ids.append(i)
                 peaks = peaks[valid_peak_ids]
                 print('%d peaks remaining after mask cleaning' % len(peaks))
-
-            peaks = peaks[:500]  # only show first 500 peaks
             self.peak_item = pg.ScatterPlotItem(
-                pos=peaks+0.5, symbol='x', size=PEAK_SIZE,
+                pos=peaks + 0.5, symbol='x', size=PEAK_SIZE,
                 pen='r', brush=(255, 255, 255, 0))
             self.image_view.getView().addItem(self.peak_item)
-
             # refine peak postion
             if self.refine_on:
                 opt_peaks = peaks.copy().astype(np.float)
                 for i in range(peaks.shape[0]):
                     x, y = np.round(peaks[i]).astype(np.int)
-                    if x-4 < 0 or x+5 > self.img.shape[0]:
+                    if x - 4 < 0 or x + 5 > self.img.shape[0]:
                         continue
-                    elif y-4 < 0 or y+5 > self.img.shape[1]:
+                    elif y - 4 < 0 or y + 5 > self.img.shape[1]:
                         continue
-                    crop = self.img[x-4:x+5, y-4:y+5].astype(np.float32)
+                    crop = self.img[x - 4:x + 5, y -
+                                    4:y + 5].astype(np.float32)
                     crop_1d = np.sort(crop.flatten())
                     crop_1d_smooth = np.convolve(
                         crop_1d, np.ones(3), mode='same')
@@ -393,33 +391,34 @@ class GUI(QMainWindow):
                     thres = crop_1d[np.argmax(grad)]
                     signal_mask = (crop >= thres).astype(np.int)
                     ids = (np.indices((9, 9)) - 4).astype(np.float)
-                    weight = np.sum(crop*signal_mask)
-                    opt_peaks[i, 0] += np.sum(crop*ids[0]*signal_mask) / weight
-                    opt_peaks[i, 1] += np.sum(crop*ids[1]*signal_mask) / weight
+                    weight = np.sum(crop * signal_mask)
+                    opt_peaks[i, 0] += np.sum(crop *
+                                              ids[0] * signal_mask) / weight
+                    opt_peaks[i, 1] += np.sum(crop *
+                                              ids[1] * signal_mask) / weight
                 self.opt_peak_item = pg.ScatterPlotItem(
-                    pos=opt_peaks+0.5, symbol='+', size=PEAK_SIZE,
+                    pos=opt_peaks + 0.5, symbol='+', size=PEAK_SIZE,
                     pen='y', brush=(255, 255, 255, 0))
                 self.image_view.getView().addItem(self.opt_peak_item)
 
                 # filtering peaks using snr threshold
-                strong_peak_ids = []
+                crops = []
                 for i in range(len(opt_peaks)):
                     x, y = np.round(opt_peaks[i]).astype(np.int)
-                    if x-3 < 0 or x+4 > self.img.shape[0]:
+                    if x - 3 < 0 or x + 4 > self.img.shape[0]:
                         continue
-                    elif y-3 < 0 or y+4 > self.img.shape[1]:
+                    elif y - 3 < 0 or y + 4 > self.img.shape[1]:
                         continue
-                    ROI = self.img[x-3:x+4, y-3:y+4]
-                    snr = calc_snr(ROI)
-                    if snr > self.min_snr:
-                        strong_peak_ids.append(i)
-                strong_peaks = opt_peaks[strong_peak_ids]
-                print('%d strong peaks' % (len(strong_peak_ids)))
+                    crops.append(self.img[x - 3:x + 4, y - 3:y + 4])
+                crops = np.array(crops)
+                crops = np.reshape(crops, (-1, 7, 7))
 
-                # plot strong peaks
-                if len(strong_peak_ids) > 0:
+                snr = calc_snr(crops)
+                strong_peaks = opt_peaks[snr >= self.min_snr]
+                print('%d strong peaks' % (len(strong_peaks)))
+                if len(strong_peaks) > 0:
                     self.strong_peak_item = pg.ScatterPlotItem(
-                        pos=strong_peaks+0.5, symbol='o', size=PEAK_SIZE,
+                        pos=strong_peaks + 0.5, symbol='o', size=PEAK_SIZE,
                         pen='g', brush=(255, 255, 255, 0))
                     self.image_view.getView().addItem(self.strong_peak_item)
 
