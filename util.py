@@ -21,6 +21,24 @@ def read_image(filepath, frame=0, h5_obj=None, h5_dataset=None):
     return data
 
 
+def remove_edge_peaks(image, peaks, edge_width=4):
+    raw_peaks = peaks.copy()
+    peaks = np.round(peaks).astype(np.int)
+    peaks = np.reshape(peaks, (-1, 2))
+    x_max, y_max = image.shape
+    valid_ids = []
+    for i in range(len(peaks)):
+        x, y = peaks[i]
+        if x - edge_width < 0 or x + edge_width + 1 > x_max:
+            continue
+        elif y - edge_width < 0 or y + edge_width + 1 > y_max:
+            continue
+        else:
+            valid_ids.append(i)
+    peaks = raw_peaks[valid_ids]
+    return peaks
+
+
 def find_peaks(image,
                mask=None,
                gaussian_sigma=1.,
@@ -55,26 +73,22 @@ def find_peaks(image,
     # refine peak location
     if refine:
         peaks = refine_peaks(raw_image, peaks)
-    peaks = np.reshape(peaks, (-1, 2))
     # remove weak peak
     crops = []
+    peaks = remove_edge_peaks(image, peaks, edge_width=3)
     for i in range(len(peaks)):
         x, y = np.round(peaks[i]).astype(np.int)
-        if x - 3 < 0 or x + 4 > raw_image.shape[0]:
-            continue
-        elif y - 3 < 0 or y + 4 > raw_image.shape[1]:
-            continue
-        crops.append(raw_image[x - 3:x + 4, y - 3:y + 4])
+        crop = raw_image[x - 3:x + 4, y - 3:y + 4]
+        crops.append(crop)
     crops = np.array(crops)
     snr = calc_snr(crops)
     peaks = peaks[snr >= min_snr]
-    peaks = np.reshape(peaks, (-1, 2))
     return peaks
 
 
 def refine_peaks(image, peaks):
+    peaks = remove_edge_peaks(image, peaks, edge_width=4).astype(np.int)
     opt_peaks = peaks.copy().astype(np.float32)
-    peaks = np.round(peaks).astype(np.int)
     crops = []
     crop_1ds = []
     for i in range(peaks.shape[0]):
@@ -93,12 +107,16 @@ def refine_peaks(image, peaks):
     max_ids = np.argmax(grad, axis=1)
     signal_masks = []
     for i in range(len(max_ids)):
-        signal_masks.append((crops[i] >= crop_1ds[i, max_ids[i]]).astype(np.int))
+        signal_mask = (crops[i] >= crop_1ds[i, max_ids[i]]).astype(np.int)
+        signal_masks.append(signal_mask)
     signal_masks = np.array(signal_masks)
     ids = (np.indices((9, 9)) - 4).astype(np.float)
-    weight = np.sum(np.sum(crops * signal_masks, axis=1), axis=1).astype(np.float32)
-    opt_peaks[:, 0] += np.sum(np.sum(crops * signal_masks * ids[0], axis=1), axis=1) / weight
-    opt_peaks[:, 1] += np.sum(np.sum(crops * signal_masks * ids[1], axis=1), axis=1) / weight
+    weight = np.sum(np.sum(crops * signal_masks, axis=1), axis=1)
+    weight = weight.astype(np.float32)
+    opt_peaks[:, 0] += np.sum(np.sum(
+        crops * signal_masks * ids[0], axis=1), axis=1) / weight
+    opt_peaks[:, 1] += np.sum(np.sum(
+        crops * signal_masks * ids[1], axis=1), axis=1) / weight
     return opt_peaks
 
 
@@ -112,9 +130,12 @@ def calc_snr(crops,
     pad_signal = noise_outer_radius - signal_radius
     pad_noise = noise_outer_radius - noise_inner_radius
     region_signal = np.pad(d1, pad_signal, 'constant', constant_values=0)
-    region_noise = (1 - np.pad(d2, pad_noise, 'constant', constant_values=0)) * d3
-    val_signal = np.sum(np.sum(crops * region_signal, axis=1), axis=1) / np.sum(region_signal)
-    val_noise = np.sum(np.sum(crops * region_noise, axis=1), axis=1) / np.sum(region_noise)
+    region_noise = (1 - np.pad(
+        d2, pad_noise, 'constant', constant_values=0)) * d3
+    val_signal = np.sum(np.sum(
+        crops * region_signal, axis=1), axis=1) / np.sum(region_signal)
+    val_noise = np.sum(np.sum(
+        crops * region_noise, axis=1), axis=1) / np.sum(region_noise)
     snr = val_signal / val_noise
     return snr
 
