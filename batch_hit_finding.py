@@ -18,7 +18,7 @@ from util import find_peaks, read_image
 import pandas as pd
 
 
-BATCH_SIZE = 5
+BATCH_SIZE = 50
 BUFFER_SIZE = 100000  # incease buffersize as needed
 
 
@@ -50,7 +50,7 @@ def batch_hit_finding(jobs, conf):
                 slave = i + 1
                 finished, result = reqs[slave].test()
                 if finished:
-                    print('slave %d finished %s' % (slave, str(result)))
+                    # print('slave %d finished %s' % (slave, str(result)))
                     results += result
                     if job_id < nb_jobs:
                         print('send job %d/%d to %d' % (
@@ -126,7 +126,6 @@ def batch_hit_finding(jobs, conf):
                 # sys.stdout.flush()
             comm.send(job, dest=master)
             stop = comm.recv(source=master)
-        print('slave %d is exiting' % rank)
 
 
 def collect_jobs(files, dataset):
@@ -139,11 +138,14 @@ def collect_jobs(files, dataset):
                 nb_frame = shape[0]
                 for i in range(nb_frame):
                     batch.append({'filepath': f, 'frame': i})
+                    if len(batch) == BATCH_SIZE:
+                        jobs.append(batch)
+                        batch = []
             else:
                 batch.append({'filepath': f, 'frame': 0})
-            if len(batch) == BATCH_SIZE:
-                jobs.append(batch)
-                batch = []
+                if len(batch) == BATCH_SIZE:
+                    jobs.append(batch)
+                    batch = []
         except OSError:
             pass
     if len(batch) > 0:
@@ -152,9 +154,9 @@ def collect_jobs(files, dataset):
 
 
 if __name__ == '__main__':
-    files = glob('/Volumes/LaCie/data/temp/data1/*.h5')
-    conf_file = '/Volumes/LaCie/data/temp/conf.yml'
+    files = glob('/Volumes/LaCie/data/chufengl/*.cxi')
+    conf_file = '/Volumes/LaCie/data/chufengl/conf.yml'
     with open(conf_file, 'r') as f:
         conf = yaml.load(f)
     jobs = collect_jobs(files, conf['dataset'])
-    batch_hit_finding(jobs[:10], conf)
+    batch_hit_finding(jobs[:100], conf)
