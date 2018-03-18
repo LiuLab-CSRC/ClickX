@@ -10,7 +10,6 @@ from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5.QtWidgets import QListWidgetItem, QDialog, QMenu, QFileDialog
 from PyQt5.uic import loadUi
 
-import numpy as np
 from util import *
 import yaml
 
@@ -65,6 +64,7 @@ class GUI(QMainWindow):
             {
                 'name': 'File Info', 'type': 'group', 'children': [
                     {'name': 'filepath', 'type': 'str', 'readonly': True},
+                    {'name': 'dataset', 'type': 'str', 'readonly': True},
                     {'name': 'image num', 'type': 'str', 'readonly': True},
                     {'name': 'mask file', 'type': 'str', 'readonly': True},
                 ]
@@ -252,6 +252,7 @@ class GUI(QMainWindow):
         filepath, _ = QFileDialog.getSaveFileName(
             self, "Save Hit Finding Conf File", "", "Yaml Files (*.yml)")
         conf_dict = {
+            'dataset': self.h5_dataset,
             'mask file': self.mask_file,
             'refine on': self.refine_on,
             'gaussian filter sigma': self.gaussian_sigma,
@@ -270,10 +271,13 @@ class GUI(QMainWindow):
             self, "Open Hit Finding Conf File", "", "Yaml Files (*.yml)")
         with open(filepath, 'r') as f:
             conf_dict = yaml.load(f)
+        if 'dataset' in conf_dict.keys():
+            self.h5_dataset_def = self.h5_dataset = conf_dict['dataset']
         if 'mask file' in conf_dict.keys():
             self.mask_file = conf_dict['mask file']
             self.params.param(
                 'File Info', 'mask file').setValue(self.mask_file)
+            self.mask = read_image(self.mask_file)
         if 'refine on' in conf_dict.keys():
             self.refine_on = conf_dict['refine on']
             self.params.param('Basic Operation', 'refine on').setValue(
@@ -398,6 +402,7 @@ class GUI(QMainWindow):
             return
         # update file info and display
         self.params.param('File Info', 'filepath').setValue(filepath)
+        self.params.param('File Info', 'dataset').setValue(self.h5_dataset)
         self.params.param('File Info', 'image num').setValue(self.nb_frame)
         self.update_display()
 
