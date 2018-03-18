@@ -12,7 +12,7 @@ def read_image(filepath, frame=0, h5_obj=None, h5_dataset=None):
         data = np.load(filepath)
     elif ext in ('h5', 'cxi'):
         if len(h5_obj[h5_dataset].shape) == 3:
-            data = h5_obj[h5_dataset][frame].value
+            data = h5_obj[h5_dataset][frame]
         else:
             data = h5_obj[h5_dataset].value
     else:
@@ -38,6 +38,9 @@ def find_peaks(image,
     peaks = peak_local_max(grad_mag,
                            min_distance=int(round((min_distance - 1.) / 2.)),
                            threshold_abs=min_gradient, num_peaks=max_peaks)
+    peaks = np.reshape(peaks, (-1, 2))
+    if len(peaks) == 0:
+        return peaks
     # mask out invalid peaks
     if mask is not None:
         valid_peak_ids = []
@@ -46,9 +49,13 @@ def find_peaks(image,
             if mask[peak[0], peak[1]] == 1:
                 valid_peak_ids.append(i)
         peaks = peaks[valid_peak_ids]
+    peaks = np.reshape(peaks, (-1, 2))
+    if len(peaks) == 0:
+        return peaks
     # refine peak location
     if refine:
         peaks = refine_peaks(raw_image, peaks)
+    peaks = np.reshape(peaks, (-1, 2))
     # remove weak peak
     crops = []
     for i in range(len(peaks)):
@@ -61,6 +68,7 @@ def find_peaks(image,
     crops = np.array(crops)
     snr = calc_snr(crops)
     peaks = peaks[snr >= min_snr]
+    peaks = np.reshape(peaks, (-1, 2))
     return peaks
 
 
@@ -77,7 +85,11 @@ def refine_peaks(image, peaks):
     crops = np.array(crops)
     crop_1ds = np.array(crop_1ds)
     crop_1ds_smooth = convolve1d(crop_1ds, np.ones(3), mode='nearest')
-    grad = np.gradient(crop_1ds_smooth)[1]
+    if crop_1ds_smooth.shape[0] == 1:
+        grad = np.gradient(crop_1ds_smooth[0])
+        grad = np.reshape(grad, (-1, grad.size))
+    else:
+        grad = np.gradient(crop_1ds_smooth)[1]
     max_ids = np.argmax(grad, axis=1)
     signal_masks = []
     for i in range(len(max_ids)):
@@ -90,7 +102,10 @@ def refine_peaks(image, peaks):
     return opt_peaks
 
 
-def calc_snr(crops, signal_radius=1, noise_inner_radius=2, noise_outer_radius=3):
+def calc_snr(crops,
+             signal_radius=1,
+             noise_inner_radius=2,
+             noise_outer_radius=3):
     d1 = disk(signal_radius)
     d2 = disk(noise_inner_radius)
     d3 = disk(noise_outer_radius)
@@ -125,7 +140,8 @@ def get_h5_info(filepath):
 def main():
     f = h5py.File('/Volumes/LaCie/data/temp/data1/LCLS_2014_Feb02_r0137_091107_6576.h5', 'r')
     img = f['data/rawdata0'].value
-    find_peaks(img, gaussian_sigma=1., min_gradient=200, min_distance=10, min_snr=4., refine=True, max_peaks=1000)
+    find_peaks(img, gaussian_sigma=1., min_gradient=200,
+               min_distance=10, min_snr=4., refine=True, max_peaks=1000)
 
 
 if __name__ == '__main__':

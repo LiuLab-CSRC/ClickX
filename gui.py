@@ -434,6 +434,8 @@ class GUI(QMainWindow):
                 min_distance=int(round((self.min_distance - 1.) / 2.)),
                 threshold_abs=self.min_gradient, num_peaks=self.max_peak_num)
             print('%d peaks found' % len(peaks))
+            if len(peaks) == 0:
+                return
             # remove peaks in mask area
             if self.mask_on and self.mask is not None:
                 valid_peak_ids = []
@@ -443,33 +445,15 @@ class GUI(QMainWindow):
                         valid_peak_ids.append(i)
                 peaks = peaks[valid_peak_ids]
                 print('%d peaks remaining after mask cleaning' % len(peaks))
+            if len(peaks) == 0:
+                return
             self.peak_item = pg.ScatterPlotItem(
                 pos=peaks + 0.5, symbol='x', size=PEAK_SIZE,
                 pen='r', brush=(255, 255, 255, 0))
             self.image_view.getView().addItem(self.peak_item)
             # refine peak postion
             if self.refine_on:
-                opt_peaks = peaks.copy().astype(np.float)
-                for i in range(peaks.shape[0]):
-                    x, y = np.round(peaks[i]).astype(np.int)
-                    if x - 4 < 0 or x + 5 > self.img.shape[0]:
-                        continue
-                    elif y - 4 < 0 or y + 5 > self.img.shape[1]:
-                        continue
-                    crop = self.img[x - 4:x + 5, y -
-                                    4:y + 5].astype(np.float32)
-                    crop_1d = np.sort(crop.flatten())
-                    crop_1d_smooth = np.convolve(
-                        crop_1d, np.ones(3), mode='same')
-                    grad = np.gradient(crop_1d_smooth)
-                    thres = crop_1d[np.argmax(grad)]
-                    signal_mask = (crop >= thres).astype(np.int)
-                    ids = (np.indices((9, 9)) - 4).astype(np.float)
-                    weight = np.sum(crop * signal_mask)
-                    opt_peaks[i, 0] += np.sum(crop *
-                                              ids[0] * signal_mask) / weight
-                    opt_peaks[i, 1] += np.sum(crop *
-                                              ids[1] * signal_mask) / weight
+                opt_peaks = refine_peaks(self.img, peaks)
                 self.opt_peak_item = pg.ScatterPlotItem(
                     pos=opt_peaks + 0.5, symbol='+', size=PEAK_SIZE,
                     pen='y', brush=(255, 255, 255, 0))
