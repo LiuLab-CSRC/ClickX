@@ -16,6 +16,7 @@ from mpi4py import MPI
 import numpy as np
 import pandas as pd
 import h5py
+import time
 
 import sys
 from docopt import docopt
@@ -25,9 +26,6 @@ from util import find_peaks, read_image
 
 import warnings
 warnings.filterwarnings("ignore")
-
-
-BUFFER_SIZE = 100000  # incease buffersize as needed
 
 
 def collect_jobs(files, dataset, batch_size):
@@ -89,6 +87,7 @@ def master_run(args):
         job_id += 1
     while job_id < total_jobs:
         stop = False
+        time.sleep(0.1)  # take a break
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
