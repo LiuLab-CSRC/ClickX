@@ -6,8 +6,11 @@ Usage:
    batch_hit_finding.py <list-file> <conf-file> [options]
 
 Options:
-    -h --help           Show this screen.
-    -o FILE             Specify output file [default: ./result.csv].
+    -h --help               Show this screen.
+    -o FILE                 Specify output file [default: ./result.csv].
+    --batch-size SIZE       Specify batch size in a job [default: 50].
+    --buffer-size SIZE      Specify buffer size in MPI communication
+                            [default: 100000].
 """
 from mpi4py import MPI
 import numpy as np
@@ -24,11 +27,10 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-BATCH_SIZE = 5
 BUFFER_SIZE = 100000  # incease buffersize as needed
 
 
-def collect_jobs(files, dataset):
+def collect_jobs(files, dataset, batch_size):
     jobs = []
     batch = []
     total_frame = 0
@@ -40,13 +42,13 @@ def collect_jobs(files, dataset):
                 for i in range(nb_frame):
                     batch.append({'filepath': f, 'frame': i})
                     total_frame += 1
-                    if len(batch) == BATCH_SIZE:
+                    if len(batch) == batch_size:
                         jobs.append(batch)
                         batch = []
             else:
                 batch.append({'filepath': f, 'frame': 0})
                 total_frame += 1
-                if len(batch) == BATCH_SIZE:
+                if len(batch) == batch_size:
                     jobs.append(batch)
                     batch = []
         except OSError:
@@ -68,7 +70,9 @@ def master_run(args):
         conf = yaml.load(f)
     # collect jobs
     dataset = conf['dataset']
-    jobs, total_frame = collect_jobs(files, dataset)
+    batch_size = int(args['--batch-size'])
+    buffer_size = int(args['--buffer-size'])
+    jobs, total_frame = collect_jobs(files, dataset, batch_size)
     total_jobs = len(jobs)
     print('%d frames, %d jobs to be processed' % (total_frame, total_jobs))
 
@@ -79,7 +83,7 @@ def master_run(args):
     slaves = list(range(1, size))
     for slave in slaves:
         comm.isend(jobs[job_id], dest=slave)
-        reqs[slave] = comm.irecv(buf=BUFFER_SIZE, source=slave)
+        reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
         print('job %d/%d sent to %d' % (job_id, total_jobs, slave))
         sys.stdout.flush()
         job_id += 1
@@ -94,7 +98,7 @@ def master_run(args):
                     sys.stdout.flush()
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
-                    reqs[slave] = comm.irecv(buf=BUFFER_SIZE, source=slave)
+                    reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
                     job_id += 1
                 else:
                     stop = True
@@ -120,6 +124,7 @@ def slave_run(args):
     stop = False
     filepath = None
     h5_obj = None
+    buffer_size = int(args['--buffer-size'])
 
     # hit finding parameters
     with open(args['<conf-file>']) as f:
@@ -140,7 +145,7 @@ def slave_run(args):
 
     # perform hit finding
     while not stop:
-        job = comm.recv(buf=BUFFER_SIZE, source=0)
+        job = comm.recv(buf=buffer_size, source=0)
         for i in range(len(job)):
             _filepath = job[i]['filepath']
             frame = job[i]['frame']
@@ -174,10 +179,3 @@ if __name__ == '__main__':
         master_run(args)
     else:
         slave_run(args)
-
-    # files = glob('/Volumes/LaCie/data/chufengl/*.cxi')
-    # conf_file = '/Volumes/LaCie/data/chufengl/conf.yml'
-    # with open(conf_file, 'r') as f:
-    #     conf = yaml.load(f)
-    # jobs = collect_jobs(files, conf['dataset'])
-    # batch_hit_finding(jobs[:100], conf)
