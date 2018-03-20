@@ -1,8 +1,7 @@
 import h5py
 import numpy as np
 from skimage.feature import peak_local_max
-from scipy.ndimage.filters import gaussian_filter
-from scipy.ndimage.filters import convolve1d
+from scipy.ndimage.filters import gaussian_filter, convolve1d
 from skimage.morphology import disk
 
 
@@ -120,23 +119,49 @@ def refine_peaks(image, peaks):
     return opt_peaks
 
 
-def calc_snr(crops,
+def calc_snr(image,
+             pos,
              signal_radius=1,
              noise_inner_radius=2,
-             noise_outer_radius=3):
-    d1 = disk(signal_radius)
-    d2 = disk(noise_inner_radius)
-    d3 = disk(noise_outer_radius)
-    pad_signal = noise_outer_radius - signal_radius
-    pad_noise = noise_outer_radius - noise_inner_radius
-    region_signal = np.pad(d1, pad_signal, 'constant', constant_values=0)
-    region_noise = (1 - np.pad(
-        d2, pad_noise, 'constant', constant_values=0)) * d3
-    val_signal = np.sum(np.sum(
-        crops * region_signal, axis=1), axis=1) / np.sum(region_signal)
-    val_noise = np.sum(np.sum(
-        crops * region_noise, axis=1), axis=1) / np.sum(region_noise)
-    snr = val_signal / val_noise
+             noise_outer_radius=3,
+             mode='static'):
+    """
+    Calculate SNR for each pos in the given image.
+    """
+    pos = np.round(pos).astype(np.int)
+    nb_pos = len(pos)
+    r1 = signal_radius
+    r2, r3 = noise_inner_radius, noise_outer_radius
+    crop_size = r3 * 2 + 1
+    # collect crops
+    crops = []
+    for i in range(nb_pos):
+        x, y = pos[i]
+        crop = image[x-r3:x+r3+1, y-r3:y+r3+1]
+        crops.append(crop)
+    crops = np.array(crops)
+    crops = np.reshape(crops, (-1, crop_size, crop_size))
+
+    if mode == 'static':
+        d1 = disk(signal_radius)
+        d2 = disk(noise_inner_radius)
+        d3 = disk(noise_outer_radius)
+        pad_signal = noise_outer_radius - signal_radius
+        pad_BG = noise_outer_radius - noise_inner_radius
+        region_signal = np.pad(d1, pad_signal, 'constant', constant_values=0)
+        region_signal = np.reshape(region_signal, (1, crop_size, crop_size))
+        region_signal = np.repeat(region_signal, nb_pos, axis=0)
+        region_BG = (1 - np.pad(
+            d2, pad_BG, 'constant', constant_values=0)) * d3
+        region_BG = np.reshape(region_BG, (1, crop_size, crop_size))
+        region_BG = np.repeat(region_BG, nb_pos, axis=0)
+        val_BG = np.sum(np.sum(crops * region_BG, axis=1), axis=1) 
+        val_BG /= (float(np.sum(region_BG)) / nb_pos)
+        val_signal = np.sum(np.sum(crops * region_signal, axis=1), axis=1) 
+        val_signal /= (float(np.sum(region_signal)) / nb_pos) 
+        val_signal -= val_BG
+        val_noise = np.std(crops[region_BG == 1].reshape((nb_pos, -1)), axis=1)
+        snr = val_signal / val_noise
     return snr
 
 
@@ -156,14 +181,3 @@ def get_h5_info(filepath):
             data_info.append({'key': key, 'shape': f[key].shape})
     f.close()
     return data_info
-
-
-def main():
-    f = h5py.File('/Volumes/LaCie/data/temp/data1/LCLS_2014_Feb02_r0137_091107_6576.h5', 'r')
-    img = f['data/rawdata0'].value
-    find_peaks(img, gaussian_sigma=1., min_gradient=200,
-               min_distance=10, min_snr=4., refine=True, max_peaks=1000)
-
-
-if __name__ == '__main__':
-    main()

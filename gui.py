@@ -185,11 +185,10 @@ class GUI(QMainWindow):
             elif y - 3 < 0 or y + 4 > self.img.shape[1]:
                 return
             # calculate snr
-            crop = self.img[x - 3:x + 4, y - 3:y + 4]
-            crop = np.reshape(crop, (-1, 7, 7))
-            snr = calc_snr(crop)
+            pos = np.reshape((x, y), (-1, 2))
+            snr = calc_snr(self.img, pos)
             self.win2.snr_label.setText('SNR@(%d, %d):' % (x, y))
-            self.win2.snr_value.setText('%.1f' % (snr))
+            self.win2.snr_value.setText('%.1f' % snr)
             # set table values
             for i in range(5):
                 for j in range(5):
@@ -436,6 +435,7 @@ class GUI(QMainWindow):
         if self.hit_finding_on:
             peaks = peak_local_max(
                 self.img2,
+                exclude_border=3,
                 min_distance=int(round((self.min_distance - 1.) / 2.)),
                 threshold_abs=self.min_gradient, num_peaks=self.max_peak_num)
             print('%d peaks found' % len(peaks))
@@ -463,20 +463,8 @@ class GUI(QMainWindow):
                     pos=opt_peaks + 0.5, symbol='+', size=PEAK_SIZE,
                     pen='y', brush=(255, 255, 255, 0))
                 self.image_view.getView().addItem(self.opt_peak_item)
-
-                # filtering peaks using snr threshold
-                crops = []
-                for i in range(len(opt_peaks)):
-                    x, y = np.round(opt_peaks[i]).astype(np.int)
-                    if x - 3 < 0 or x + 4 > self.img.shape[0]:
-                        continue
-                    elif y - 3 < 0 or y + 4 > self.img.shape[1]:
-                        continue
-                    crops.append(self.img[x - 3:x + 4, y - 3:y + 4])
-                crops = np.array(crops)
-                crops = np.reshape(crops, (-1, 7, 7))
-
-                snr = calc_snr(crops)
+                # filtering weak peak
+                snr = calc_snr(self.img, opt_peaks)
                 strong_peaks = opt_peaks[snr >= self.min_snr]
                 print('%d strong peaks' % (len(strong_peaks)))
                 if len(strong_peaks) > 0:
