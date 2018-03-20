@@ -20,24 +20,6 @@ def read_image(filepath, frame=0, h5_obj=None, h5_dataset=None):
     return data
 
 
-def remove_edge_peaks(image, peaks, edge_width=4):
-    raw_peaks = peaks.copy()
-    peaks = np.round(peaks).astype(np.int)
-    peaks = np.reshape(peaks, (-1, 2))
-    x_max, y_max = image.shape
-    valid_ids = []
-    for i in range(len(peaks)):
-        x, y = peaks[i]
-        if x - edge_width < 0 or x + edge_width + 1 > x_max:
-            continue
-        elif y - edge_width < 0 or y + edge_width + 1 > y_max:
-            continue
-        else:
-            valid_ids.append(i)
-    peaks = raw_peaks[valid_ids]
-    return peaks
-
-
 def find_peaks(image,
                mask=None,
                gaussian_sigma=1.,
@@ -53,6 +35,7 @@ def find_peaks(image,
     grad = np.gradient(image.astype(np.float32))
     grad_mag = np.sqrt(grad[0] ** 2. + grad[1] ** 2.)
     peaks = peak_local_max(grad_mag,
+                           exclude_border=3,
                            min_distance=int(round((min_distance - 1.) / 2.)),
                            threshold_abs=min_gradient, num_peaks=max_peaks)
     peaks = np.reshape(peaks, (-1, 2))
@@ -73,20 +56,12 @@ def find_peaks(image,
     if refine:
         peaks = refine_peaks(raw_image, peaks)
     # remove weak peak
-    crops = []
-    peaks = remove_edge_peaks(image, peaks, edge_width=3)
-    for i in range(len(peaks)):
-        x, y = np.round(peaks[i]).astype(np.int)
-        crop = raw_image[x - 3:x + 4, y - 3:y + 4]
-        crops.append(crop)
-    crops = np.array(crops)
-    snr = calc_snr(crops)
+    snr = calc_snr(raw_image, peaks)
     peaks = peaks[snr >= min_snr]
     return peaks
 
 
 def refine_peaks(image, peaks):
-    peaks = remove_edge_peaks(image, peaks, edge_width=4).astype(np.int)
     opt_peaks = peaks.copy().astype(np.float32)
     crops = []
     crop_1ds = []
@@ -139,7 +114,7 @@ def calc_snr(image,
         x, y = pos[i]
         crop = image[x-r3:x+r3+1, y-r3:y+r3+1]
         crops.append(crop)
-    crops = np.array(crops)
+    crops = np.array(crops).astype(np.float32)
     crops = np.reshape(crops, (-1, crop_size, crop_size))
 
     if mode == 'static':
@@ -155,10 +130,10 @@ def calc_snr(image,
             d2, pad_BG, 'constant', constant_values=0)) * d3
         region_BG = np.reshape(region_BG, (1, crop_size, crop_size))
         region_BG = np.repeat(region_BG, nb_pos, axis=0)
-        val_BG = np.sum(np.sum(crops * region_BG, axis=1), axis=1) 
-        val_BG /= (float(np.sum(region_BG)) / nb_pos)
+        val_BG = np.sum(np.sum(crops * region_BG, axis=1), axis=1)
+        val_BG /= (np.sum(region_BG) / nb_pos)
         val_signal = np.sum(np.sum(crops * region_signal, axis=1), axis=1) 
-        val_signal /= (float(np.sum(region_signal)) / nb_pos) 
+        val_signal /= (np.sum(region_signal) / nb_pos)
         val_signal -= val_BG
         val_noise = np.std(crops[region_BG == 1].reshape((nb_pos, -1)), axis=1)
         snr = val_signal / val_noise
