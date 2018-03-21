@@ -139,7 +139,7 @@ def slave_run(args):
     min_distance = conf['min distance']
     min_gradient = conf['min gradient']
     min_snr = conf['min snr']
-    refine_on = conf['refine on']
+    refine = conf['refine']
     dataset = conf['dataset']
 
     # perform hit finding
@@ -159,11 +159,12 @@ def slave_run(args):
                                min_gradient=min_gradient,
                                max_peaks=max_pean_num,
                                min_snr=min_snr,
-                               refine=refine_on,
+                               refine=refine,
                                )
             job[i]['nb_peak'] = len(peaks)
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
+
 
 if __name__ == '__main__':
     comm = MPI.COMM_WORLD
