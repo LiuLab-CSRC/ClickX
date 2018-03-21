@@ -25,40 +25,50 @@ def find_peaks(image,
                gaussian_sigma=1.,
                min_gradient=0.,
                min_distance=0,
-               refine=False,
                max_peaks=500,
                min_snr=0.,
                ):
+    peaks_dict = {
+        'raw': None,
+        'valid': None,
+        'opt': None,
+        'strong': None,
+    }
     raw_image = image.copy()
     if gaussian_sigma >= 0:
         image = gaussian_filter(image.astype(np.float32), gaussian_sigma)
     grad = np.gradient(image.astype(np.float32))
     grad_mag = np.sqrt(grad[0] ** 2. + grad[1] ** 2.)
-    peaks = peak_local_max(grad_mag,
-                           exclude_border=3,
+    raw_peaks = peak_local_max(grad_mag,
+                           exclude_border=5,
                            min_distance=int(round((min_distance - 1.) / 2.)),
                            threshold_abs=min_gradient, num_peaks=max_peaks)
-    peaks = np.reshape(peaks, (-1, 2))
-    if len(peaks) == 0:
-        return peaks
+    raw_peaks = np.reshape(raw_peaks, (-1, 2))
+    peaks_dict['raw'] = raw_peaks
+    if len(raw_peaks) == 0:
+        return peaks_dict
     # mask out invalid peaks
     if mask is not None:
         valid_peak_ids = []
-        for i in range(peaks.shape[0]):
-            peak = np.round(peaks[i].astype(np.int))
+        for i in range(raw_peaks.shape[0]):
+            peak = np.round(raw_peaks[i].astype(np.int))
             if mask[peak[0], peak[1]] == 1:
                 valid_peak_ids.append(i)
-        peaks = peaks[valid_peak_ids]
-    peaks = np.reshape(peaks, (-1, 2))
-    if len(peaks) == 0:
-        return peaks
+        valid_peaks = raw_peaks[valid_peak_ids]
+    else:
+        valid_peaks = raw_peaks.copy()
+    valid_peaks = np.reshape(valid_peaks, (-1, 2))
+    peaks_dict['valid'] = valid_peaks
+    if len(valid_peaks) == 0:
+        return peaks_dict
     # refine peak location
-    if refine:
-        peaks = refine_peaks(raw_image, peaks)
+    opt_peaks = refine_peaks(raw_image, valid_peaks)
+    peaks_dict['opt'] = opt_peaks
     # remove weak peak
-    snr = calc_snr(raw_image, peaks)
-    peaks = peaks[snr >= min_snr]
-    return peaks
+    snr = calc_snr(raw_image, opt_peaks)
+    strong_peaks = opt_peaks[snr >= min_snr]
+    peaks_dict['strong'] = strong_peaks
+    return peaks_dict
 
 
 def refine_peaks(image, peaks):
@@ -118,11 +128,8 @@ def calc_snr(image,
     crops = np.reshape(crops, (-1, crop_size, crop_size))
 
     if mode == 'static':
-        d1 = disk(signal_radius)
-        d2 = disk(noise_inner_radius)
-        d3 = disk(noise_outer_radius)
-        pad_signal = noise_outer_radius - signal_radius
-        pad_BG = noise_outer_radius - noise_inner_radius
+        d1, d2, d3 = disk(r1), disk(r2), disk(r3)
+        pad_signal, pad_BG = r3 - r1, r3 - r2
         region_signal = np.pad(d1, pad_signal, 'constant', constant_values=0)
         region_signal = np.reshape(region_signal, (1, crop_size, crop_size))
         region_signal = np.repeat(region_signal, nb_pos, axis=0)
@@ -156,3 +163,34 @@ def get_h5_info(filepath):
             data_info.append({'key': key, 'shape': f[key].shape})
     f.close()
     return data_info
+
+
+def get_mean_std(files, dataset, max_frame):
+    count = 0
+    for f in files:
+        try:
+            data = h5py.File(f, 'r')[dataset]
+        except IOError:
+            print('Failed to load %s' % f)
+            continue
+        if len(data.shape) == 3:
+            n = data.shape[0]
+            if count == 0:
+                img_mean = data[0].astype(np.float32)
+            else:
+                for i in range(n):
+                    img_mean += (data[i] - img_mean) / count
+                    count += 1
+                    if count == max_frame:
+                        break
+        else:
+            if count == 0:
+                img_mean = data.value.astype(np.float32)
+            else:
+                img_mean += (data.value - img_mean) / count
+            if count >= max_frame:
+                break
+        if count >= max_frame:
+            break
+
+    return img_mean, img_mean
