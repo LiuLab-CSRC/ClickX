@@ -6,12 +6,14 @@ import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter
 from pyqtgraph import mkPen
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import pyqtSlot, Qt, QPoint
+from PyQt5.QtCore import pyqtSlot, pyqtSignal
+from PyQt5.QtCore import Qt, QPoint, QThread
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5.QtWidgets import QListWidgetItem, QDialog, QMenu, QFileDialog
 from PyQt5.uic import loadUi
 
 from util import *
+from threads import *
 import yaml
 
 
@@ -185,7 +187,8 @@ class GUI(QMainWindow):
 
         # mean/std dialog slot
         self.mean_diag.apply_btn.clicked.connect(self.calc_mean_std)
-        self.mean_diag.combo_box.currentIndexChanged.connect(self.update_mean_diag_nframe)
+        self.mean_diag.combo_box.currentIndexChanged.connect(
+            self.update_mean_diag_nframe)
 
         # signal and slot
         self.status_params.param(
@@ -237,6 +240,7 @@ class GUI(QMainWindow):
         self.hit_finder_params.param(
             'min snr').sigValueChanged.connect(self.change_min_snr)
 
+# menu slots
     @pyqtSlot()
     def open_file(self):
         filepath, _ = QFileDialog.getOpenFileName(
@@ -244,230 +248,6 @@ class GUI(QMainWindow):
         if len(filepath) == 0:
             return
         self.maybe_add_file(filepath)
-
-    @pyqtSlot(object)
-    def mouse_moved(self, pos, flag=None):
-        if self.file is None:
-            return
-        if flag == 1:  # in raw image view
-            mouse_point = self.raw_view.view.mapToView(pos)
-        elif flag == 2:  # in gradient image view
-            mouse_point = self.gradient_view.view.mapToView(pos)
-        elif flag == 3:  # in calib/mask view
-            mouse_point = self.calib_mask_view.view.mapToView(pos)
-        else:
-            return
-        x, y = int(mouse_point.x()), int(mouse_point.y())
-        if 0 <= x < self.img.shape[0] and 0 <= y < self.img.shape[1]:
-            message = 'x:%d y:%d, I(raw): %.2E;' % (x, y, self.img[x, y])
-            if self.show_view2 and self.img2 is not None:
-                message += 'I(gradient): %.2E' % self.img2[x, y]
-            if self.show_view3 and self.img3 is not None:
-                message += 'I(calib/mask): %.2E' % self.img3[x, y]
-            self.statusbar.showMessage(message, 5000)
-        else:
-            return
-        if self.show_inspector:  # show data inspector
-            # out of bound check
-            if x - 3 < 0 or x + 4 > self.img.shape[0]:
-                return
-            elif y - 3 < 0 or y + 4 > self.img.shape[1]:
-                return
-            # calculate snr
-            pos = np.reshape((x, y), (-1, 2))
-            snr = calc_snr(self.img, pos)
-            self.inspector.snr_label.setText('SNR@(%d, %d):' % (x, y))
-            self.inspector.snr_value.setText('%.1f' % snr)
-            # set table values
-            for i in range(5):
-                for j in range(5):
-                    v1 = self.img[x + i - 2, y + j - 2]
-                    if self.show_view2:
-                        v2 = self.img2[x + i - 2, y + j - 2]
-                        item = QtGui.QTableWidgetItem('%d\n%d' % (v1, v2))
-                    else:
-                        item = QtGui.QTableWidgetItem('%d' % v1)
-                    item.setTextAlignment(Qt.AlignCenter)
-                    self.inspector.data_table.setItem(j, i, item)
-
-    @pyqtSlot(QPoint)
-    def show_menu(self, pos):
-        menu = QMenu()
-        item = self.file_list.currentItem()
-        if not isinstance(item, QListWidgetItem):
-            return
-        filepath = item.text()
-        action_set_as_mask = menu.addAction('set as mask')
-        action_select_and_load_dataset = menu.addAction('select and load dataset')
-        action_calc_mean_std = menu.addAction('calculate mean/std')
-        action = menu.exec_(self.file_list.mapToGlobal(pos))
-        if action == action_set_as_mask:
-            self.mask_file = filepath
-            self.mask = read_image(filepath)
-            self.status_params.param('mask file').setValue(filepath)
-        elif action == action_select_and_load_dataset:
-            h5_obj = h5py.File(filepath, 'r')
-            h5_dataset = self.select_dataset(filepath)
-            if len(h5_obj[h5_dataset].shape) == 3:
-                self.nb_frame = h5_obj[h5_dataset].shape[0]
-            else:
-                self.nb_frame = 1
-            self.file = filepath
-            self.h5_obj = h5_obj
-            self.h5_dataset = h5_dataset
-            # update file info and display
-            self.status_params.param('filepath').setValue(filepath)
-            self.status_params.param('dataset').setValue(self.h5_dataset)
-            self.status_params.param('total frame').setValue(self.nb_frame)
-            self.change_image()
-        elif action == action_calc_mean_std:
-            combo_box = self.mean_diag.combo_box
-            combo_box.clear()
-            data_info = get_h5_info(filepath)
-            for i in range(len(data_info)):
-                combo_box.addItem(str(data_info[i]['key']))
-            self.mean_diag.exec_()
-
-        self.update_display()
-
-    @pyqtSlot()
-    def calc_mean_std(self):
-        selected_items = self.file_list.selectedItems()
-        files = []
-        for item in selected_items:
-            files.append(item.text())
-        dataset = self.mean_diag.combo_box.currentText()
-        nb_frame = int(self.mean_diag.nb_frame.text())
-        max_frame = min(int(self.mean_diag.max_frame.text()), nb_frame)
-        # img_mean, img_std = get_mean_std(files, dataset, max_frame)
-        # perform calculation
-        count = 0
-        pg_bar = self.mean_diag.progress_bar
-        self.mean_diag.progress_bar.setValue(50)
-        self.info_panel.append('Calculating mean/std...')
-        for f in files:
-            try:
-                data = h5py.File(f, 'r')[dataset]
-            except IOError:
-                os.info_panel.append('Failed to load %s' % f)
-                continue
-            if len(data.shape) == 3:
-                n = data.shape[0]
-                if count == 0:
-                    img_mean = data[0].astype(np.float32)
-                    count += 1
-                else:
-                    for i in range(n):
-                        img_mean += (data[i] - img_mean) / count
-                        count += 1
-                        pg_bar.setValue(count / max_frame * 100.)
-                        if count == max_frame:
-                            break
-            else:
-                if count == 0:
-                    img_mean = data.value.astype(np.float32)
-                    count += 1
-                else:
-                    img_mean += (data.value - img_mean) / count
-                    count += 1
-                    pg_bar.setValue(count / max_frame * 100.)
-                if count >= max_frame:
-                    break
-            if count >= max_frame:
-                break
-        
-        prefix = self.mean_diag.prefix.text()
-        np.save('%s_mean.npy' % prefix, img_mean)
-        np.save('%s_std.npy' % prefix, img_mean)
-        self.info_panel.append('write mean/std files...')
-        self.mean_diag.close()
-
-    @pyqtSlot(int)
-    def update_mean_diag_nframe(self, curr_index):
-        if curr_index == -1:
-            return
-        dataset = self.mean_diag.combo_box.itemText(curr_index)
-        selected_items = self.file_list.selectedItems()
-        nb_frame = 0
-        for item in selected_items:
-            try:
-                f = h5py.File(item.text(), 'r')
-                shape = f[dataset].shape
-                if len(shape) == 3:
-                    nb_frame += shape[0]
-                else:
-                    nb_frame += 1
-            except IOError:
-                pass
-        self.mean_diag.nb_frame.setText(str(nb_frame))
-
-    @pyqtSlot(object, object)
-    def apply_mask(self, _, mask_on):
-        self.mask_on = mask_on
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_show_center(self, _, show_center):
-        self.show_center = show_center
-        self.update_display()
-
-    @pyqtSlot()
-    def show_or_hide_gradient_view(self):
-        self.show_view2 = not self.show_view2
-        if self.show_view2:
-            self.action_show_gradient_view.setText('Hide gradient view')
-            self.gradient_view.show()
-        else:
-            self.action_show_gradient_view.setText('Show gradient view')
-            self.gradient_view.hide()
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_calib_mask_threshold(self, _, threshold):
-        self.calib_mask_threshold = threshold
-        self.img3 = (self.img > threshold).astype(np.int)
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_center_x(self, _, x):
-        self.center[0] = x
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_center_y(self, _, y):
-        self.center[1] = y
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_ring_radii(self, _, radii_str):
-        self.ring_radii = np.array(list(map(float, radii_str.split(','))))
-        self.update_display()
-
-    @pyqtSlot()
-    def show_or_hide_calib_mask_view(self):
-        self.show_view3 = not self.show_view3
-        if self.show_view3:
-            self.action_show_calib_mask_view.setText('Hide calib/mask view')
-            self.calib_mask_view.show()
-        else:
-            self.action_show_calib_mask_view.setText('Show calib/mask view')
-            self.calib_mask_view.hide()
-        self.update_display()
-
-    @pyqtSlot()
-    def show_or_hide_inspector(self):
-        self.show_inspector = not self.show_inspector
-        if self.show_inspector:
-            self.action_show_inspector.setText('Hide inspector')
-            self.inspector.show()
-        else:
-            self.action_show_inspector.setText('Show inspector')
-            self.inspector.hide()
-
-    @pyqtSlot(object, object)
-    def change_hit_finding(self, _, hit_finding_on):
-        self.hit_finding_on = hit_finding_on
-        self.update_display()
 
     @pyqtSlot()
     def save_conf(self):
@@ -533,70 +313,133 @@ class GUI(QMainWindow):
                 'min snr'
             ).setValue(self.min_snr)
 
-    @pyqtSlot(object, object)
-    def change_gaussian_sigma(self, _, gaussian_sigma):
-        self.gaussian_sigma = gaussian_sigma
+    @pyqtSlot()
+    def show_or_hide_gradient_view(self):
+        self.show_view2 = not self.show_view2
+        if self.show_view2:
+            self.action_show_gradient_view.setText('Hide gradient view')
+            self.gradient_view.show()
+        else:
+            self.action_show_gradient_view.setText('Show gradient view')
+            self.gradient_view.hide()
         self.update_display()
 
-    @pyqtSlot(object, object)
-    def change_min_peak_num(self, _, min_peak_num):
-        self.min_peak_num = min_peak_num
+    @pyqtSlot()
+    def show_or_hide_calib_mask_view(self):
+        self.show_view3 = not self.show_view3
+        if self.show_view3:
+            self.action_show_calib_mask_view.setText('Hide calib/mask view')
+            self.calib_mask_view.show()
+        else:
+            self.action_show_calib_mask_view.setText('Show calib/mask view')
+            self.calib_mask_view.hide()
         self.update_display()
 
-    @pyqtSlot(object, object)
-    def change_max_peak_num(self, _, max_peak_num):
-        self.max_peak_num = max_peak_num
-        self.update_display()
+    @pyqtSlot()
+    def show_or_hide_inspector(self):
+        self.show_inspector = not self.show_inspector
+        if self.show_inspector:
+            self.action_show_inspector.setText('Hide inspector')
+            self.inspector.show()
+        else:
+            self.action_show_inspector.setText('Show inspector')
+            self.inspector.hide()
 
-    @pyqtSlot(object, object)
-    def change_min_gradient(self, _, min_gradient):
-        self.min_gradient = min_gradient
-        self.update_display()
+# mean/std diag slots
+    @pyqtSlot()
+    def calc_mean_std(self):
+        selected_items = self.file_list.selectedItems()
+        files = []
+        for item in selected_items:
+            files.append(item.text())
+        dataset = self.mean_diag.combo_box.currentText()
+        nb_frame = int(self.mean_diag.nb_frame.text())
+        max_frame = min(int(self.mean_diag.max_frame.text()), nb_frame)
 
-    @pyqtSlot(object, object)
-    def change_min_distance(self, _, min_distance):
-        self.min_distance = min_distance
-        self.update_display()
+        self.calc_mean_thread = CalcMeanThread(
+            files=files, dataset=dataset, max_frame=max_frame
+        )
+        self.calc_mean_thread.update_progress.connect(
+            self.update_progressbar
+        )
+        self.calc_mean_thread.finished.connect(
+            self.calc_mean_finished
+        )
+        self.calc_mean_thread.start()
 
-    @pyqtSlot(object, object)
-    def change_min_snr(self, _, min_snr):
-        self.min_snr = min_snr
+    @pyqtSlot(float)
+    def update_progressbar(self, val):
+        self.mean_diag.progress_bar.setValue(val)
+
+    @pyqtSlot()
+    def calc_mean_finished(self):
+        self.mean_diag.close()
+
+    @pyqtSlot(int)
+    def update_mean_diag_nframe(self, curr_index):
+        if curr_index == -1:
+            return
+        dataset = self.mean_diag.combo_box.itemText(curr_index)
+        selected_items = self.file_list.selectedItems()
+        nb_frame = 0
+        for item in selected_items:
+            try:
+                f = h5py.File(item.text(), 'r')
+                shape = f[dataset].shape
+                if len(shape) == 3:
+                    nb_frame += shape[0]
+                else:
+                    nb_frame += 1
+            except IOError:
+                pass
+        self.mean_diag.nb_frame.setText(str(nb_frame))
+
+# file list / image view slots
+    @pyqtSlot(QPoint)
+    def show_menu(self, pos):
+        menu = QMenu()
+        item = self.file_list.currentItem()
+        if not isinstance(item, QListWidgetItem):
+            return
+        filepath = item.text()
+        action_set_as_mask = menu.addAction('set as mask')
+        action_select_and_load_dataset = menu.addAction(
+            'select and load dataset'
+        )
+        action_calc_mean_std = menu.addAction('calculate mean/std')
+        action = menu.exec_(self.file_list.mapToGlobal(pos))
+        if action == action_set_as_mask:
+            self.mask_file = filepath
+            self.mask = read_image(filepath)
+            self.status_params.param('mask file').setValue(filepath)
+        elif action == action_select_and_load_dataset:
+            h5_obj = h5py.File(filepath, 'r')
+            h5_dataset = self.select_dataset(filepath)
+            if len(h5_obj[h5_dataset].shape) == 3:
+                self.nb_frame = h5_obj[h5_dataset].shape[0]
+            else:
+                self.nb_frame = 1
+            self.file = filepath
+            self.h5_obj = h5_obj
+            self.h5_dataset = h5_dataset
+            # update file info and display
+            self.status_params.param('filepath').setValue(filepath)
+            self.status_params.param('dataset').setValue(self.h5_dataset)
+            self.status_params.param('total frame').setValue(self.nb_frame)
+            self.change_image()
+        elif action == action_calc_mean_std:
+            combo_box = self.mean_diag.combo_box
+            combo_box.clear()
+            data_info = get_h5_info(filepath)
+            for i in range(len(data_info)):
+                combo_box.addItem(str(data_info[i]['key']))
+            self.mean_diag.exec_()
+
         self.update_display()
 
     @pyqtSlot()
     def add_file(self):
         self.maybe_add_file(self.line_edit.text())
-
-    @pyqtSlot(object, object)
-    def change_frame(self, _, frame):
-        if frame < 0:
-            frame = 0
-        elif frame > self.nb_frame - 1:
-            frame = self.nb_frame - 1
-        self.frame = frame
-        self.status_params.param(
-            'current frame'
-        ).setValue(self.frame)
-        self.change_image()
-        self.update_display()
-
-    def select_dataset(self, filepath):
-        combo_box = self.dataset_diag.combo_box
-        combo_box.clear()
-        data_info = get_h5_info(filepath)
-        for i in range(len(data_info)):
-            combo_box.addItem(
-                '%s  %s' %
-                (data_info[i]['key'], data_info[i]['shape']),
-                userData=data_info[i]['key'])
-        if self.dataset_diag.exec_() == QDialog.Accepted:
-            id_select = combo_box.currentIndex()
-            h5_dataset = combo_box.itemData(id_select)
-            if self.dataset_diag.check_box.isChecked():
-                self.h5_dataset_def = h5_dataset
-            return h5_dataset
-        else:
-            return ''
 
     @pyqtSlot('QListWidgetItem*')
     def load_file(self, file_item):
@@ -631,6 +474,151 @@ class GUI(QMainWindow):
         self.status_params.param('total frame').setValue(self.nb_frame)
         self.change_image()
         self.update_display()
+
+    @pyqtSlot(object)
+    def mouse_moved(self, pos, flag=None):
+        if self.file is None:
+            return
+        if flag == 1:  # in raw image view
+            mouse_point = self.raw_view.view.mapToView(pos)
+        elif flag == 2:  # in gradient image view
+            mouse_point = self.gradient_view.view.mapToView(pos)
+        elif flag == 3:  # in calib/mask view
+            mouse_point = self.calib_mask_view.view.mapToView(pos)
+        else:
+            return
+        x, y = int(mouse_point.x()), int(mouse_point.y())
+        if 0 <= x < self.img.shape[0] and 0 <= y < self.img.shape[1]:
+            message = 'x:%d y:%d, I(raw): %.2E;' % (x, y, self.img[x, y])
+            if self.show_view2 and self.img2 is not None:
+                message += 'I(gradient): %.2E' % self.img2[x, y]
+            if self.show_view3 and self.img3 is not None:
+                message += 'I(calib/mask): %.2E' % self.img3[x, y]
+            self.statusbar.showMessage(message, 5000)
+        else:
+            return
+        if self.show_inspector:  # show data inspector
+            # out of bound check
+            if x - 3 < 0 or x + 4 > self.img.shape[0]:
+                return
+            elif y - 3 < 0 or y + 4 > self.img.shape[1]:
+                return
+            # calculate snr
+            pos = np.reshape((x, y), (-1, 2))
+            snr = calc_snr(self.img, pos)
+            self.inspector.snr_label.setText('SNR@(%d, %d):' % (x, y))
+            self.inspector.snr_value.setText('%.1f' % snr)
+            # set table values
+            for i in range(5):
+                for j in range(5):
+                    v1 = self.img[x + i - 2, y + j - 2]
+                    if self.show_view2:
+                        v2 = self.img2[x + i - 2, y + j - 2]
+                        item = QtGui.QTableWidgetItem('%d\n%d' % (v1, v2))
+                    else:
+                        item = QtGui.QTableWidgetItem('%d' % v1)
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.inspector.data_table.setItem(j, i, item)
+
+# calib/mask slots
+    @pyqtSlot(object, object)
+    def change_show_center(self, _, show_center):
+        self.show_center = show_center
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_calib_mask_threshold(self, _, threshold):
+        self.calib_mask_threshold = threshold
+        self.img3 = (self.img > threshold).astype(np.int)
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_center_x(self, _, x):
+        self.center[0] = x
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_center_y(self, _, y):
+        self.center[1] = y
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_ring_radii(self, _, radii_str):
+        self.ring_radii = np.array(list(map(float, radii_str.split(','))))
+        self.update_display()
+
+# hit finder slots
+    @pyqtSlot(object, object)
+    def apply_mask(self, _, mask_on):
+        self.mask_on = mask_on
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_hit_finding(self, _, hit_finding_on):
+        self.hit_finding_on = hit_finding_on
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_gaussian_sigma(self, _, gaussian_sigma):
+        self.gaussian_sigma = gaussian_sigma
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_min_peak_num(self, _, min_peak_num):
+        self.min_peak_num = min_peak_num
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_max_peak_num(self, _, max_peak_num):
+        self.max_peak_num = max_peak_num
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_min_gradient(self, _, min_gradient):
+        self.min_gradient = min_gradient
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_min_distance(self, _, min_distance):
+        self.min_distance = min_distance
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_min_snr(self, _, min_snr):
+        self.min_snr = min_snr
+        self.update_display()
+
+# status slots
+    @pyqtSlot(object, object)
+    def change_frame(self, _, frame):
+        if frame < 0:
+            frame = 0
+        elif frame > self.nb_frame - 1:
+            frame = self.nb_frame - 1
+        self.frame = frame
+        self.status_params.param(
+            'current frame'
+        ).setValue(self.frame)
+        self.change_image()
+        self.update_display()
+
+    def select_dataset(self, filepath):
+        combo_box = self.dataset_diag.combo_box
+        combo_box.clear()
+        data_info = get_h5_info(filepath)
+        for i in range(len(data_info)):
+            combo_box.addItem(
+                '%s  %s' %
+                (data_info[i]['key'], data_info[i]['shape']),
+                userData=data_info[i]['key'])
+        if self.dataset_diag.exec_() == QDialog.Accepted:
+            id_select = combo_box.currentIndex()
+            h5_dataset = combo_box.itemData(id_select)
+            if self.dataset_diag.check_box.isChecked():
+                self.h5_dataset_def = h5_dataset
+            return h5_dataset
+        else:
+            return ''
 
     def change_image(self):
         self.img = read_image(
