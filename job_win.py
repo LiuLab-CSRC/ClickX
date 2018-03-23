@@ -33,7 +33,6 @@ class JobWindow(QWidget):
         self.crawler_btn.clicked.connect(self.start_or_stop_crawler)
         self.job_table.customContextMenuRequested.connect(self.show_job_menu)
 
-    # job window
     @pyqtSlot()
     def select_workdir(self):
         directory = QFileDialog.getExistingDirectory(

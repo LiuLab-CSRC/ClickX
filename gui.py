@@ -365,6 +365,12 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def show_job_table(self):
         self.job_win.showMaximized()
+        job_table = self.job_win.job_table
+        width = job_table.width()
+        col_count = job_table.columnCount()
+        header = job_table.horizontalHeader()
+        for i in range(col_count):
+            header.resizeSection(i, width//col_count)
 
 # mean/std diag slots
     @pyqtSlot()

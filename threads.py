@@ -162,7 +162,7 @@ class CrawlerThread(QThread):
             conf_dir = os.path.join(self.workdir, 'conf.d')
             conf_files = glob('%s/*.yml' % conf_dir)
             self.conf.emit(conf_files)
-            time.sleep(10)
+            time.sleep(5)
 
 
 class ConversionThread(QThread):
