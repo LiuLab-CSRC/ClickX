@@ -1,0 +1,9 @@
+#!/bin/zsh
+
+#----h52cxi script on xxli mac.-----#
+
+mpiexec=/opt/local/bin/mpiexec-mpich-mp
+python_exec=/opt/local/bin/python
+nb_process=3
+
+$mpiexec -n $nb_process $python_exec "$@"
