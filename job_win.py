@@ -25,10 +25,8 @@ class JobWindow(QWidget):
             x: self.job_table.horizontalHeaderItem(x).text() \
             for x in range(col_count)
         }
+        self.curr_conf = []
         self.crawler_running = False
-
-        # batch jobs
-        self.curr_jobs = []
 
         # job window
         self.browse_btn.clicked.connect(self.select_workdir)
@@ -60,18 +58,19 @@ class JobWindow(QWidget):
     @pyqtSlot(list)
     def update_jobs(self, jobs):
         job_table = self.job_table
-        curr_job_ids = [job['id'] for job in self.curr_jobs]
         row_count = job_table.rowCount()
         for i in range(len(jobs)):
             job = jobs[i]
             self.fill_table_row(job, i)
-            self.curr_jobs.append(job)
 
     @pyqtSlot(list)
     def update_conf(self, confs):
         for conf in confs:
+            if conf in self.curr_conf:
+                continue
             tag = os.path.basename(conf).split('.')[0]
-            self.hit_finding_conf.addItem(tag,userData=conf)
+            self.hit_finding_conf.addItem(tag, userData=conf)
+            self.curr_conf.append(conf)
 
     @pyqtSlot(QPoint)
     def show_job_menu(self, pos):
@@ -94,10 +93,12 @@ class JobWindow(QWidget):
         elif action == action_hit_finding:
             curr_id = self.hit_finding_conf.currentIndex()
             conf = self.hit_finding_conf.itemData(curr_id)
+            tag = self.hit_finding_conf.itemText(curr_id)
             self.hit_finding_thread = HitFindingThread(
                 workdir=workdir,
                 job=job,
-                conf=conf
+                conf=conf,
+                tag=tag,
             )
             self.hit_finding_thread.start()
 
