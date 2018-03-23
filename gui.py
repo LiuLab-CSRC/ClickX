@@ -1,5 +1,6 @@
 import sys
 import os
+from os.path import abspath, dirname
 from functools import partial
 
 import pyqtgraph as pg
@@ -9,11 +10,13 @@ from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import pyqtSlot, pyqtSignal
 from PyQt5.QtCore import Qt, QPoint, QThread
 from PyQt5.QtWidgets import QMainWindow, QApplication
-from PyQt5.QtWidgets import QListWidgetItem, QDialog, QMenu, QFileDialog
+from PyQt5.QtWidgets import QWidget, QDialog, QFileDialog, QMenu
+from PyQt5.QtWidgets import QListWidgetItem, QTableWidgetItem
 from PyQt5.uic import loadUi
 
 from util import *
 from threads import *
+from job_win import JobWindow
 import yaml
 
 
@@ -34,6 +37,8 @@ class GUI(QMainWindow):
         loadUi('dataset_diag.ui', self.dataset_diag)
         self.mean_diag = QDialog()
         loadUi('mean_std.ui', self.mean_diag)
+        self.job_win = JobWindow()
+
         self.gradient_view.hide()
         self.calib_mask_view.hide()
         self.splitter_2.setSizes([0.2 * self.height(), 0.8 * self.height()])
@@ -114,6 +119,7 @@ class GUI(QMainWindow):
         self.status_tree.setParameters(
             self.status_params, showTop=False
         )
+
         # hit finder parameter tree
         hit_finder_params = [
                 {'name': 'hit finding on', 'type': 'bool',
@@ -174,26 +180,34 @@ class GUI(QMainWindow):
             self.calib_mask_params, showTop=False
         )
 
-        # menubar action slot
+        # menubar action
         self.action_open.triggered.connect(self.open_file)
         self.action_save_hit_finding_conf.triggered.connect(self.save_conf)
         self.action_load_hit_finding_conf.triggered.connect(self.load_conf)
         self.action_show_inspector.triggered.connect(
-            self.show_or_hide_inspector)
+            self.show_or_hide_inspector
+        )
         self.action_show_gradient_view.triggered.connect(
-            self.show_or_hide_gradient_view)
+            self.show_or_hide_gradient_view
+        )
         self.action_show_calib_mask_view.triggered.connect(
-            self.show_or_hide_calib_mask_view)
+            self.show_or_hide_calib_mask_view
+        )
+        self.action_job_table.triggered.connect(
+            self.show_job_table
+        )
 
-        # mean/std dialog slot
+        # mean/std dialog
         self.mean_diag.apply_btn.clicked.connect(self.calc_mean_std)
         self.mean_diag.combo_box.currentIndexChanged.connect(
             self.update_mean_diag_nframe)
 
-        # signal and slot
+        # status
         self.status_params.param(
             'current frame'
         ).sigValueChanged.connect(self.change_frame)
+
+        # calib/mask
         self.calib_mask_params.param(
             'show center'
         ).sigValueChanged.connect(self.change_show_center)
@@ -210,6 +224,7 @@ class GUI(QMainWindow):
             'radii of rings'
         ).sigValueChanged.connect(self.change_ring_radii)
 
+        # file lists, image views
         self.raw_view.scene.sigMouseMoved.connect(
             partial(self.mouse_moved, flag=1))
         self.gradient_view.scene.sigMouseMoved.connect(
@@ -220,6 +235,8 @@ class GUI(QMainWindow):
         self.file_list.customContextMenuRequested.connect(
             self.show_menu)
         self.line_edit.returnPressed.connect(self.add_file)
+
+        # hit finder
         self.hit_finder_params.param(
             'hit finding on').sigValueChanged.connect(
             self.change_hit_finding)
@@ -345,6 +362,10 @@ class GUI(QMainWindow):
             self.action_show_inspector.setText('Show inspector')
             self.inspector.hide()
 
+    @pyqtSlot()
+    def show_job_table(self):
+        self.job_win.showMaximized()
+
 # mean/std diag slots
     @pyqtSlot()
     def calc_mean_std(self):
@@ -355,25 +376,20 @@ class GUI(QMainWindow):
         dataset = self.mean_diag.combo_box.currentText()
         nb_frame = int(self.mean_diag.nb_frame.text())
         max_frame = min(int(self.mean_diag.max_frame.text()), nb_frame)
+        prefix = self.mean_diag.prefix.text()
 
         self.calc_mean_thread = CalcMeanThread(
-            files=files, dataset=dataset, max_frame=max_frame
+            files=files, dataset=dataset, max_frame=max_frame,
+            prefix=prefix,
         )
         self.calc_mean_thread.update_progress.connect(
             self.update_progressbar
-        )
-        self.calc_mean_thread.finished.connect(
-            self.calc_mean_finished
         )
         self.calc_mean_thread.start()
 
     @pyqtSlot(float)
     def update_progressbar(self, val):
         self.mean_diag.progress_bar.setValue(val)
-
-    @pyqtSlot()
-    def calc_mean_finished(self):
-        self.mean_diag.close()
 
     @pyqtSlot(int)
     def update_mean_diag_nframe(self, curr_index):
@@ -433,6 +449,7 @@ class GUI(QMainWindow):
             data_info = get_h5_info(filepath)
             for i in range(len(data_info)):
                 combo_box.addItem(str(data_info[i]['key']))
+            self.mean_diag.progress_bar.setValue(0)
             self.mean_diag.exec_()
 
         self.update_display()
@@ -514,9 +531,9 @@ class GUI(QMainWindow):
                     v1 = self.img[x + i - 2, y + j - 2]
                     if self.show_view2:
                         v2 = self.img2[x + i - 2, y + j - 2]
-                        item = QtGui.QTableWidgetItem('%d\n%d' % (v1, v2))
+                        item = QTableWidgetItem('%d\n%d' % (v1, v2))
                     else:
-                        item = QtGui.QTableWidgetItem('%d' % v1)
+                        item = QTableWidgetItem('%d' % v1)
                     item.setTextAlignment(Qt.AlignCenter)
                     self.inspector.data_table.setItem(j, i, item)
 
@@ -716,6 +733,7 @@ class GUI(QMainWindow):
 
     def dragEnterEvent(self, event):
         urls = event.mimeData().urls()
+        print(urls)
         for url in urls:
             drop_file = url.toLocalFile()
             file_info = QtCore.QFileInfo(drop_file)
