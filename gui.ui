@@ -211,6 +211,11 @@
            <property name="headerHidden">
             <bool>true</bool>
            </property>
+           <column>
+            <property name="text">
+             <string notr="true">1</string>
+            </property>
+           </column>
           </widget>
          </item>
         </layout>
@@ -292,8 +297,15 @@
     <addaction name="action_show_gradient_view"/>
     <addaction name="action_show_calib_mask_view"/>
    </widget>
+   <widget class="QMenu" name="menuWindow">
+    <property name="title">
+     <string>Window</string>
+    </property>
+    <addaction name="action_job_table"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
+   <addaction name="menuWindow"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="action_open">
@@ -334,6 +346,11 @@
   <action name="action_show_calib_mask_view">
    <property name="text">
     <string>Show calib/mask view</string>
+   </property>
+  </action>
+  <action name="action_job_table">
+   <property name="text">
+    <string>Job Table</string>
    </property>
   </action>
  </widget>
