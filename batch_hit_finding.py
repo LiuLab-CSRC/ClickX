@@ -108,7 +108,8 @@ def master_run(args):
     while not all_done:
         all_done = True
         for slave in slaves:
-            if reqs[slave].test():
+            finished, result = reqs[slave].test()
+            if finished:
                 stop = True
                 comm.isend(stop, dest=slave)
             else:
