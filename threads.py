@@ -79,8 +79,6 @@ class CrawlerThread(QThread):
             for lst_file in lst_files:
                 time1 = os.path.getmtime(lst_file)
                 job_name = os.path.basename(lst_file).split('.')[0]
-                job_tag = ''
-                job_id = '%s-%s' % (job_name, job_tag)
                 # check h52cxi status
                 cxi_raw = os.path.join(self.workdir, 'cxi_raw', job_name)
                 h52cxi = 'ready'
@@ -89,7 +87,6 @@ class CrawlerThread(QThread):
                 hits = 0
                 hit_rate = 0
                 comp_ratio = 0
-                time2 = math.inf
                 if os.path.isdir(cxi_raw):
                     progress_file = os.path.join(cxi_raw, 'progress.txt')
                     if os.path.exists(progress_file):
@@ -101,23 +98,58 @@ class CrawlerThread(QThread):
                             stat = yaml.load(f)
                             raw_frames = stat['total frames']
                             comp_ratio = stat['compression ratio']
-
-                job_list.append(
-                    {
-                        'job': job_name,
-                        'id': job_id,
-                        'path': lst_file,
-                        'tag': job_tag,
-                        'h52cxi': h52cxi,
-                        'hit finding': hit_finding,
-                        'raw frames': raw_frames,
-                        'hits': hits,
-                        'hit rate': hit_rate,
-                        'compression ratio': comp_ratio,
-                        'time1': time1,
-                        'time2': time2,
-                    }
-                )
+                # check hit finding status
+                cxi_hit_dir = os.path.join(self.workdir, 'cxi_hit', job_name)
+                hit_tags = glob('%s/*' % cxi_hit_dir)
+                tags = [os.path.basename(tag) for tag in hit_tags]
+                print(tags)
+                if len(hit_tags) == 0:
+                    tag = ''
+                    time2 = math.inf
+                    job_list.append(
+                        {
+                            'job': job_name,
+                            'tag': tag,
+                            'h52cxi': h52cxi,
+                            'hit finding': hit_finding,
+                            'raw frames': raw_frames,
+                            'hits': hits,
+                            'hit rate': '%.2f%%' % hit_rate,
+                            'compression ratio': '%.2f' % comp_ratio,
+                            'time1': time1,
+                            'time2': time2,
+                        }
+                    )
+                else:
+                    for tag in tags:
+                        tag_dir = os.path.join(self.workdir, 'cxi_hit', job_name, tag)
+                        stat_file = os.path.join(tag_dir, 'stat.yml')
+                        if os.path.exists(stat_file):
+                            with open(stat_file, 'r') as f:
+                                stat = yaml.load(f)
+                            time2 = os.path.getmtime(stat_file)
+                            progress_file = os.path.join(tag_dir, 'progress.txt')
+                            if os.path.exists(progress_file):
+                                with open(progress_file, 'r') as f:
+                                    hit_finding = f.readline()
+                            hits = stat['total hits']
+                            hit_rate = stat['hit rate']
+                        else:
+                            time2 = math.inf
+                        job_list.append(
+                            {
+                                'job': job_name,
+                                'tag': tag,
+                                'h52cxi': h52cxi,
+                                'hit finding': hit_finding,
+                                'raw frames': raw_frames,
+                                'hits': hits,
+                                'hit rate': '%.2f%%' % hit_rate,
+                                'compression ratio': '%.2f' % comp_ratio,
+                                'time1': time1,
+                                'time2': time2,
+                            }
+                        )
                 job_list = sorted(job_list, key=operator.itemgetter('time1', 'time2'))
             self.jobs.emit(job_list)
 
@@ -125,7 +157,7 @@ class CrawlerThread(QThread):
             conf_dir = os.path.join(self.workdir, 'conf.d')
             conf_files = glob('%s/*.yml' % conf_dir)
             self.conf.emit(conf_files)
-            time.sleep(5)
+            time.sleep(10)
 
 
 class ConversionThread(QThread):
@@ -159,17 +191,20 @@ class HitFindingThread(QThread):
     def __init__(self, parent=None,
                  workdir=None,
                  job=None,
-                 conf=None):
+                 conf=None,
+                 tag=None):
         super(HitFindingThread, self).__init__(parent)
         self.workdir = workdir
         self.job = job
         self.conf = conf
+        self.tag = tag
 
     def run(self):
         cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % self.job)
         print(cxi_lst)
         conf = self.conf
         print(conf)
+        hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
         shell_script = './scripts/run_hit_finding_local'
         python_script = './batch_hit_finding.py'
-        subprocess.run([shell_script, python_script, cxi_lst, conf])        
+        subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])        
