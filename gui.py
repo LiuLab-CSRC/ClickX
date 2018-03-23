@@ -28,15 +28,15 @@ class GUI(QMainWindow):
         super(GUI, self).__init__(*args)
 
         # setup layout
-        loadUi('gui.ui', self)
+        loadUi('ui/gui.ui', self)
         self.inspector = QDialog()
         self.inspector.setWindowFlags(
             self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
-        loadUi('inspector.ui', self.inspector)
+        loadUi('ui/inspector.ui', self.inspector)
         self.dataset_diag = QDialog()
-        loadUi('dataset_diag.ui', self.dataset_diag)
+        loadUi('ui/dataset_diag.ui', self.dataset_diag)
         self.mean_diag = QDialog()
-        loadUi('mean_std.ui', self.mean_diag)
+        loadUi('ui/mean_std.ui', self.mean_diag)
         self.job_win = JobWindow()
 
         self.gradient_view.hide()

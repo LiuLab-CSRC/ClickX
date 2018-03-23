@@ -16,7 +16,7 @@ class JobWindow(QWidget):
     def __init__(self, parent=None):
         super(JobWindow, self).__init__(parent)
         # set ui
-        loadUi('jobs.ui', self)
+        loadUi('ui/jobs.ui', self)
         _dir = dirname(abspath(__file__))
         self.workdir.setText(_dir)
 
