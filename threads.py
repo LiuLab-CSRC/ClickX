@@ -4,6 +4,10 @@ import numpy as np
 import time
 from glob import glob
 import os
+import yaml
+import subprocess
+import math
+import operator
 
 
 class CalcMeanThread(QThread):
@@ -61,6 +65,7 @@ class CalcMeanThread(QThread):
 
 class CrawlerThread(QThread):
     jobs = pyqtSignal(list)
+    conf = pyqtSignal(list)
 
     def __init__(self, parent=None, workdir=None):
         super(CrawlerThread, self).__init__(parent)
@@ -68,32 +73,103 @@ class CrawlerThread(QThread):
 
     def run(self):
         while True:
+            # check data from h5 lst
             job_list = []
             lst_files = glob('%s/h5_lst/*.lst' % self.workdir)
             for lst_file in lst_files:
+                time1 = os.path.getmtime(lst_file)
                 job_name = os.path.basename(lst_file).split('.')[0]
                 job_tag = ''
                 job_id = '%s-%s' % (job_name, job_tag)
+                # check h52cxi status
+                cxi_raw = os.path.join(self.workdir, 'cxi_raw', job_name)
+                h52cxi = 'ready'
+                hit_finding = 'ready'
+                raw_frames = 0
+                hits = 0
+                hit_rate = 0
+                comp_ratio = 0
+                time2 = math.inf
+                if os.path.isdir(cxi_raw):
+                    progress_file = os.path.join(cxi_raw, 'progress.txt')
+                    if os.path.exists(progress_file):
+                        with open(progress_file, 'r') as f:
+                            h52cxi = f.readline()
+                    stat_file = os.path.join(cxi_raw, 'stat.yml')
+                    if os.path.exists(stat_file):
+                        with open(stat_file, 'r') as f:
+                            stat = yaml.load(f)
+                            raw_frames = stat['total frames']
+                            comp_ratio = stat['compression ratio']
+
                 job_list.append(
                     {
-                        'name': job_name,
+                        'job': job_name,
                         'id': job_id,
                         'path': lst_file,
                         'tag': job_tag,
+                        'h52cxi': h52cxi,
+                        'hit finding': hit_finding,
+                        'raw frames': raw_frames,
+                        'hits': hits,
+                        'hit rate': hit_rate,
+                        'compression ratio': comp_ratio,
+                        'time1': time1,
+                        'time2': time2,
                     }
                 )
+                job_list = sorted(job_list, key=operator.itemgetter('time1', 'time2'))
             self.jobs.emit(job_list)
+
+            # check hit finding conf files
+            conf_dir = os.path.join(self.workdir, 'conf.d')
+            conf_files = glob('%s/*.yml' % conf_dir)
+            self.conf.emit(conf_files)
             time.sleep(5)
 
 
 class ConversionThread(QThread):
     progress = pyqtSignal(float)
 
-    def __init__(self, parent=None, workdir=None):
-        pass
+    def __init__(self, parent=None,
+                 workdir=None,
+                 job=None,
+                 h5_dataset=None,
+                 cxi_dataset=None):
+        super(ConversionThread, self).__init__(parent)
+        self.workdir = workdir
+        self.job = job
+        self.h5_dataset = h5_dataset
+        self.cxi_dataset = cxi_dataset
+
+    def run(self):
+        workdir = self.workdir
+        job = self.job
+        h5_lst = os.path.join(workdir, 'h5_lst', '%s.lst' % job)
+        h5_dataset = self.h5_dataset
+        cxi_dataset = self.cxi_dataset
+        cxi_dir = os.path.join(workdir, 'cxi_raw', job)
+        cxi_lst_dir = os.path.join(workdir, 'cxi_lst')
+        shell_script = './scripts/run_h52cxi_local'
+        python_script = './batch_h52cxi.py'
+        subprocess.run([shell_script,  python_script, h5_lst, h5_dataset, cxi_dir, cxi_lst_dir])
 
 
 class HitFindingThread(QThread):
-    def __init__(self, parent=None, workdir=None):
-        super(HitFindingThread, self).__init__()
-        pass        
+    def __init__(self, parent=None,
+                 workdir=None,
+                 job=None,
+                 conf=None):
+        super(HitFindingThread, self).__init__(parent)
+        self.workdir = workdir
+        self.job = job
+        self.conf = conf
+
+    def run(self):
+        cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % self.job)
+        print(cxi_lst)
+        conf = self.conf
+        print(conf)
+        shell_script = './scripts/run_hit_finding_local'
+        python_script = './batch_hit_finding.py'
+        subprocess.run([shell_script, python_script, cxi_lst, conf])        
