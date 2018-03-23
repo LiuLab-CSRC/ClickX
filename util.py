@@ -163,34 +163,3 @@ def get_h5_info(filepath):
             data_info.append({'key': key, 'shape': f[key].shape})
     f.close()
     return data_info
-
-
-def get_mean_std(files, dataset, max_frame):
-    count = 0
-    for f in files:
-        try:
-            data = h5py.File(f, 'r')[dataset]
-        except IOError:
-            print('Failed to load %s' % f)
-            continue
-        if len(data.shape) == 3:
-            n = data.shape[0]
-            if count == 0:
-                img_mean = data[0].astype(np.float32)
-            else:
-                for i in range(n):
-                    img_mean += (data[i] - img_mean) / count
-                    count += 1
-                    if count == max_frame:
-                        break
-        else:
-            if count == 0:
-                img_mean = data.value.astype(np.float32)
-            else:
-                img_mean += (data.value - img_mean) / count
-            if count >= max_frame:
-                break
-        if count >= max_frame:
-            break
-
-    return img_mean, img_mean
