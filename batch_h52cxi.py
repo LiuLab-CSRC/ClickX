@@ -3,17 +3,19 @@
 """Convert h5 files to cxi files on multiple cores using MPI.
 
 Usage:
-   batch_h52cxi.py <h5-lst> <dataset> <cxi-dir> <cxi-lst-dir> [options]
+   batch_h52cxi.py <h5-lst> <h5-dataset> <cxi-dir> <cxi-lst-dir> [options]
 
 Options:
     -h --help                   Show this screen.
     -o DIRECTORY                Specify output directory [default: output].
     --compression COMP_FILTER   Specify compression filter [default: lzf].
     --cxi-size SIZE             Specify max frame in a cxi file [default: 1000].
-    --shuffle SHUFFLE           Whether use shuffle filter in compression [default: true]. 
+    --cxi-dataset DATASET       Specify cxi dataset [default: data].
+    --shuffle SHUFFLE           Whether use shuffle filter in compression [default: True]. 
     --batch-size SIZE           Specify batch size in a job [default: 50].
     --buffer-size SIZE          Specify buffer size in MPI communication
                                 [default: 100000].
+    --update-freq FREQ          Specify update frequency of progress [default: 10].
 """
 from mpi4py import MPI
 import numpy as np
@@ -63,13 +65,15 @@ def master_run(args):
         files.append(f[:-1])
         h5_raw_size += os.path.getsize(f[:-1])
     # collect jobs
-    dataset = args['<dataset>']
+    h5_dataset = args['<h5-dataset>']
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
-    jobs, total_frame = collect_jobs(files, dataset, batch_size)
+    jobs, total_frame = collect_jobs(files, h5_dataset, batch_size)
     total_jobs = len(jobs)
     time_start = time.time()
     print('%d frames, %d jobs to be processed' % (total_frame, total_jobs))
+
+    update_freq = int(args['--update-freq'])
 
     # distribute jobs
     job_id = 0
@@ -99,6 +103,11 @@ def master_run(args):
                 else:
                     stop = True
                     comm.isend(stop, dest=slave)
+        if job_id % update_freq == 0:
+            progress_file = os.path.join(cxi_dir, 'progress.txt')
+            progress = float(job_id) / total_jobs * 100
+            with open(progress_file, 'w') as f:
+                f.write(str(progress))
 
     all_accepted = False
     while not all_accepted:
@@ -156,6 +165,10 @@ def master_run(args):
     stat_file = os.path.join(cxi_dir, 'stat.yml')
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
+
+    progress_file = os.path.join(cxi_dir, 'progress.txt')
+    with open(progress_file, 'w') as f:
+        f.write('done')
     print('All Done!')
 
 
@@ -164,11 +177,16 @@ def slave_run(args):
     filepath = None
     h5_obj = None
     h5_lst = args['<h5-lst>']
-    dataset = args['<dataset>']
+    h5_dataset = args['<h5-dataset>']
+    cxi_dataset = args['--cxi-dataset']
     cxi_dir = args['<cxi-dir>']
     cxi_size = int(args['--cxi-size'])
     buffer_size = int(args['--buffer-size'])
     cxi_prefix = os.path.basename(h5_lst).split('.')[0]
+    if args['--shuffle'] == 'True':
+        shuffle = True
+    else:
+        shuffle = False
     done = False
 
     # perform h52cxi conversion
@@ -183,7 +201,7 @@ def slave_run(args):
                     cxi_dir, 
                     '%s-rank%d-job%d.cxi' % (cxi_prefix, rank, cxi_count)
                 )
-                save_cxi(cxi_batch, dataset, output)
+                save_cxi(cxi_batch, h5_dataset, cxi_dataset, output, shuffle=shuffle)
                 sys.stdout.flush()
                 cxi_batch = []
                 cxi_count += 1
@@ -195,19 +213,23 @@ def slave_run(args):
             cxi_dir, 
             '%s-rank%d-job%d.cxi' % (cxi_prefix, rank, cxi_count)
         )
-        save_cxi(cxi_batch, dataset, output)
+        save_cxi(cxi_batch, h5_dataset, cxi_dataset, output, shuffle=shuffle)
         sys.stdout.flush()
     done = True
     comm.send(done, dest=0)
 
 
-def save_cxi(h5_files, dataset, cxi_file, 
+def save_cxi(h5_files, 
+             h5_dataset,
+             cxi_dataset,
+             cxi_file, 
              save_h5name=True,
-             compression='lzf'):
+             compression='lzf',
+             shuffle=True):
     data = []
     for h5_file in h5_files:
         try:
-            data.append(h5py.File(h5_file, 'r')[dataset].value)
+            data.append(h5py.File(h5_file, 'r')[h5_dataset].value)
         except IOError:
             print('Warning: failed load dataset from %s' % h5_file)
             sys.stdout.flush()
@@ -216,7 +238,7 @@ def save_cxi(h5_files, dataset, cxi_file,
     n, x, y = data.shape
     f = h5py.File(cxi_file)
     f.create_dataset(
-        "data",
+        cxi_dataset,
         shape=(n, x, y),
         dtype=np.uint16,
         data=data,
