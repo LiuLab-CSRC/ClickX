@@ -102,7 +102,6 @@ class CrawlerThread(QThread):
                 cxi_hit_dir = os.path.join(self.workdir, 'cxi_hit', job_name)
                 hit_tags = glob('%s/*' % cxi_hit_dir)
                 tags = [os.path.basename(tag) for tag in hit_tags]
-                print(tags)
                 if len(hit_tags) == 0:
                     tag = ''
                     time2 = math.inf
@@ -122,13 +121,17 @@ class CrawlerThread(QThread):
                     )
                 else:
                     for tag in tags:
-                        tag_dir = os.path.join(self.workdir, 'cxi_hit', job_name, tag)
+                        tag_dir = os.path.join(
+                            self.workdir, 'cxi_hit', job_name, tag
+                        )
                         stat_file = os.path.join(tag_dir, 'stat.yml')
                         if os.path.exists(stat_file):
                             with open(stat_file, 'r') as f:
                                 stat = yaml.load(f)
                             time2 = os.path.getmtime(stat_file)
-                            progress_file = os.path.join(tag_dir, 'progress.txt')
+                            progress_file = os.path.join(
+                                tag_dir, 'progress.txt'
+                            )
                             if os.path.exists(progress_file):
                                 with open(progress_file, 'r') as f:
                                     hit_finding = f.readline()
@@ -150,7 +153,9 @@ class CrawlerThread(QThread):
                                 'time2': time2,
                             }
                         )
-                job_list = sorted(job_list, key=operator.itemgetter('time1', 'time2'))
+                job_list = sorted(
+                    job_list, key=operator.itemgetter('time1', 'time2')
+                )
             self.jobs.emit(job_list)
 
             # check hit finding conf files
@@ -184,7 +189,10 @@ class ConversionThread(QThread):
         cxi_lst_dir = os.path.join(workdir, 'cxi_lst')
         shell_script = './scripts/run_h52cxi_local'
         python_script = './batch_h52cxi.py'
-        subprocess.run([shell_script,  python_script, h5_lst, h5_dataset, cxi_dir, cxi_lst_dir])
+        subprocess.run(
+            [shell_script,  python_script,
+             h5_lst, h5_dataset, cxi_dir, cxi_lst_dir]
+        )
 
 
 class HitFindingThread(QThread):
@@ -201,10 +209,8 @@ class HitFindingThread(QThread):
 
     def run(self):
         cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % self.job)
-        print(cxi_lst)
         conf = self.conf
-        print(conf)
         hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
         shell_script = './scripts/run_hit_finding_local'
         python_script = './batch_hit_finding.py'
-        subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])        
+        subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])

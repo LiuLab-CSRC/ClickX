@@ -21,9 +21,9 @@ class JobWindow(QWidget):
         self.workdir.setText(_dir)
 
         col_count = self.job_table.columnCount()
+        header_item = self.job_table.horizontalHeaderItem
         self.header = {
-            x: self.job_table.horizontalHeaderItem(x).text() \
-            for x in range(col_count)
+            x: header_item(x).text() for x in range(col_count)
         }
         self.curr_conf = []
         self.crawler_running = False
@@ -111,7 +111,7 @@ class JobWindow(QWidget):
             if item is None:
                 item = QTableWidgetItem(row_dict[field])
                 item.setTextAlignment(
-                    QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter
+                    QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
                 )
                 self.job_table.setItem(row, col, item)
             else:
