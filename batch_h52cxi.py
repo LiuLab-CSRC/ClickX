@@ -7,7 +7,6 @@ Usage:
 
 Options:
     -h --help                   Show this screen.
-    -o DIRECTORY                Specify output directory [default: output].
     --compression COMP_FILTER   Specify compression filter [default: lzf].
     --cxi-size SIZE             Specify max frame in a cxi file [default: 1000].
     --cxi-dataset DATASET       Specify cxi dataset [default: data].
@@ -74,6 +73,7 @@ def master_run(args):
     print('%d frames, %d jobs to be processed' % (total_frame, total_jobs))
 
     update_freq = int(args['--update-freq'])
+    progress_file = os.path.join(cxi_dir, 'progress.txt')
 
     # distribute jobs
     job_id = 0
@@ -104,7 +104,6 @@ def master_run(args):
                     stop = True
                     comm.isend(stop, dest=slave)
         if job_id % update_freq == 0:
-            progress_file = os.path.join(cxi_dir, 'progress.txt')
             progress = float(job_id) / total_jobs * 100
             with open(progress_file, 'w') as f:
                 f.write(str(progress))
