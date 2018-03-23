@@ -10,7 +10,7 @@ Options:
     -o FILE                 Specify output file [default: ./result.csv].
     --batch-size SIZE       Specify batch size in a job [default: 50].
     --buffer-size SIZE      Specify buffer size in MPI communication
-                            [default: 100000].
+                            [default: 500000].
 """
 from mpi4py import MPI
 import numpy as np
@@ -110,6 +110,8 @@ def master_run(args):
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
+                results += result
+                slaves.remove(slave)
                 stop = True
                 comm.isend(stop, dest=slave)
             else:
@@ -140,7 +142,6 @@ def slave_run(args):
     min_distance = conf['min distance']
     min_gradient = conf['min gradient']
     min_snr = conf['min snr']
-    refine = conf['refine']
     dataset = conf['dataset']
 
     # perform hit finding
@@ -154,15 +155,13 @@ def slave_run(args):
                 h5_obj = h5py.File(filepath, 'r')
             image = read_image(filepath, frame=frame,
                                h5_obj=h5_obj, h5_dataset=dataset)
-            peaks = find_peaks(image, mask=mask,
+            peaks_dict = find_peaks(image, mask=mask,
                                gaussian_sigma=gaussian_sigma,
                                min_distance=min_distance,
                                min_gradient=min_gradient,
                                max_peaks=max_pean_num,
-                               min_snr=min_snr,
-                               refine=refine,
-                               )
-            job[i]['nb_peak'] = len(peaks)
+                               min_snr=min_snr)
+            job[i]['nb_peak'] = len(peaks_dict['strong'])
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
 
