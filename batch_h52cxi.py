@@ -10,6 +10,7 @@ Options:
     --compression COMP_FILTER   Specify compression filter [default: lzf].
     --cxi-size SIZE             Specify max frame in a cxi file [default: 1000].
     --cxi-dataset DATASET       Specify cxi dataset [default: data].
+    --cxi-dtype DATATYPE        Specify the datatype [default: uint16].
     --shuffle SHUFFLE           Whether use shuffle filter in compression [default: True]. 
     --batch-size SIZE           Specify batch size in a job [default: 50].
     --buffer-size SIZE          Specify buffer size in MPI communication
@@ -18,16 +19,35 @@ Options:
 """
 from mpi4py import MPI
 import numpy as np
-import pandas as pd
 import h5py
 import time
 
 import sys
 import os
-import subprocess
 from glob import glob
 from docopt import docopt
 import yaml
+
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
 
 
 def collect_jobs(files, dataset, batch_size):
@@ -106,7 +126,7 @@ def master_run(args):
         if job_id % update_freq == 0:
             progress = float(job_id) / total_jobs * 100
             with open(progress_file, 'w') as f:
-                f.write(str(progress))
+                f.write(str('%.2f%%' % progress))
 
     all_accepted = False
     while not all_accepted:
@@ -173,8 +193,6 @@ def master_run(args):
 
 def slave_run(args):
     stop = False
-    filepath = None
-    h5_obj = None
     h5_lst = args['<h5-lst>']
     h5_dataset = args['<h5-dataset>']
     cxi_dataset = args['--cxi-dataset']
@@ -182,11 +200,16 @@ def slave_run(args):
     cxi_size = int(args['--cxi-size'])
     buffer_size = int(args['--buffer-size'])
     cxi_prefix = os.path.basename(h5_lst).split('.')[0]
+    if args['--cxi-dtype'] == 'uint16':
+        cxi_dtype = np.uint16
+    elif args['--cxi-dtype'] == 'int16':
+        cxi_dtype = np.int16
+    else:
+        cxi_dtype = np.int32
     if args['--shuffle'] == 'True':
         shuffle = True
     else:
         shuffle = False
-    done = False
 
     # perform h52cxi conversion
     cxi_batch = []
@@ -200,9 +223,9 @@ def slave_run(args):
                     cxi_dir, 
                     '%s-rank%d-job%d.cxi' % (cxi_prefix, rank, cxi_count)
                 )
-                save_cxi(cxi_batch, h5_dataset, cxi_dataset, output, shuffle=shuffle)
+                save_cxi(cxi_batch, h5_dataset, cxi_dataset, output, shuffle=shuffle, cxi_dtype=cxi_dtype)
                 sys.stdout.flush()
-                cxi_batch = []
+                cxi_batch.clear()
                 cxi_count += 1
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
@@ -222,30 +245,30 @@ def save_cxi(h5_files,
              h5_dataset,
              cxi_dataset,
              cxi_file, 
-             save_h5name=True,
              compression='lzf',
-             shuffle=True):
+             shuffle=True,
+             cxi_dtype=np.int32):
     data = []
     for h5_file in h5_files:
         try:
-            data.append(h5py.File(h5_file, 'r')[h5_dataset].value)
+            frame = h5py.File(h5_file, 'r')[h5_dataset].value
+            data.append(frame)
         except IOError:
             print('Warning: failed load dataset from %s' % h5_file)
-            sys.stdout.flush()
             continue
+        sys.stdout.flush()
     data = np.array(data).astype(np.uint16)
     n, x, y = data.shape
-    f = h5py.File(cxi_file)
+    f = h5py.File(cxi_file, 'w')
     f.create_dataset(
         cxi_dataset,
         shape=(n, x, y),
-        dtype=np.uint16,
+        dtype=cxi_dtype,
         data=data,
         compression=compression,
         chunks=(1, x, y),
-        shuffle=True,
+        shuffle=shuffle,
     )
-
 
 
 if __name__ == '__main__':
