@@ -8,6 +8,7 @@ import yaml
 import subprocess
 import math
 import operator
+from settings import settings
 
 
 class CalcMeanThread(QThread):
@@ -189,9 +190,16 @@ class ConversionThread(QThread):
         cxi_lst_dir = os.path.join(workdir, 'cxi_lst')
         shell_script = './scripts/run_h52cxi_local'
         python_script = './batch_h52cxi.py'
+        cxi_size = str(settings.get('cxi size', 1000))
+        cxi_dtype = settings.get('cxi dtype', 'int32')
         subprocess.run(
-            [shell_script,  python_script,
-             h5_lst, h5_dataset, cxi_dir, cxi_lst_dir, '--cxi-dataset', cxi_dataset]
+            [
+                shell_script,  python_script,
+                h5_lst, h5_dataset, cxi_dir, cxi_lst_dir,
+                '--cxi-dataset', cxi_dataset,
+                '--cxi-size', cxi_size,
+                '--cxi-dtype', cxi_dtype,
+             ]
         )
 
 
