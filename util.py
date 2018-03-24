@@ -15,7 +15,7 @@ def read_image(filepath, frame=0, h5_obj=None, h5_dataset=None):
         else:
             data = h5_obj[h5_dataset].value
     else:
-        print('Unsupport fomat: %s' % ext)
+        print('Unsupported format: %s' % ext)
         return None
     return data
 
@@ -40,9 +40,9 @@ def find_peaks(image,
     grad = np.gradient(image.astype(np.float32))
     grad_mag = np.sqrt(grad[0] ** 2. + grad[1] ** 2.)
     raw_peaks = peak_local_max(grad_mag,
-                           exclude_border=5,
-                           min_distance=int(round((min_distance - 1.) / 2.)),
-                           threshold_abs=min_gradient, num_peaks=max_peaks)
+                               exclude_border=5,
+                               min_distance=int(round((min_distance - 1.) / 2.)),
+                               threshold_abs=min_gradient, num_peaks=max_peaks)
     raw_peaks = np.reshape(raw_peaks, (-1, 2))
     peaks_dict['raw'] = raw_peaks
     if len(raw_peaks) == 0:
