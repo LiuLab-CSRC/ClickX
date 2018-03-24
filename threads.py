@@ -191,7 +191,7 @@ class ConversionThread(QThread):
         python_script = './batch_h52cxi.py'
         subprocess.run(
             [shell_script,  python_script,
-             h5_lst, h5_dataset, cxi_dir, cxi_lst_dir]
+             h5_lst, h5_dataset, cxi_dir, cxi_lst_dir, '--cxi-dataset', cxi_dataset]
         )
 
 
