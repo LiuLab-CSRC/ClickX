@@ -1,16 +1,14 @@
 import sys
-import os
-from os.path import abspath, dirname
 from functools import partial
 
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter
 from pyqtgraph import mkPen
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import pyqtSlot, pyqtSignal
-from PyQt5.QtCore import Qt, QPoint, QThread
+from PyQt5 import QtCore
+from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtWidgets import QMainWindow, QApplication
-from PyQt5.QtWidgets import QWidget, QDialog, QFileDialog, QMenu
+from PyQt5.QtWidgets import QDialog, QFileDialog, QMenu
 from PyQt5.QtWidgets import QListWidgetItem, QTableWidgetItem
 from PyQt5.uic import loadUi
 
@@ -54,6 +52,7 @@ class GUI(QMainWindow):
         self.h5_obj = None
         self.h5_dataset = None
         self.h5_dataset_def = ''
+        self.nb_frame = 0
         self.frame = 0
 
         # hit finder parameters
@@ -85,6 +84,9 @@ class GUI(QMainWindow):
         self.strong_peak_item = pg.ScatterPlotItem()
         self.center_item = pg.ScatterPlotItem()
         self.ring_item = pg.ScatterPlotItem()
+
+        # threads
+        self.calc_mean_thread = None
 
         # add plot item to image view
         self.raw_view.getView().addItem(self.peak_item)
@@ -180,7 +182,7 @@ class GUI(QMainWindow):
             self.calib_mask_params, showTop=False
         )
 
-        # menubar action
+        # menu bar action
         self.action_open.triggered.connect(self.open_file)
         self.action_save_hit_finding_conf.triggered.connect(self.save_conf)
         self.action_load_hit_finding_conf.triggered.connect(self.load_conf)
@@ -466,7 +468,6 @@ class GUI(QMainWindow):
 
     @pyqtSlot('QListWidgetItem*')
     def load_file(self, file_item):
-        print('loading %s' % file_item.text())
         self.info_panel.append('loading %s' % file_item.text())
         filepath = file_item.text()
         ext = QtCore.QFileInfo(filepath).suffix()
@@ -686,20 +687,17 @@ class GUI(QMainWindow):
             )
             raw_peaks = peaks_dict['raw']
             if raw_peaks is not None:
-                print('%d raw peaks found' % len(raw_peaks))
                 self.info_panel.append('%d raw peaks found' % len(raw_peaks))
             valid_peaks = peaks_dict['valid']
             if valid_peaks is not None:
-                print('%d peaks remaining after mask cleaning' %
-                      len(peaks_dict['valid']))
                 self.info_panel.append(
-                    '%d peaks remaining after mask cleaning' %
-                    len(peaks_dict['valid']))
+                    '%d peaks remaining after mask cleaning' % len(peaks_dict['valid'])
+                )
                 self.peak_item.setData(
                     pos=valid_peaks + 0.5, symbol='x', size=PEAK_SIZE,
                     pen='r', brush=(255, 255, 255, 0)
                 )
-            # refine peak postion
+            # refine peak position
             opt_peaks = peaks_dict['opt']
             if opt_peaks is not None:
                 self.opt_peak_item.setData(
@@ -709,7 +707,6 @@ class GUI(QMainWindow):
             # filtering weak peak
             strong_peaks = peaks_dict['strong']
             if strong_peaks is not None:
-                print('%d strong peaks' % (len(strong_peaks)))
                 self.info_panel.append('%d strong peaks' % (len(strong_peaks)))
                 if len(strong_peaks) > 0:
                     self.strong_peak_item.setData(
@@ -739,7 +736,6 @@ class GUI(QMainWindow):
 
     def dragEnterEvent(self, event):
         urls = event.mimeData().urls()
-        print(urls)
         for url in urls:
             drop_file = url.toLocalFile()
             file_info = QtCore.QFileInfo(drop_file)
@@ -761,11 +757,9 @@ class GUI(QMainWindow):
             if os.path.exists(filepath):
                 self.file_list.addItem(filepath)
             else:
-                print('File not exist %s' % filepath)
                 self.info_panel.append('File not exist %s' % filepath)
         else:
-            print('Unsupport file type: %s' % filepath)
-            self.info_panel.append('Unsupport file type: %s' % filepath)
+            self.info_panel.append('Unsupported file type: %s' % filepath)
 
 
 def main():
