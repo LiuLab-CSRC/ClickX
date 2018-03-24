@@ -257,7 +257,7 @@ def save_cxi(h5_files,
             print('Warning: failed load dataset from %s' % h5_file)
             continue
         sys.stdout.flush()
-    data = np.array(data).astype(np.uint16)
+    data = np.array(data).astype(cxi_dtype)
     n, x, y = data.shape
     f = h5py.File(cxi_file, 'w')
     f.create_dataset(
