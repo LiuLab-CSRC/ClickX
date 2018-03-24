@@ -5,15 +5,15 @@ from scipy.ndimage.filters import gaussian_filter, convolve1d
 from skimage.morphology import disk
 
 
-def read_image(filepath, frame=0, h5_obj=None, h5_dataset=None):
+def read_image(filepath, frame=0, h5_obj=None, dataset=None):
     ext = filepath.split('.')[-1]
     if ext == 'npy':
         data = np.load(filepath)
     elif ext in ('h5', 'cxi'):
-        if len(h5_obj[h5_dataset].shape) == 3:
-            data = h5_obj[h5_dataset][frame]
+        if len(h5_obj[dataset].shape) == 3:
+            data = h5_obj[dataset][frame]
         else:
-            data = h5_obj[h5_dataset].value
+            data = h5_obj[dataset].value
     else:
         print('Unsupported format: %s' % ext)
         return None
