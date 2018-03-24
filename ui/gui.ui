@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1465</width>
-    <height>1141</height>
+    <width>1062</width>
+    <height>774</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -16,6 +16,13 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
+  <property name="autoFillBackground">
+   <bool>false</bool>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">background: rgb(43,43,43);
+color: rgb(173, 173, 173);</string>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <property name="acceptDrops">
     <bool>true</bool>
@@ -23,13 +30,19 @@
    <layout class="QHBoxLayout" name="horizontalLayout_3">
     <item>
      <widget class="QSplitter" name="splitter_4">
+      <property name="lineWidth">
+       <number>0</number>
+      </property>
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
       <property name="handleWidth">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QFrame" name="frame">
+       <property name="styleSheet">
+        <string notr="true">    border: 1px solid rgb(176, 176, 176);</string>
+       </property>
        <property name="frameShape">
         <enum>QFrame::StyledPanel</enum>
        </property>
@@ -39,6 +52,9 @@
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
          <widget class="QLabel" name="label_2">
+          <property name="styleSheet">
+           <string notr="true">border: 0px;</string>
+          </property>
           <property name="text">
            <string>File List</string>
           </property>
@@ -64,6 +80,15 @@
           <property name="autoFillBackground">
            <bool>true</bool>
           </property>
+          <property name="verticalScrollBarPolicy">
+           <enum>Qt::ScrollBarAsNeeded</enum>
+          </property>
+          <property name="horizontalScrollBarPolicy">
+           <enum>Qt::ScrollBarAsNeeded</enum>
+          </property>
+          <property name="autoScroll">
+           <bool>true</bool>
+          </property>
           <property name="editTriggers">
            <set>QAbstractItemView::NoEditTriggers</set>
           </property>
@@ -77,16 +102,28 @@
            <bool>true</bool>
           </property>
           <property name="dragDropMode">
-           <enum>QAbstractItemView::DragDrop</enum>
+           <enum>QAbstractItemView::NoDragDrop</enum>
           </property>
           <property name="defaultDropAction">
-           <enum>Qt::IgnoreAction</enum>
+           <enum>Qt::CopyAction</enum>
           </property>
           <property name="selectionMode">
            <enum>QAbstractItemView::ExtendedSelection</enum>
           </property>
+          <property name="verticalScrollMode">
+           <enum>QAbstractItemView::ScrollPerItem</enum>
+          </property>
+          <property name="horizontalScrollMode">
+           <enum>QAbstractItemView::ScrollPerItem</enum>
+          </property>
+          <property name="flow">
+           <enum>QListView::LeftToRight</enum>
+          </property>
           <property name="isWrapping" stdset="0">
            <bool>true</bool>
+          </property>
+          <property name="resizeMode">
+           <enum>QListView::Adjust</enum>
           </property>
           <property name="spacing">
            <number>1</number>
@@ -103,26 +140,39 @@
          <layout class="QHBoxLayout" name="horizontalLayout">
           <item>
            <widget class="QLabel" name="label">
+            <property name="styleSheet">
+             <string notr="true">border: 0px;</string>
+            </property>
             <property name="text">
              <string>Add File</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="line_edit"/>
+           <widget class="QLineEdit" name="line_edit">
+            <property name="placeholderText">
+             <string>eg: /path/to/file, /path/to/dir</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
        </layout>
       </widget>
       <widget class="QSplitter" name="splitter_2">
+       <property name="lineWidth">
+        <number>0</number>
+       </property>
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
        <property name="handleWidth">
-        <number>1</number>
+        <number>0</number>
        </property>
        <widget class="QFrame" name="frame_2">
+        <property name="styleSheet">
+         <string notr="true">border: 1px solid rgb(176, 176, 176);</string>
+        </property>
         <property name="frameShape">
          <enum>QFrame::StyledPanel</enum>
         </property>
@@ -132,6 +182,9 @@
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
           <widget class="QLabel" name="label_3">
+           <property name="styleSheet">
+            <string notr="true">border: 0px;</string>
+           </property>
            <property name="text">
             <string>Info Panel</string>
            </property>
@@ -141,11 +194,18 @@
           </widget>
          </item>
          <item>
-          <widget class="QTextEdit" name="info_panel"/>
+          <widget class="QTextEdit" name="info_panel">
+           <property name="styleSheet">
+            <string notr="true">background: rgb(43,43,43);</string>
+           </property>
+          </widget>
          </item>
         </layout>
        </widget>
        <widget class="QFrame" name="frame_3">
+        <property name="styleSheet">
+         <string notr="true">    border: 1px solid rgb(176, 176, 176);</string>
+        </property>
         <property name="frameShape">
          <enum>QFrame::StyledPanel</enum>
         </property>
@@ -155,25 +215,37 @@
         <layout class="QHBoxLayout" name="horizontalLayout_2">
          <item>
           <widget class="QSplitter" name="splitter">
+           <property name="lineWidth">
+            <number>0</number>
+           </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
            <property name="handleWidth">
-            <number>1</number>
+            <number>0</number>
            </property>
            <widget class="ImageView" name="raw_view">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:600;&quot;&gt;Raw Image&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">border: 0px;</string>
             </property>
            </widget>
            <widget class="ImageView" name="gradient_view">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:600;&quot;&gt;Gradient Image&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
+            <property name="styleSheet">
+             <string notr="true">border: 0px;</string>
+            </property>
            </widget>
            <widget class="ImageView" name="calib_mask_view">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:600;&quot;&gt;Calib/Mask Image&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">    border: 0px;</string>
             </property>
            </widget>
           </widget>
@@ -182,13 +254,19 @@
        </widget>
       </widget>
       <widget class="QSplitter" name="splitter_3">
+       <property name="lineWidth">
+        <number>0</number>
+       </property>
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
        <property name="handleWidth">
-        <number>1</number>
+        <number>0</number>
        </property>
        <widget class="QFrame" name="frame_4">
+        <property name="styleSheet">
+         <string notr="true">border: 1px solid rgb(176, 176, 176);</string>
+        </property>
         <property name="frameShape">
          <enum>QFrame::StyledPanel</enum>
         </property>
@@ -198,6 +276,9 @@
         <layout class="QVBoxLayout" name="verticalLayout_4">
          <item>
           <widget class="QLabel" name="label_4">
+           <property name="styleSheet">
+            <string notr="true">border: 0px;</string>
+           </property>
            <property name="text">
             <string>Current Status</string>
            </property>
@@ -208,6 +289,9 @@
          </item>
          <item>
           <widget class="ParameterTree" name="status_tree">
+           <property name="styleSheet">
+            <string notr="true">border: 0px;</string>
+           </property>
            <property name="headerHidden">
             <bool>true</bool>
            </property>
@@ -221,10 +305,51 @@
         </layout>
        </widget>
        <widget class="QTabWidget" name="tab">
+        <property name="styleSheet">
+         <string notr="true">QTabWidget::pane { /* The tab widget frame */
+    border: 1px solid rgb(176, 176, 176);
+    position: absolute;
+    top: -0.5em;
+}
+
+QTabWidget::tab-bar {
+    alignment: center;
+}
+
+/* Style the tab using the tab sub-control. Note that
+    it reads QTabBar _not_ QTabWidget */
+QTabBar::tab {
+    background: rgb(43, 43, 43);
+    color: rgb(155, 151, 146);
+    border: 2px solid #C4C4C3;
+    border-bottom-color: #C2C7CB; /* same as the pane color */
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    min-width: 8ex;
+    padding: 2px;
+}
+
+QTabBar::tab:selected, QTabBar::tab:hover {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 #fafafa, stop: 0.4 #f4f4f4,
+                                stop: 0.5 #e7e7e7, stop: 1.0 #fafafa);
+}
+
+QTabBar::tab:selected {
+    border-color: #9B9B9B;
+    border-bottom-color: #C2C7CB; /* same as pane color */
+}</string>
+        </property>
+        <property name="tabShape">
+         <enum>QTabWidget::Triangular</enum>
+        </property>
         <property name="currentIndex">
          <number>0</number>
         </property>
         <widget class="QWidget" name="tab_1">
+         <property name="styleSheet">
+          <string notr="true">background: rgb(43,43,43);</string>
+         </property>
          <attribute name="title">
           <string>calib/mask</string>
          </attribute>
@@ -273,7 +398,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1465</width>
+     <width>1062</width>
      <height>22</height>
     </rect>
    </property>
