@@ -14,11 +14,12 @@ from PyQt5.uic import loadUi
 
 from util import *
 from threads import *
+from settings import settings
 from job_win import JobWindow
 import yaml
 
 
-PEAK_SIZE = 12
+PEAK_SIZE = int(settings.get('peak size', 10))
 
 
 class GUI(QMainWindow):
@@ -431,6 +432,8 @@ class GUI(QMainWindow):
             'select and load dataset'
         )
         action_calc_mean_std = menu.addAction('calculate mean/std')
+        menu.addSeparator()
+        action_del_file = menu.addAction('delete file(s)')
         action = menu.exec_(self.file_list.mapToGlobal(pos))
         if action == action_set_as_mask:
             self.mask_file = filepath
@@ -459,6 +462,12 @@ class GUI(QMainWindow):
                 combo_box.addItem(str(data_info[i]['key']))
             self.mean_diag.progress_bar.setValue(0)
             self.mean_diag.exec_()
+        elif action == action_del_file:
+            items = self.file_list.selectedItems()
+            print('delete files')
+            for item in items:
+                row = self.file_list.row(item)
+                self.file_list.takeItem(row)
 
         self.update_display()
 
