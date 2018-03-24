@@ -83,7 +83,6 @@ class CrawlerThread(QThread):
                 # check h52cxi status
                 cxi_raw = os.path.join(self.workdir, 'cxi_raw', job_name)
                 h52cxi = 'ready'
-                hit_finding = 'ready'
                 raw_frames = 0
                 hits = 0
                 hit_rate = 0
@@ -99,6 +98,12 @@ class CrawlerThread(QThread):
                             stat = yaml.load(f)
                             raw_frames = stat['total frames']
                             comp_ratio = stat['compression ratio']
+                # check cxi lst status
+                cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % job_name)
+                if os.path.exists(cxi_lst):
+                    hit_finding = 'ready'
+                else:
+                    hit_finding = 'not ready'
                 # check hit finding status
                 cxi_hit_dir = os.path.join(self.workdir, 'cxi_hit', job_name)
                 hit_tags = glob('%s/*' % cxi_hit_dir)
