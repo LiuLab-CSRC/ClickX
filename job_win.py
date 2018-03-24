@@ -1,11 +1,7 @@
-import sys
-import os
 from os.path import abspath, dirname
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtCore import Qt, QPoint, QThread
-from PyQt5.QtWidgets import QWidget, QDialog, QFileDialog, QMenu
+from PyQt5.QtCore import pyqtSlot, QPoint, Qt
+from PyQt5.QtWidgets import QWidget, QFileDialog, QMenu
 from PyQt5.QtWidgets import QTableWidgetItem
 from PyQt5.uic import loadUi
 
@@ -19,16 +15,22 @@ class JobWindow(QWidget):
         loadUi('ui/jobs.ui', self)
         _dir = dirname(abspath(__file__))
         self.workdir.setText(_dir)
-
+        # set table header
         col_count = self.job_table.columnCount()
         header_item = self.job_table.horizontalHeaderItem
         self.header = {
             x: header_item(x).text() for x in range(col_count)
         }
+
         self.curr_conf = []
         self.crawler_running = False
 
-        # job window
+        # threads
+        self.crawler_thread = None
+        self.conv_thread = None
+        self.hit_finding_thread = None
+
+        # slots
         self.browse_btn.clicked.connect(self.select_workdir)
         self.crawler_btn.clicked.connect(self.start_or_stop_crawler)
         self.job_table.customContextMenuRequested.connect(self.show_job_menu)
@@ -56,8 +58,6 @@ class JobWindow(QWidget):
 
     @pyqtSlot(list)
     def update_jobs(self, jobs):
-        job_table = self.job_table
-        row_count = job_table.rowCount()
         for i in range(len(jobs)):
             job = jobs[i]
             self.fill_table_row(job, i)
@@ -109,9 +109,7 @@ class JobWindow(QWidget):
             item = self.job_table.item(row, col)
             if item is None:
                 item = QTableWidgetItem(row_dict[field])
-                item.setTextAlignment(
-                    QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
-                )
+                item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
                 self.job_table.setItem(row, col, item)
             else:
                 item.setText(str(row_dict[field]))
