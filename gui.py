@@ -2,9 +2,10 @@ import sys
 from functools import partial
 
 import pyqtgraph as pg
+
 from pyqtgraph.parametertree import Parameter
 from pyqtgraph import mkPen
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtWidgets import QMainWindow, QApplication
@@ -17,6 +18,7 @@ from threads import *
 from settings import settings
 from job_win import JobWindow
 import yaml
+from datetime import datetime
 
 
 PEAK_SIZE = int(settings.get('peak size', 10))
@@ -29,8 +31,7 @@ class GUI(QMainWindow):
         # setup layout
         loadUi('ui/gui.ui', self)
         self.inspector = QDialog()
-        self.inspector.setWindowFlags(
-            self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
+        self.inspector.setWindowFlags(self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
         loadUi('ui/inspector.ui', self.inspector)
         self.dataset_diag = QDialog()
         loadUi('ui/dataset_diag.ui', self.dataset_diag)
@@ -48,6 +49,7 @@ class GUI(QMainWindow):
         self.setAcceptDrops(True)
 
         self.accepted_file_types = ('h5', 'npy', 'cxi')
+        self.curr_files = []
         self.mask_file = None
         self.file = None
         self.h5_obj = None
@@ -464,7 +466,6 @@ class GUI(QMainWindow):
             self.mean_diag.exec_()
         elif action == action_del_file:
             items = self.file_list.selectedItems()
-            print('delete files')
             for item in items:
                 row = self.file_list.row(item)
                 self.file_list.takeItem(row)
@@ -477,7 +478,7 @@ class GUI(QMainWindow):
 
     @pyqtSlot('QListWidgetItem*')
     def load_file(self, file_item):
-        self.info_panel.append('loading %s' % file_item.text())
+        self.add_info('Loading %s' % file_item.text())
         filepath = file_item.text()
         ext = QtCore.QFileInfo(filepath).suffix()
         if ext == 'npy':
@@ -696,10 +697,10 @@ class GUI(QMainWindow):
             )
             raw_peaks = peaks_dict['raw']
             if raw_peaks is not None:
-                self.info_panel.append('%d raw peaks found' % len(raw_peaks))
+                self.add_info('%d raw peaks found' % len(raw_peaks))
             valid_peaks = peaks_dict['valid']
             if valid_peaks is not None:
-                self.info_panel.append(
+                self.add_info(
                     '%d peaks remaining after mask cleaning' % len(peaks_dict['valid'])
                 )
                 self.peak_item.setData(
@@ -716,7 +717,7 @@ class GUI(QMainWindow):
             # filtering weak peak
             strong_peaks = peaks_dict['strong']
             if strong_peaks is not None:
-                self.info_panel.append('%d strong peaks' % (len(strong_peaks)))
+                self.add_info('%d strong peaks' % (len(strong_peaks)))
                 if len(strong_peaks) > 0:
                     self.strong_peak_item.setData(
                         pos=strong_peaks + 0.5, symbol='o', size=PEAK_SIZE,
@@ -764,11 +765,26 @@ class GUI(QMainWindow):
         ext = filepath.split('.')[-1]
         if ext in self.accepted_file_types:
             if os.path.exists(filepath):
-                self.file_list.addItem(filepath)
+                if filepath in self.curr_files:
+                    self.add_info('Skip existing file %s' % filepath)
+                else:
+                    self.add_info('Add %s' % filepath)
+                    basename = os.path.basename(filepath)
+                    item = QListWidgetItem()
+                    item.setText(basename)
+                    item.setData(1, filepath)
+                    item.setToolTip(filepath)
+                    self.file_list.addItem(item)
+                    self.curr_files.append(filepath)
             else:
-                self.info_panel.append('File not exist %s' % filepath)
+                self.add_info('File not exist %s' % filepath)
         else:
-            self.info_panel.append('Unsupported file type: %s' % filepath)
+            self.add_info('Unsupported file type: %s' % filepath)
+
+    def add_info(self, info):
+        now = datetime.now()
+        self.info_panel.append('[%s]: %s' % (f'{now:%Y-%m-%d %H:%M:%S}', info))
+        self.info_panel.append('<b>abcd</b>')
 
 
 def main():
