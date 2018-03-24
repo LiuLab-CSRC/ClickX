@@ -85,6 +85,9 @@
           <property name="selectionMode">
            <enum>QAbstractItemView::ExtendedSelection</enum>
           </property>
+          <property name="flow">
+           <enum>QListView::LeftToRight</enum>
+          </property>
           <property name="isWrapping" stdset="0">
            <bool>true</bool>
           </property>
@@ -104,12 +107,16 @@
           <item>
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>Add File</string>
+             <string>Add File(s):</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="line_edit"/>
+           <widget class="QLineEdit" name="line_edit">
+            <property name="placeholderText">
+             <string>eg: /path/to/folder/*</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -141,7 +148,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QTextEdit" name="info_panel"/>
+          <widget class="QPlainTextEdit" name="info_panel"/>
          </item>
         </layout>
        </widget>
