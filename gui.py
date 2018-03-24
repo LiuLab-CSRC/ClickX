@@ -53,8 +53,8 @@ class GUI(QMainWindow):
         self.mask_file = None
         self.file = None
         self.h5_obj = None
-        self.h5_dataset = None
-        self.h5_dataset_def = ''
+        self.dataset = None
+        self.dataset_def = settings.get('default dataset', '')
         self.nb_frame = 0
         self.frame = 0
 
@@ -278,7 +278,7 @@ class GUI(QMainWindow):
         if len(filepath) == 0:
             return
         conf_dict = {
-            'dataset': self.h5_dataset,
+            'dataset': self.dataset,
             'mask file': self.mask_file,
             'gaussian filter sigma': self.gaussian_sigma,
             'min peak num': self.min_peak_num,
@@ -299,7 +299,7 @@ class GUI(QMainWindow):
         with open(filepath, 'r') as f:
             conf_dict = yaml.load(f)
         if 'dataset' in conf_dict.keys():
-            self.h5_dataset_def = self.h5_dataset = conf_dict['dataset']
+            self.dataset_def = self.dataset = conf_dict['dataset']
         if 'mask file' in conf_dict.keys():
             self.mask_file = conf_dict['mask file']
             self.status_params.param('mask file').setValue(self.mask_file)
@@ -443,17 +443,17 @@ class GUI(QMainWindow):
             self.status_params.param('mask file').setValue(filepath)
         elif action == action_select_and_load_dataset:
             h5_obj = h5py.File(filepath, 'r')
-            h5_dataset = self.select_dataset(filepath)
-            if len(h5_obj[h5_dataset].shape) == 3:
-                self.nb_frame = h5_obj[h5_dataset].shape[0]
+            dataset = self.select_dataset(filepath)
+            if len(h5_obj[dataset].shape) == 3:
+                self.nb_frame = h5_obj[dataset].shape[0]
             else:
                 self.nb_frame = 1
             self.file = filepath
             self.h5_obj = h5_obj
-            self.h5_dataset = h5_dataset
+            self.dataset = dataset
             # update file info and display
             self.status_params.param('filepath').setValue(filepath)
-            self.status_params.param('dataset').setValue(self.h5_dataset)
+            self.status_params.param('dataset').setValue(self.dataset)
             self.status_params.param('total frame').setValue(self.nb_frame)
             self.change_image()
         elif action == action_calc_mean_std:
@@ -478,33 +478,35 @@ class GUI(QMainWindow):
 
     @pyqtSlot('QListWidgetItem*')
     def load_file(self, file_item):
-        self.add_info('Loading %s' % file_item.text())
-        filepath = file_item.text()
+        self.add_info('Loading %s' % file_item.data(1))
+        filepath = file_item.data(1)
         ext = QtCore.QFileInfo(filepath).suffix()
         if ext == 'npy':
             self.file = filepath
             self.nb_frame = 1
         elif ext in ('h5', 'cxi'):
             h5_obj = h5py.File(filepath, 'r')
-            if self.h5_dataset_def not in h5_obj:  # check default dataset
-                h5_dataset = self.select_dataset(filepath)
-                if len(h5_dataset) == 0:
+            h5_info = get_h5_info(filepath)
+            img_keys = [x['key'] for x in h5_info]
+            if self.dataset_def not in img_keys:  # check default dataset
+                dataset = self.select_dataset(filepath)
+                if len(dataset) == 0:
                     return
             else:
-                h5_dataset = self.h5_dataset_def
-            if h5_dataset in h5_obj:
+                dataset = self.dataset_def
+            if dataset in h5_obj:
                 self.file = filepath
                 self.h5_obj = h5_obj
-                self.h5_dataset = h5_dataset
-                if len(h5_obj[h5_dataset].shape) == 3:
-                    self.nb_frame = h5_obj[h5_dataset].shape[0]
+                self.dataset = dataset
+                if len(h5_obj[dataset].shape) == 3:
+                    self.nb_frame = h5_obj[dataset].shape[0]
                 else:
                     self.nb_frame = 1
         else:
             return
         # update file info and display
         self.status_params.param('filepath').setValue(filepath)
-        self.status_params.param('dataset').setValue(self.h5_dataset)
+        self.status_params.param('dataset').setValue(self.dataset)
         self.status_params.param('total frame').setValue(self.nb_frame)
         self.change_image()
         self.update_display()
@@ -647,17 +649,17 @@ class GUI(QMainWindow):
                 userData=data_info[i]['key'])
         if self.dataset_diag.exec_() == QDialog.Accepted:
             id_select = combo_box.currentIndex()
-            h5_dataset = combo_box.itemData(id_select)
+            dataset = combo_box.itemData(id_select)
             if self.dataset_diag.check_box.isChecked():
-                self.h5_dataset_def = h5_dataset
-            return h5_dataset
+                self.dataset_def = dataset
+            return dataset
         else:
             return ''
 
     def change_image(self):
         self.img = read_image(
             self.file, frame=self.frame,
-            h5_obj=self.h5_obj, h5_dataset=self.h5_dataset
+            h5_obj=self.h5_obj, dataset=self.dataset
         ).astype(np.float32)
         # smoothed gradient image
         if self.gaussian_sigma > 0:
@@ -784,7 +786,6 @@ class GUI(QMainWindow):
     def add_info(self, info):
         now = datetime.now()
         self.info_panel.append('[%s]: %s' % (f'{now:%Y-%m-%d %H:%M:%S}', info))
-        self.info_panel.append('<b>abcd</b>')
 
 
 def main():
