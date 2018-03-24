@@ -18,12 +18,12 @@ class CalcMeanThread(QThread):
                  files=None,
                  dataset=None,
                  max_frame=0,
-                 prefix=''):
+                 output=None):
         super(CalcMeanThread, self).__init__(parent)
         self.files = files
         self.dataset = dataset
         self.max_frame = max_frame
-        self.prefix = prefix
+        self.output = output
 
     def run(self):
         count = 0
@@ -61,7 +61,11 @@ class CalcMeanThread(QThread):
                 break
         # write to file
         time.sleep(0.1)
-        np.savez('%s.npz' % self.prefix, mean=img_mean, std=img_mean)
+        if self.output is None:
+            output = 'output.npz'
+        else:
+            output = self.output
+        np.savez(output, mean=img_mean, std=img_mean)
 
 
 class CrawlerThread(QThread):

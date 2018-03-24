@@ -30,6 +30,7 @@ class GUI(QMainWindow):
 
         # setup layout
         loadUi('ui/gui.ui', self)
+        self.info_panel.setMaximumBlockCount(settings.get('max info', 1000))
         self.inspector = QDialog()
         self.inspector.setWindowFlags(self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
         loadUi('ui/inspector.ui', self.inspector)
@@ -204,6 +205,7 @@ class GUI(QMainWindow):
 
         # mean/std dialog
         self.mean_diag.apply_btn.clicked.connect(self.calc_mean_std)
+        self.mean_diag.browse_btn.clicked.connect(self.choose_dir)
         self.mean_diag.combo_box.currentIndexChanged.connect(
             self.update_mean_diag_nframe)
 
@@ -383,24 +385,37 @@ class GUI(QMainWindow):
         selected_items = self.file_list.selectedItems()
         files = []
         for item in selected_items:
-            files.append(item.text())
+            files.append(item.data(1))
         dataset = self.mean_diag.combo_box.currentText()
         nb_frame = int(self.mean_diag.nb_frame.text())
         max_frame = min(int(self.mean_diag.max_frame.text()), nb_frame)
+        output_dir = self.mean_diag.output_dir.text()
         prefix = self.mean_diag.prefix.text()
+        output = os.path.join(output_dir, '%s.npz' % prefix)
 
         self.calc_mean_thread = CalcMeanThread(
-            files=files, dataset=dataset, max_frame=max_frame,
-            prefix=prefix,
+            files=files, dataset=dataset, max_frame=max_frame, output=output
         )
         self.calc_mean_thread.update_progress.connect(
             self.update_progressbar
         )
+        self.calc_mean_thread.finished.connect(
+            self.calc_mean_finished
+        )
         self.calc_mean_thread.start()
+
+    @pyqtSlot()
+    def choose_dir(self):
+        dir_ = QFileDialog.getExistingDirectory(self, "Choose directory", "")
+        self.mean_diag.output_dir.setText(dir_)
 
     @pyqtSlot(float)
     def update_progressbar(self, val):
         self.mean_diag.progress_bar.setValue(val)
+
+    @pyqtSlot()
+    def calc_mean_finished(self):
+        self.add_info('Mean/sigma calculation done.')
 
     @pyqtSlot(int)
     def update_mean_diag_nframe(self, curr_index):
@@ -411,13 +426,15 @@ class GUI(QMainWindow):
         nb_frame = 0
         for item in selected_items:
             try:
-                f = h5py.File(item.text(), 'r')
+                filepath = item.data(1)
+                f = h5py.File(filepath, 'r')
                 shape = f[dataset].shape
                 if len(shape) == 3:
                     nb_frame += shape[0]
                 else:
                     nb_frame += 1
             except IOError:
+                self.add_info('Failed to open %s' % filepath)
                 pass
         self.mean_diag.nb_frame.setText(str(nb_frame))
 
@@ -428,12 +445,12 @@ class GUI(QMainWindow):
         item = self.file_list.currentItem()
         if not isinstance(item, QListWidgetItem):
             return
-        filepath = item.text()
+        filepath = item.data(1)
         action_set_as_mask = menu.addAction('set as mask')
         action_select_and_load_dataset = menu.addAction(
             'select and load dataset'
         )
-        action_calc_mean_std = menu.addAction('calculate mean/std')
+        action_calc_mean_std = menu.addAction('calculate mean/sigma')
         menu.addSeparator()
         action_del_file = menu.addAction('delete file(s)')
         action = menu.exec_(self.file_list.mapToGlobal(pos))
@@ -469,12 +486,15 @@ class GUI(QMainWindow):
             for item in items:
                 row = self.file_list.row(item)
                 self.file_list.takeItem(row)
+                self.add_info('Remove %s' % item.data(1))
 
         self.update_display()
 
     @pyqtSlot()
     def add_file(self):
-        self.maybe_add_file(self.line_edit.text())
+        files = glob(self.line_edit.text(), recursive=True)
+        for f in files:
+            self.maybe_add_file(f)
 
     @pyqtSlot('QListWidgetItem*')
     def load_file(self, file_item):
@@ -785,7 +805,7 @@ class GUI(QMainWindow):
 
     def add_info(self, info):
         now = datetime.now()
-        self.info_panel.append('[%s]: %s' % (f'{now:%Y-%m-%d %H:%M:%S}', info))
+        self.info_panel.appendPlainText('[%s]: %s' % (f'{now:%Y-%m-%d %H:%M:%S}', info))
 
 
 def main():
