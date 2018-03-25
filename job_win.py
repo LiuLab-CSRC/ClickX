@@ -9,18 +9,29 @@ from threads import *
 
 
 class JobWindow(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None,
+                 workdir=None,
+                 h5_dataset=None,
+                 cxi_dataset=None,
+                 cxi_size=None,
+                 cxi_dtype=None,
+                 header_labels=None):
         super(JobWindow, self).__init__(parent)
-        # set ui
+        # setup ui
         loadUi('ui/jobs.ui', self)
-        _dir = dirname(abspath(__file__))
-        self.workdir.setText(_dir)
-        # set table header
-        col_count = self.job_table.columnCount()
-        header_item = self.job_table.horizontalHeaderItem
-        self.header = {
-            x: header_item(x).text() for x in range(col_count)
-        }
+        if workdir is None:
+            self.workdir = dirname(abspath(__file__))
+        else:
+            self.workdir = workdir
+        self.h5_dataset = h5_dataset
+        self.cxi_dataset = cxi_dataset
+        self.workdir_lineedit.setText(self.workdir)
+        self.h5_dataset_lineedit.setText(self.h5_dataset)
+        self.cxi_dataset_lineedit.setText(self.cxi_dataset)
+        self.header_labels = header_labels
+        self.job_table.setHorizontalHeaderLabels(self.header_labels)
+        self.cxi_size = cxi_size
+        self.cxi_dtype = cxi_dtype
 
         self.curr_conf = []
         self.crawler_running = False
@@ -38,8 +49,10 @@ class JobWindow(QWidget):
     @pyqtSlot()
     def select_workdir(self):
         directory = QFileDialog.getExistingDirectory(
-            self, 'Select a directory')
-        self.workdir.setText(directory)
+            self, 'Select a directory', self.workdir)
+        if len(directory) > 0:
+            self.workdir = directory
+            self.workdir_lineedit.setText(self.workdir)
 
     @pyqtSlot()
     def start_or_stop_crawler(self):
@@ -50,10 +63,10 @@ class JobWindow(QWidget):
         else:
             self.crawler_running = True
             self.crawler_btn.setText('stop crawler')
-            workdir = self.workdir.text()
-            self.crawler_thread = CrawlerThread(workdir=workdir)
+            self.crawler_thread = CrawlerThread(workdir=self.workdir)
             self.crawler_thread.jobs.connect(self.update_jobs)
             self.crawler_thread.conf.connect(self.update_conf)
+            self.crawler_thread.stat.connect(self.update_stat)
             self.crawler_thread.start()
 
     @pyqtSlot(list)
@@ -71,13 +84,26 @@ class JobWindow(QWidget):
             self.hit_finding_conf.addItem(tag, userData=conf)
             self.curr_conf.append(conf)
 
+    @pyqtSlot(dict)
+    def update_stat(self, stat):
+        total_frames = stat['total frames']
+        self.frame_label.setText(str(total_frames))
+        curr_id = self.hit_finding_conf.currentIndex()
+        tag = self.hit_finding_conf.itemText(curr_id)
+        total_hits_dict = stat['total hits']
+        if tag in stat['total hits'].keys():
+            total_hits = total_hits_dict[tag]
+            total_hit_rate = float(total_frames) / total_hits
+            self.hit_label.setText(str(total_hits_dict[tag]))
+            self.hit_rate_label.setText('%.2f%%' % total_hit_rate)
+
     @pyqtSlot(QPoint)
     def show_job_menu(self, pos):
         job_table = self.job_table
         menu = QMenu()
         row = job_table.currentRow()
         job = job_table.item(row, 0).text()
-        workdir = self.workdir.text()
+        workdir = self.workdir_lineedit.text()
         action_h52cxi = menu.addAction('run h52cxi')
         action_hit_finding = menu.addAction('run hit finding')
         action = menu.exec_(job_table.mapToGlobal(pos))
@@ -85,8 +111,10 @@ class JobWindow(QWidget):
             self.conv_thread = ConversionThread(
                 workdir=workdir,
                 job=job,
-                h5_dataset=self.h5_dataset.text(),
-                cxi_dataset=self.cxi_dataset.text(),
+                h5_dataset=self.h5_dataset_lineedit.text(),
+                cxi_dataset=self.cxi_dataset_lineedit.text(),
+                cxi_size=self.cxi_size,
+                cxi_dtype=self.cxi_dtype,
             )
             self.conv_thread.start()
         elif action == action_hit_finding:
@@ -105,7 +133,7 @@ class JobWindow(QWidget):
         row_count = self.job_table.rowCount()
         if row_count == row:
             self.job_table.insertRow(row_count)
-        for col, field in self.header.items():
+        for col, field in enumerate(self.header_labels):
             item = self.job_table.item(row, col)
             if item is None:
                 item = QTableWidgetItem(row_dict[field])
