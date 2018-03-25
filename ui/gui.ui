@@ -16,6 +16,9 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true"/>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <property name="acceptDrops">
     <bool>true</bool>
@@ -23,13 +26,16 @@
    <layout class="QHBoxLayout" name="horizontalLayout_3">
     <item>
      <widget class="QSplitter" name="splitter_4">
+      <property name="midLineWidth">
+       <number>1</number>
+      </property>
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
       <property name="handleWidth">
-       <number>1</number>
+       <number>3</number>
       </property>
-      <widget class="QFrame" name="frame">
+      <widget class="QFrame" name="file_list_frame">
        <property name="frameShape">
         <enum>QFrame::StyledPanel</enum>
        </property>
@@ -127,7 +133,7 @@
         <enum>Qt::Vertical</enum>
        </property>
        <property name="handleWidth">
-        <number>1</number>
+        <number>3</number>
        </property>
        <widget class="QFrame" name="frame_2">
         <property name="frameShape">
@@ -166,7 +172,7 @@
             <enum>Qt::Horizontal</enum>
            </property>
            <property name="handleWidth">
-            <number>1</number>
+            <number>3</number>
            </property>
            <widget class="ImageView" name="raw_view">
             <property name="toolTip">
@@ -303,6 +309,7 @@
     <addaction name="action_show_inspector"/>
     <addaction name="action_show_gradient_view"/>
     <addaction name="action_show_calib_mask_view"/>
+    <addaction name="action_test"/>
    </widget>
    <widget class="QMenu" name="menuWindow">
     <property name="title">
@@ -358,6 +365,11 @@
   <action name="action_job_table">
    <property name="text">
     <string>Job Table</string>
+   </property>
+  </action>
+  <action name="action_test">
+   <property name="text">
+    <string>Hide file list</string>
    </property>
   </action>
  </widget>

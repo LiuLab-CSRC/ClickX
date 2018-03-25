@@ -192,12 +192,12 @@
           <item>
            <widget class="QLabel" name="label_5">
             <property name="text">
-             <string>Total raw frams:</string>
+             <string>Total Raw Frames:</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QLabel" name="frame_label">
+           <widget class="QLabel" name="total_raw_frame_label">
             <property name="minimumSize">
              <size>
               <width>50</width>
@@ -215,16 +215,36 @@
          </layout>
         </item>
         <item>
+         <widget class="QLabel" name="label_8">
+          <property name="text">
+           <string>Processed Frames:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="processed_frame_label">
+          <property name="minimumSize">
+           <size>
+            <width>50</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <layout class="QHBoxLayout" name="horizontalLayout_7">
           <item>
            <widget class="QLabel" name="label_6">
             <property name="text">
-             <string>Total hits:</string>
+             <string>Processed Hits:</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QLabel" name="hit_label">
+           <widget class="QLabel" name="processed_hit_label">
             <property name="minimumSize">
              <size>
               <width>50</width>
@@ -241,7 +261,7 @@
         <item>
          <widget class="QLabel" name="label_7">
           <property name="text">
-           <string>Total hit rate:</string>
+           <string>Hit Rate:</string>
           </property>
          </widget>
         </item>
@@ -301,6 +321,11 @@
         </column>
         <column>
          <property name="text">
+          <string>total raw frames</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
           <string>tag</string>
          </property>
         </column>
@@ -311,12 +336,12 @@
         </column>
         <column>
          <property name="text">
-          <string>raw frames</string>
+          <string>processed frames</string>
          </property>
         </column>
         <column>
          <property name="text">
-          <string>hits</string>
+          <string>processed hits</string>
          </property>
         </column>
         <column>
