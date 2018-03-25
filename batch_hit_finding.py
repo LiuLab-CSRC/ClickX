@@ -100,7 +100,6 @@ def master_run(args):
     reqs = {}
     results = []
     slaves = list(range(1, size))
-    progress_file = os.path.join(hit_dir, 'progress.txt')
     time_start = time.time()
     for slave in slaves:
         comm.isend(jobs[job_id], dest=slave)

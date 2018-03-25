@@ -304,51 +304,6 @@
         <attribute name="verticalHeaderVisible">
          <bool>false</bool>
         </attribute>
-        <column>
-         <property name="text">
-          <string>job</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>h52cxi</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>compression ratio</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>total raw frames</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>tag</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>hit finding</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>processed frames</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>processed hits</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>hit rate</string>
-         </property>
-        </column>
        </widget>
       </item>
      </layout>

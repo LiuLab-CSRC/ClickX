@@ -197,9 +197,6 @@ def master_run(args):
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
 
-    progress_file = os.path.join(cxi_dir, 'progress.txt')
-    with open(progress_file, 'w') as f:
-        f.write('done')
     print('All Done!')
 
 

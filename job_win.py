@@ -30,6 +30,7 @@ class JobWindow(QWidget):
         self.h5_dataset_lineedit.setText(self.h5_dataset)
         self.cxi_dataset_lineedit.setText(self.cxi_dataset)
         self.header_labels = header_labels
+        self.job_table.setColumnCount(len(self.header_labels))
         self.job_table.setHorizontalHeaderLabels(self.header_labels)
         self.cxi_size = cxi_size
         self.cxi_dtype = cxi_dtype
