@@ -19,7 +19,7 @@ Options:
 """
 from mpi4py import MPI
 import numpy as np
-import h5py
+from util import save_cxi
 import time
 
 import sys
@@ -239,36 +239,6 @@ def slave_run(args):
         sys.stdout.flush()
     done = True
     comm.send(done, dest=0)
-
-
-def save_cxi(h5_files, 
-             h5_dataset,
-             cxi_dataset,
-             cxi_file, 
-             compression='lzf',
-             shuffle=True,
-             cxi_dtype=np.int32):
-    data = []
-    for h5_file in h5_files:
-        try:
-            frame = h5py.File(h5_file, 'r')[h5_dataset].value
-            data.append(frame)
-        except IOError:
-            print('Warning: failed load dataset from %s' % h5_file)
-            continue
-        sys.stdout.flush()
-    data = np.array(data).astype(cxi_dtype)
-    n, x, y = data.shape
-    f = h5py.File(cxi_file, 'w')
-    f.create_dataset(
-        cxi_dataset,
-        shape=(n, x, y),
-        dtype=cxi_dtype,
-        data=data,
-        compression=compression,
-        chunks=(1, x, y),
-        shuffle=shuffle,
-    )
 
 
 if __name__ == '__main__':
