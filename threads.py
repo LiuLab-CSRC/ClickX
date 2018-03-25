@@ -67,6 +67,7 @@ class CalcMeanThread(QThread):
 class CrawlerThread(QThread):
     jobs = pyqtSignal(list)
     conf = pyqtSignal(list)
+    stat = pyqtSignal(dict)
 
     def __init__(self, parent=None, workdir=None):
         super(CrawlerThread, self).__init__(parent)
@@ -77,6 +78,8 @@ class CrawlerThread(QThread):
             # check data from h5 lst
             job_list = []
             lst_files = glob('%s/h5_lst/*.lst' % self.workdir)
+            total_frames = 0
+            total_hits = {}
             for lst_file in lst_files:
                 time1 = os.path.getmtime(lst_file)
                 job_name = os.path.basename(lst_file).split('.')[0]
@@ -98,6 +101,7 @@ class CrawlerThread(QThread):
                             stat = yaml.load(f)
                             raw_frames = stat['total frames']
                             comp_ratio = stat['compression ratio']
+                            total_frames += raw_frames
                 # check cxi lst status
                 cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % job_name)
                 if os.path.exists(cxi_lst):
@@ -142,6 +146,10 @@ class CrawlerThread(QThread):
                                 with open(progress_file, 'r') as f:
                                     hit_finding = f.readline()
                             hits = stat['total hits']
+                            if tag in total_hits.keys():
+                                total_hits[tag] += hits
+                            else:
+                                total_hits[tag] = hits
                             hit_rate = stat['hit rate']
                         else:
                             time2 = math.inf
@@ -165,9 +173,16 @@ class CrawlerThread(QThread):
             self.jobs.emit(job_list)
 
             # check hit finding conf files
-            conf_dir = os.path.join(self.workdir, 'conf.d')
+            conf_dir = os.path.join(self.workdir, 'conf')
             conf_files = glob('%s/*.yml' % conf_dir)
             self.conf.emit(conf_files)
+
+            # check stat
+            stat = {
+                'total frames': total_frames,
+                'total hits': total_hits,
+            }
+            self.stat.emit(stat)
             time.sleep(5)
 
 
