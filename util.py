@@ -3,6 +3,7 @@ import numpy as np
 from skimage.feature import peak_local_max
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from skimage.morphology import disk
+import os
 
 
 def read_image(filepath, frame=0, h5_obj=None, dataset=None):
@@ -180,3 +181,34 @@ def get_data_shape(filepath):
         print('Unsupported file type: %s' % filepath)
         return
     return data_shape
+
+
+def save_cxi(h5_files,
+             h5_dataset,
+             cxi_dataset,
+             cxi_file,
+             compression='lzf',
+             shuffle=True,
+             cxi_dtype=np.int32):
+    data = []
+    for h5_file in h5_files:
+        try:
+            frame = h5py.File(h5_file, 'r')[h5_dataset].value
+            data.append(frame)
+        except IOError:
+            print('Warning: failed load dataset from %s' % h5_file)
+            continue
+    data = np.array(data).astype(cxi_dtype)
+    n, x, y = data.shape
+    if os.path.exists(cxi_file):
+        os.rename(cxi_file, '%s.bk' % cxi_file)
+    f = h5py.File(cxi_file, 'w')
+    f.create_dataset(
+        cxi_dataset,
+        shape=(n, x, y),
+        dtype=cxi_dtype,
+        data=data,
+        compression=compression,
+        chunks=(1, x, y),
+        shuffle=shuffle,
+    )
