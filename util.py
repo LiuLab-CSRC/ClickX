@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+import pandas as pd
 from skimage.feature import peak_local_max
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from skimage.morphology import disk
@@ -219,3 +220,30 @@ def multiply_masks(mask_files):
     for mask_file in mask_files:
         mask = np.load(mask_file) * mask
     return mask.astype(int)
+
+
+def csv2cxi(csv_file, output_dir, dataset, min_peak=20, cxi_size=100):
+    df = pd.read_csv(csv_file)
+    df = df[df['nb_peak'] >= min_peak]
+    from_files = pd.unique(df['filepath'])
+    data = []
+    cxi_count = 0
+    nb_cxi = int(np.ceil(len(df) / cxi_size))
+    prefix = os.path.basename(csv_file).split('.')[0]
+    for f in from_files:
+        try:
+            h5_obj = h5py.File(f, 'r')
+        except IOError:
+            print('Failed to load %s' % f)
+            continue
+        frames = df[df['filepath'] == f]['frame']
+        for frame in frames:
+            data.append(h5_obj[dataset][frame])
+            if len(data) == cxi_size:
+                output = os.path.join(output_dir, '%s-%d.cxi' % (prefix, cxi_count))
+                print('save cxi %d/%d to %s' % (cxi_count, nb_cxi, output))
+                data = []
+                cxi_count += 1
+    if len(data) > 0:
+        output = os.path.join(output_dir, '%s-%d.cxi' % (prefix, cxi_count))
+        print('save cxi %d/%d to %s' % (cxi_count, nb_cxi, output))

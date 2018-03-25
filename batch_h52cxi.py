@@ -92,7 +92,6 @@ def master_run(args):
     print('%d frames, %d jobs to be processed' % (total_frame, total_jobs))
 
     update_freq = int(args['--update-freq'])
-    progress_file = os.path.join(cxi_dir, 'progress.txt')
 
     # distribute jobs
     job_id = 0
@@ -138,7 +137,6 @@ def master_run(args):
             stat_file = os.path.join(cxi_dir, 'stat.yml')
             with open(stat_file, 'w') as f:
                 yaml.dump(stat_dict, f, default_flow_style=False)
-            print('stat info updated')
 
     all_accepted = False
     while not all_accepted:

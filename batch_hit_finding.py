@@ -8,12 +8,12 @@ Usage:
 Options:
     -h --help               Show this screen.
     --batch-size SIZE       Specify batch size in a job [default: 50].
+    --cxi-size SIZE         Specify cxi size [default: 100].
     --buffer-size SIZE      Specify buffer size in MPI communication
                             [default: 500000].
     --update-freq FREQ      Specify update frequency of progress [default: 10].
 """
 from mpi4py import MPI
-import numpy as np
 import pandas as pd
 import h5py
 import time
@@ -23,7 +23,7 @@ import os
 from docopt import docopt
 import yaml
 
-from util import find_peaks, read_image
+from util import find_peaks, read_image, csv2cxi
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -76,6 +76,7 @@ def master_run(args):
     min_peak = conf['min peak num']
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
+    cxi_size = int(args['--cxi-size'])
     jobs, total_frame = collect_jobs(files, dataset, batch_size)
     total_jobs = len(jobs)
     print('%d frames, %d jobs to be processed' % (total_frame, total_jobs))
@@ -118,13 +119,13 @@ def master_run(args):
             # update stat
             progress = float(job_id) / total_jobs * 100
             df = pd.DataFrame(results)
-            nb_hits = len(df['nb_peak'] > min_peak)
+            nb_hits = len(df[df['nb_peak'] >= min_peak])
             nb_frames = len(df)
             hit_rate = float(nb_hits) / nb_frames * 100.
             stat_dict = {
                 'progress': '%.2f%%' % progress,
                 'processed hits': nb_hits,
-                'hit rate': hit_rate,
+                'hit rate': '%.2f%%' % hit_rate,
                 'duration/sec': 'not finished',
                 'processed frames': nb_frames,
                 'total jobs': total_jobs,
@@ -133,7 +134,6 @@ def master_run(args):
             stat_file = os.path.join(hit_dir, 'stat.yml')
             with open(stat_file, 'w') as f:
                 yaml.dump(stat_dict, f, default_flow_style=False)
-            print('stat info updated')
 
     all_done = False
     while not all_done:
@@ -158,13 +158,13 @@ def master_run(args):
     df = pd.DataFrame(results)
     df.to_csv(csv_file)
 
-    nb_hits = len(df['nb_peak'] > min_peak)
+    nb_hits = len(df[df['nb_peak'] >= min_peak])
     nb_frames = len(df)
     hit_rate = float(nb_hits) / nb_frames * 100.
     stat_dict = {
         'progress': 'done',
         'processed hits': nb_hits,
-        'hit rate': hit_rate,
+        'hit rate': '%.2f%%' % hit_rate,
         'duration/sec': duration,
         'processed frames': nb_frames,
         'total jobs': total_jobs,
@@ -174,6 +174,8 @@ def master_run(args):
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
 
+    # save hits in cxi format
+    csv2cxi(csv_file, hit_dir, dataset, min_peak=min_peak, cxi_size=cxi_size)
     print('All Done!')
 
 
@@ -227,7 +229,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     if size == 1:
-        print('Run batch hit finding with at leat 2 processs!')
+        print('Run batch hit finding with at least 2 processes!')
         sys.exit()
 
     rank = comm.Get_rank()
