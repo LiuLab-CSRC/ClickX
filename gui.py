@@ -49,7 +49,7 @@ class GUI(QMainWindow):
         )
         self.setAcceptDrops(True)
 
-        self.accepted_file_types = ('h5', 'npy', 'cxi')
+        self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz')
         self.curr_files = []
         self.mask_file = None
         self.file = None
@@ -459,14 +459,15 @@ class GUI(QMainWindow):
             self.mask = read_image(filepath)
             self.status_params.param('mask file').setValue(filepath)
         elif action == action_select_and_load_dataset:
-            h5_obj = h5py.File(filepath, 'r')
+            data_shape = get_data_shape(filepath)
             dataset = self.select_dataset(filepath)
-            if len(h5_obj[dataset].shape) == 3:
-                self.nb_frame = h5_obj[dataset].shape[0]
+            if data_shape[dataset] == 3:
+                self.nb_frame = data_shape[dataset][0]
             else:
                 self.nb_frame = 1
+            if filepath.split('.')[-1] in ('cxi', 'h5'):
+                self.h5_obj = h5py.File(filepath, 'r')
             self.file = filepath
-            self.h5_obj = h5_obj
             self.dataset = dataset
             # update file info and display
             self.status_params.param('filepath').setValue(filepath)
@@ -504,11 +505,22 @@ class GUI(QMainWindow):
         if ext == 'npy':
             self.file = filepath
             self.nb_frame = 1
+        elif ext == 'npz':
+            data_shape = get_data_shape(filepath)
+            if self.dataset_def not in data_shape.keys():
+                dataset = self.select_dataset(filepath)
+                if len(dataset) == 0:
+                    return
+                self.file = filepath
+                self.dataset = dataset
+                if data_shape[dataset] == 3:
+                    self.nb_frame = data_shape[dataset][0]
+                else:
+                    self.nb_frame = 1
         elif ext in ('h5', 'cxi'):
             h5_obj = h5py.File(filepath, 'r')
-            h5_info = get_h5_info(filepath)
-            img_keys = [x['key'] for x in h5_info]
-            if self.dataset_def not in img_keys:  # check default dataset
+            data_shape = get_data_shape(filepath)
+            if self.dataset_def not in data_shape.keys():  # check default dataset
                 dataset = self.select_dataset(filepath)
                 if len(dataset) == 0:
                     return
@@ -518,8 +530,8 @@ class GUI(QMainWindow):
                 self.file = filepath
                 self.h5_obj = h5_obj
                 self.dataset = dataset
-                if len(h5_obj[dataset].shape) == 3:
-                    self.nb_frame = h5_obj[dataset].shape[0]
+                if len(data_shape[dataset]) == 3:
+                    self.nb_frame = data_shape[dataset][0]
                 else:
                     self.nb_frame = 1
         else:
@@ -661,12 +673,9 @@ class GUI(QMainWindow):
     def select_dataset(self, filepath):
         combo_box = self.dataset_diag.combo_box
         combo_box.clear()
-        data_info = get_h5_info(filepath)
-        for i in range(len(data_info)):
-            combo_box.addItem(
-                '%s  %s' %
-                (data_info[i]['key'], data_info[i]['shape']),
-                userData=data_info[i]['key'])
+        data_info = get_data_shape(filepath)
+        for dataset, shape in data_info.items():
+            combo_box.addItem('%s  %s' % (dataset, shape), userData=dataset)
         if self.dataset_diag.exec_() == QDialog.Accepted:
             id_select = combo_box.currentIndex()
             dataset = combo_box.itemData(id_select)

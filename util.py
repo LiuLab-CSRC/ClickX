@@ -9,6 +9,8 @@ def read_image(filepath, frame=0, h5_obj=None, dataset=None):
     ext = filepath.split('.')[-1]
     if ext == 'npy':
         data = np.load(filepath)
+    elif ext  == 'npz':
+        data = np.load(filepath)[dataset]
     elif ext in ('h5', 'cxi'):
         if len(h5_obj[dataset].shape) == 3:
             data = h5_obj[dataset][frame]
@@ -147,19 +149,29 @@ def calc_snr(image,
     return snr
 
 
-def get_h5_info(filepath):
-    f = h5py.File(filepath, 'r')
-    keys = []
+def get_data_shape(filepath):
+    data_shape = {}
+    ext = filepath.split('.')[-1]
+    if ext in ('h5', 'cxi'):
+        f = h5py.File(filepath, 'r')
+        keys = []
 
-    def _get_all_dataset(key):
-        if isinstance(f[key], h5py._hl.dataset.Dataset):
-            keys.append(key)
+        def _get_all_dataset(key):
+            if isinstance(f[key], h5py._hl.dataset.Dataset):
+                keys.append(key)
 
-    f.visit(_get_all_dataset)
-    data_info = []
-    for i in range(len(keys)):
-        key = keys[i]
-        if len(f[key].shape) in (2, 3):
-            data_info.append({'key': key, 'shape': f[key].shape})
-    f.close()
-    return data_info
+        f.visit(_get_all_dataset)
+        for key in keys:
+            if len(f[key].shape) in (2, 3):
+                data_shape[key] = f[key].shape
+        f.close()
+    elif ext == 'npz':
+        data = np.load(filepath)
+        keys = data.keys()
+        for key in keys:
+            if len(data[key].shape) in (2, 3):
+                data_shape[key] = data[key].shape
+    else:
+        print('Unsupported file type: %s' % filepath)
+        return
+    return data_shape
