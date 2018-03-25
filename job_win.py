@@ -86,15 +86,21 @@ class JobWindow(QWidget):
 
     @pyqtSlot(dict)
     def update_stat(self, stat):
-        total_frames = stat['total frames']
-        self.frame_label.setText(str(total_frames))
+        total_raw_frames = stat.get('total raw frames', 0)
+        self.total_raw_frame_label.setText(str(total_raw_frames))
         curr_id = self.hit_finding_conf.currentIndex()
         tag = self.hit_finding_conf.itemText(curr_id)
-        total_hits_dict = stat['total hits']
-        if tag in stat['total hits'].keys():
-            total_hits = total_hits_dict[tag]
-            total_hit_rate = float(total_frames) / total_hits
-            self.hit_label.setText(str(total_hits_dict[tag]))
+        total_processed_frame_dict = stat.get('total processed frames', {})
+        total_processed_hits_dict = stat.get('total processed hits', {})
+        if tag in stat['total processed frames'].keys():
+            total_processed_hits = total_processed_hits_dict.get(tag, 0)
+            total_processed_frames = total_processed_frame_dict.get(tag, 0)
+            if total_processed_frames != 0:
+                total_hit_rate = float(total_processed_hits) / total_processed_frames * 100.
+            else:
+                total_hit_rate = 0.
+            self.processed_hit_label.setText(str(total_processed_hits))
+            self.processed_frame_label.setText(str(total_processed_frames))
             self.hit_rate_label.setText('%.2f%%' % total_hit_rate)
 
     @pyqtSlot(QPoint)
