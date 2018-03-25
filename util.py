@@ -212,3 +212,10 @@ def save_cxi(h5_files,
         chunks=(1, x, y),
         shuffle=shuffle,
     )
+
+
+def multiply_masks(mask_files):
+    mask = 1
+    for mask_file in mask_files:
+        mask = np.load(mask_file) * mask
+    return mask.astype(int)
