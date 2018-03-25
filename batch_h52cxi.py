@@ -50,7 +50,7 @@ def get_size(obj, seen=None):
     return size
 
 
-def collect_jobs(files, dataset, batch_size):
+def collect_jobs(files, batch_size):
     jobs = []
     batch = []
     total_h5 = 0
@@ -84,10 +84,9 @@ def master_run(args):
         files.append(f[:-1])
         h5_raw_size += os.path.getsize(f[:-1])
     # collect jobs
-    h5_dataset = args['<h5-dataset>']
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
-    jobs, total_frame = collect_jobs(files, h5_dataset, batch_size)
+    jobs, total_frame = collect_jobs(files, batch_size)
     total_jobs = len(jobs)
     time_start = time.time()
     print('%d frames, %d jobs to be processed' % (total_frame, total_jobs))
@@ -125,8 +124,20 @@ def master_run(args):
                     comm.isend(stop, dest=slave)
         if job_id % update_freq == 0:
             progress = float(job_id) / total_jobs * 100
-            with open(progress_file, 'w') as f:
-                f.write(str('%.2f%%' % progress))
+            stat_dict = {
+                'progress': '%.2f%%' % progress,
+                'duration/sec': 'not finished',
+                'total frames': total_frame,
+                'total jobs': total_jobs,
+                'h5 raw size': 'not finished',
+                'cxi raw size': 'not finished',
+                'compression ratio': 'not finished',
+            }
+
+            stat_file = os.path.join(cxi_dir, 'stat.yml')
+            with open(stat_file, 'w') as f:
+                yaml.dump(stat_dict, f, default_flow_style=False)
+            print('stat info updated')
 
     all_accepted = False
     while not all_accepted:
@@ -173,6 +184,7 @@ def master_run(args):
 
     compression_ratio = float(h5_raw_size) / float(cxi_raw_size)
     stat_dict = {
+        'progress': 'done',
         'duration/sec': duration,
         'total frames': total_frame,
         'total jobs': total_jobs,

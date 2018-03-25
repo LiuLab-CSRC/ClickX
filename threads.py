@@ -1,9 +1,6 @@
 from PyQt5.QtCore import QThread, pyqtSignal
-import h5py
-import numpy as np
 import time
 from glob import glob
-import os
 import yaml
 import subprocess
 import math
@@ -91,17 +88,15 @@ class CrawlerThread(QThread):
                 hit_rate = 0
                 comp_ratio = 0
                 if os.path.isdir(cxi_raw):
-                    progress_file = os.path.join(cxi_raw, 'progress.txt')
-                    if os.path.exists(progress_file):
-                        with open(progress_file, 'r') as f:
-                            h52cxi = f.readline()
                     stat_file = os.path.join(cxi_raw, 'stat.yml')
                     if os.path.exists(stat_file):
                         with open(stat_file, 'r') as f:
                             stat = yaml.load(f)
+                            h52cxi = stat['progress']
                             raw_frames = stat['total frames']
                             comp_ratio = stat['compression ratio']
-                            total_frames += raw_frames
+                            if raw_frames is not None:
+                                total_frames += raw_frames
                 # check cxi lst status
                 cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % job_name)
                 if os.path.exists(cxi_lst):
@@ -123,8 +118,8 @@ class CrawlerThread(QThread):
                             'hit finding': hit_finding,
                             'raw frames': raw_frames,
                             'hits': hits,
-                            'hit rate': '%.2f%%' % hit_rate,
-                            'compression ratio': '%.2f' % comp_ratio,
+                            'hit rate': hit_rate,
+                            'compression ratio': comp_ratio,
                             'time1': time1,
                             'time2': time2,
                         }
@@ -134,17 +129,15 @@ class CrawlerThread(QThread):
                         tag_dir = os.path.join(
                             self.workdir, 'cxi_hit', job_name, tag
                         )
+                        progress_file = os.path.join(tag_dir, 'progress.txt')
+                        if os.path.exists(progress_file):
+                            with open(progress_file, 'r') as f:
+                                hit_finding = f.readline()
                         stat_file = os.path.join(tag_dir, 'stat.yml')
                         if os.path.exists(stat_file):
                             with open(stat_file, 'r') as f:
                                 stat = yaml.load(f)
                             time2 = os.path.getmtime(stat_file)
-                            progress_file = os.path.join(
-                                tag_dir, 'progress.txt'
-                            )
-                            if os.path.exists(progress_file):
-                                with open(progress_file, 'r') as f:
-                                    hit_finding = f.readline()
                             hits = stat['total hits']
                             if tag in total_hits.keys():
                                 total_hits[tag] += hits
@@ -161,8 +154,8 @@ class CrawlerThread(QThread):
                                 'hit finding': hit_finding,
                                 'raw frames': raw_frames,
                                 'hits': hits,
-                                'hit rate': '%.2f%%' % hit_rate,
-                                'compression ratio': '%.2f' % comp_ratio,
+                                'hit rate': hit_rate,
+                                'compression ratio': comp_ratio,
                                 'time1': time1,
                                 'time2': time2,
                             }
