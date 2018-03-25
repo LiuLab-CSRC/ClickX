@@ -9,6 +9,7 @@ Options:
     -h --help               Show this screen.
     --batch-size SIZE       Specify batch size in a job [default: 50].
     --cxi-size SIZE         Specify cxi size [default: 100].
+    --cxi-dtype DATATYPE    Specify cxi datatype [default: int32].
     --buffer-size SIZE      Specify buffer size in MPI communication
                             [default: 500000].
     --update-freq FREQ      Specify update frequency of progress [default: 10].
@@ -24,6 +25,7 @@ from docopt import docopt
 import yaml
 
 from util import find_peaks, read_image, csv2cxi
+import numpy as np
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -77,6 +79,15 @@ def master_run(args):
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
     cxi_size = int(args['--cxi-size'])
+    if args['--cxi-dtype'] == 'int32':
+        dtype = np.int32
+    elif args['--cxi-dtype'] == 'int16':
+        dtype = np.int16
+    elif args['--cxi-dtype'] == 'uint16':
+        dtype = np.uint16
+    else:
+        print('Unsupported cxi datatype: %s' % args['--cxi-dtype'])
+        sys.exit()
     jobs, total_frame = collect_jobs(files, dataset, batch_size)
     total_jobs = len(jobs)
     print('%d frames, %d jobs to be processed' % (total_frame, total_jobs))
@@ -175,7 +186,7 @@ def master_run(args):
         yaml.dump(stat_dict, f, default_flow_style=False)
 
     # save hits in cxi format
-    csv2cxi(csv_file, hit_dir, dataset, min_peak=min_peak, cxi_size=cxi_size)
+    csv2cxi(csv_file, hit_dir, dataset, dtype=dtype, min_peak=min_peak, cxi_size=cxi_size)
     print('All Done!')
 
 

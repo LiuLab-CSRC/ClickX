@@ -222,7 +222,7 @@ def multiply_masks(mask_files):
     return mask.astype(int)
 
 
-def csv2cxi(csv_file, output_dir, dataset, min_peak=20, cxi_size=100):
+def csv2cxi(csv_file, output_dir, dataset, dtype=np.int32, min_peak=20, cxi_size=100):
     df = pd.read_csv(csv_file)
     df = df[df['nb_peak'] >= min_peak]
     from_files = pd.unique(df['filepath'])
@@ -241,9 +241,32 @@ def csv2cxi(csv_file, output_dir, dataset, min_peak=20, cxi_size=100):
             data.append(h5_obj[dataset][frame])
             if len(data) == cxi_size:
                 output = os.path.join(output_dir, '%s-%d.cxi' % (prefix, cxi_count))
+                data = np.array(data).astype(dtype)
+                n, x, y = data.shape
                 print('save cxi %d/%d to %s' % (cxi_count, nb_cxi, output))
+                cxi_obj = h5py.File(output, 'w')
+                cxi_obj.create_dataset(
+                    'data',
+                    shape=data.shape,
+                    dtype=dtype,
+                    data=data,
+                    compression='lzf',
+                    chunks=(1, x, y),
+                    shuffle=True,
+                )
                 data = []
                 cxi_count += 1
     if len(data) > 0:
+        data = np.array(data).astype(dtype)
         output = os.path.join(output_dir, '%s-%d.cxi' % (prefix, cxi_count))
+        cxi_obj = h5py.File(output, 'w')
+        cxi_obj.create_dataset(
+            'data',
+            shape=data.shape,
+            dtype=dtype,
+            data=data,
+            compression='lzf',
+            chunks=(1, x, y),
+            shuffle=True,
+        )
         print('save cxi %d/%d to %s' % (cxi_count, nb_cxi, output))

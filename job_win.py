@@ -133,6 +133,7 @@ class JobWindow(QWidget):
                 conf=conf,
                 tag=tag,
                 cxi_size=self.cxi_size,
+                cxi_dtype=self.cxi_dtype,
             )
             self.hit_finding_thread.start()
 
