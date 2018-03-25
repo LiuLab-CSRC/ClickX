@@ -442,6 +442,7 @@ class GUI(QMainWindow):
         if not isinstance(item, QListWidgetItem):
             return
         filepath = item.data(1)
+        ext = filepath.split('.')[-1]
         action_set_as_mask = menu.addAction('set as mask')
         action_select_and_load_dataset = menu.addAction(
             'select and load dataset'
@@ -455,6 +456,9 @@ class GUI(QMainWindow):
             self.mask = read_image(filepath)
             self.status_params.param('mask file').setValue(filepath)
         elif action == action_select_and_load_dataset:
+            if ext == 'npy':
+                self.add_info('Unsupported file type for dataset selection: %s' % ext)
+                return  # ignore npy file for dataset selection
             data_shape = get_data_shape(filepath)
             dataset = self.select_dataset(filepath)
             self.nb_frame = data_shape[dataset][0]
@@ -468,6 +472,9 @@ class GUI(QMainWindow):
             self.status_params.param('total frame').setValue(self.nb_frame)
             self.change_image()
         elif action == action_calc_mean_std:
+            if ext == 'npy':
+                self.add_info('Unsupported file type for mean calculation: %s' % ext)
+                return  # ignore npy files
             combo_box = self.mean_diag.combo_box
             combo_box.clear()
             data_shape = get_data_shape(filepath)
@@ -508,7 +515,7 @@ class GUI(QMainWindow):
                     return
                 self.file = filepath
                 self.dataset = dataset
-                if data_shape[dataset] == 3:
+                if len(data_shape[dataset]) == 3:
                     self.nb_frame = data_shape[dataset][0]
                 else:
                     self.nb_frame = 1

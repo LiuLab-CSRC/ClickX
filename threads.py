@@ -38,8 +38,11 @@ class CalcMeanThread(QThread):
                 img = read_image(filepath, frame=i, h5_obj=h5_obj, dataset=self.dataset).astype(np.float32)
                 if count == 0:
                     img_mean = img
+                    img_sigma = np.zeros_like(img_mean)
                 else:
-                    img_mean += (img - img_mean) / count
+                    img_mean_prev = img_mean.copy()
+                    img_mean += (img - img_mean) / (count + 1.)
+                    img_sigma += (img - img_mean_prev) * (img - img_mean)
                 count += 1
                 ratio = count * 100. / self.max_frame
                 self.update_progress.emit(ratio)
@@ -47,6 +50,8 @@ class CalcMeanThread(QThread):
                     break
             if count >= self.max_frame:
                 break
+        img_sigma = img_sigma / count
+        img_sigma = np.sqrt(img_sigma)
         # write to file
         time.sleep(0.1)
         if self.output is None:
@@ -56,7 +61,7 @@ class CalcMeanThread(QThread):
         dir_ = os.path.dirname((output))
         if not os.path.isdir(dir_):
             os.mkdir(dir_)
-        np.savez(output, mean=img_mean, std=img_mean)
+        np.savez(output, mean=img_mean, sigma=img_sigma)
 
 
 class CrawlerThread(QThread):

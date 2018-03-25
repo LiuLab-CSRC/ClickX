@@ -9,8 +9,10 @@ def read_image(filepath, frame=0, h5_obj=None, dataset=None):
     ext = filepath.split('.')[-1]
     if ext == 'npy':
         data = np.load(filepath)
-    elif ext  == 'npz':
+    elif ext == 'npz':
         data = np.load(filepath)[dataset]
+        if len(data.shape) == 3:
+            data = data[frame]
     elif ext in ('h5', 'cxi'):
         if len(h5_obj[dataset].shape) == 3:
             data = h5_obj[dataset][frame]
