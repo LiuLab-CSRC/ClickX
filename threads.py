@@ -75,28 +75,30 @@ class CrawlerThread(QThread):
             # check data from h5 lst
             job_list = []
             lst_files = glob('%s/h5_lst/*.lst' % self.workdir)
-            total_frames = 0
-            total_hits = {}
+            total_raw_frames = 0
+            total_processed_frames = {}
+            total_processed_hits = {}
             for lst_file in lst_files:
                 time1 = os.path.getmtime(lst_file)
                 job_name = os.path.basename(lst_file).split('.')[0]
                 # check h52cxi status
                 cxi_raw = os.path.join(self.workdir, 'cxi_raw', job_name)
                 h52cxi = 'ready'
-                raw_frames = 0
-                hits = 0
                 hit_rate = 0
                 comp_ratio = 0
+                raw_frames = 0
                 if os.path.isdir(cxi_raw):
                     stat_file = os.path.join(cxi_raw, 'stat.yml')
                     if os.path.exists(stat_file):
                         with open(stat_file, 'r') as f:
                             stat = yaml.load(f)
-                            h52cxi = stat['progress']
-                            raw_frames = stat['total frames']
-                            comp_ratio = stat['compression ratio']
+                            if stat is None:
+                                stat = {}
+                            h52cxi = stat.get('progress', '0')
+                            raw_frames = stat.get('total frames', 0)
+                            comp_ratio = stat.get('compression ratio', 0)
                             if raw_frames is not None:
-                                total_frames += raw_frames
+                                total_raw_frames += raw_frames
                 # check cxi lst status
                 cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % job_name)
                 if os.path.exists(cxi_lst):
@@ -110,6 +112,8 @@ class CrawlerThread(QThread):
                 if len(hit_tags) == 0:
                     tag = ''
                     time2 = math.inf
+                    processed_frames = 0
+                    processed_hits = 0
                     job_list.append(
                         {
                             'job': job_name,
@@ -117,7 +121,8 @@ class CrawlerThread(QThread):
                             'h52cxi': h52cxi,
                             'hit finding': hit_finding,
                             'raw frames': raw_frames,
-                            'hits': hits,
+                            'processed frames': processed_frames,
+                            'processed hits': processed_hits,
                             'hit rate': hit_rate,
                             'compression ratio': comp_ratio,
                             'time1': time1,
@@ -129,23 +134,29 @@ class CrawlerThread(QThread):
                         tag_dir = os.path.join(
                             self.workdir, 'cxi_hit', job_name, tag
                         )
-                        progress_file = os.path.join(tag_dir, 'progress.txt')
-                        if os.path.exists(progress_file):
-                            with open(progress_file, 'r') as f:
-                                hit_finding = f.readline()
                         stat_file = os.path.join(tag_dir, 'stat.yml')
                         if os.path.exists(stat_file):
                             with open(stat_file, 'r') as f:
                                 stat = yaml.load(f)
-                            time2 = os.path.getmtime(stat_file)
-                            hits = stat['total hits']
-                            if tag in total_hits.keys():
-                                total_hits[tag] += hits
+                                if stat is None:
+                                    stat = {}
+                            time2 = stat.get('time start', math.inf)
+                            processed_hits = stat.get('processed hits', 0)
+                            processed_frames = stat.get('processed frames', 0)
+                            hit_finding = stat.get('progress', 0)
+                            if tag in total_processed_hits.keys():
+                                total_processed_hits[tag] += processed_hits
                             else:
-                                total_hits[tag] = hits
-                            hit_rate = stat['hit rate']
+                                total_processed_hits[tag] = processed_hits
+                            if tag in total_processed_frames.keys():
+                                total_processed_frames[tag] += processed_frames
+                            else:
+                                total_processed_frames[tag] = processed_frames
+                            hit_rate = stat.get('hit rate')
                         else:
                             time2 = math.inf
+                            processed_frames = 0
+                            processed_hits = 0
                         job_list.append(
                             {
                                 'job': job_name,
@@ -153,7 +164,8 @@ class CrawlerThread(QThread):
                                 'h52cxi': h52cxi,
                                 'hit finding': hit_finding,
                                 'raw frames': raw_frames,
-                                'hits': hits,
+                                'processed hits': processed_hits,
+                                'processed frames': processed_frames,
                                 'hit rate': hit_rate,
                                 'compression ratio': comp_ratio,
                                 'time1': time1,
@@ -172,8 +184,9 @@ class CrawlerThread(QThread):
 
             # check stat
             stat = {
-                'total frames': total_frames,
-                'total hits': total_hits,
+                'total raw frames': total_raw_frames,
+                'total processed frames': total_processed_frames,
+                'total processed hits': total_processed_hits,
             }
             self.stat.emit(stat)
             time.sleep(5)
