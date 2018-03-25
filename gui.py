@@ -40,15 +40,16 @@ class GUI(QMainWindow):
         )
 
         # setup layout
-        loadUi('ui/gui.ui', self)
+        dir_ = os.path.dirname(__file__)
+        loadUi('%s/ui/gui.ui' % dir_, self)
         self.info_panel.setMaximumBlockCount(self.max_info)
         self.inspector = QDialog()
         self.inspector.setWindowFlags(self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
-        loadUi('ui/inspector.ui', self.inspector)
+        loadUi('%s/ui/inspector.ui' % dir_, self.inspector)
         self.dataset_diag = QDialog()
-        loadUi('ui/dataset_diag.ui', self.dataset_diag)
+        loadUi('%s/ui/dataset_diag.ui' % dir_, self.dataset_diag)
         self.mean_diag = QDialog()
-        loadUi('ui/mean_std.ui', self.mean_diag)
+        loadUi('%s/ui/mean_std.ui' % dir_, self.mean_diag)
 
         self.job_win = JobWindow(
             workdir=self.workdir, h5_dataset=self.h5_dataset,
