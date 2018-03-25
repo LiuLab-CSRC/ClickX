@@ -218,8 +218,9 @@ class ConversionThread(QThread):
         cxi_dataset = self.cxi_dataset
         cxi_dir = os.path.join(workdir, 'cxi_raw', job)
         cxi_lst_dir = os.path.join(workdir, 'cxi_lst')
-        shell_script = './scripts/run_h52cxi_local'
-        python_script = './batch_h52cxi.py'
+        dir_ = os.path.dirname(__file__)
+        shell_script = '%s/scripts/run_h52cxi_local' % dir_
+        python_script = '%s/batch_h52cxi.py' % dir_
         cxi_size = str(self.cxi_size)
         cxi_dtype = str(self.cxi_dtype)
         subprocess.run(
@@ -253,8 +254,9 @@ class HitFindingThread(QThread):
         cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % self.job)
         conf = self.conf
         hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
-        shell_script = './scripts/run_hit_finding_local'
-        python_script = './batch_hit_finding.py'
+        dir_ = os.path.dirname(__file__)
+        shell_script = '%s/scripts/run_hit_finding_local' % dir_
+        python_script = '%s/batch_hit_finding.py' % dir_
         cxi_size = str(self.cxi_size)
         cxi_dtype = str(self.cxi_dtype)
         subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir,

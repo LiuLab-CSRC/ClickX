@@ -126,6 +126,9 @@ class JobWindow(QWidget):
             self.conv_thread.start()
         elif action == action_hit_finding:
             curr_id = self.hit_finding_conf.currentIndex()
+            if curr_id == -1:
+                print('No valid conf available!')
+                return
             conf = self.hit_finding_conf.itemData(curr_id)
             tag = self.hit_finding_conf.itemText(curr_id)
             self.hit_finding_thread = HitFindingThread(
