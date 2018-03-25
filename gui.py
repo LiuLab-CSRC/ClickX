@@ -40,7 +40,7 @@ class GUI(QMainWindow):
         )
 
         # setup layout
-        dir_ = os.path.dirname(__file__)
+        dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/gui.ui' % dir_, self)
         self.info_panel.setMaximumBlockCount(self.max_info)
         self.inspector = QDialog()

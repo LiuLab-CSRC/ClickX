@@ -18,7 +18,7 @@ class JobWindow(QWidget):
                  header_labels=None):
         super(JobWindow, self).__init__(parent)
         # setup ui
-        dir_ = os.path.dirname(__file__)
+        dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/jobs.ui' % dir_, self)
         if workdir is None:
             self.workdir = dirname(abspath(__file__))
