@@ -565,6 +565,7 @@ class GUI(QMainWindow):
             for item in items:
                 row = self.file_list.row(item)
                 self.file_list.takeItem(row)
+                self.curr_files.remove(item.data(1))
                 self.add_info('Remove %s' % item.data(1))
 
         self.update_display()
