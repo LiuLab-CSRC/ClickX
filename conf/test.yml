@@ -1,0 +1,29 @@
+# test conf for old LCLS data
+
+# work directory
+work dir: "/Volumes/LaCie/data/test"
+
+# visualization
+peak size: 10
+
+# data conversion from h5 to cxi
+cxi dtype: "int16"
+cxi size: 200  # consume ~0.8G memory each process
+h5 dataset: "data/rawdata0"
+cxi dataset: "data"
+
+# main window
+default dataset: "data/rawdata0"
+max info: 1000   # show up to 10k lines for info panel
+
+# job window
+header labels:
+  - "job"
+  - "h52cxi"
+  - "compression ratio"
+  - "raw frames"
+  - "tag"
+  - "hit finding"
+  - 'processed frames'
+  - "processed hits"
+  - "hit rate"
