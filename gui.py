@@ -425,14 +425,10 @@ class GUI(QMainWindow):
         selected_items = self.file_list.selectedItems()
         nb_frame = 0
         for item in selected_items:
+            filepath = item.data(1)
             try:
-                filepath = item.data(1)
-                f = h5py.File(filepath, 'r')
-                shape = f[dataset].shape
-                if len(shape) == 3:
-                    nb_frame += shape[0]
-                else:
-                    nb_frame += 1
+                data_shape = get_data_shape(filepath)
+                nb_frame += data_shape[dataset][0]
             except IOError:
                 self.add_info('Failed to open %s' % filepath)
                 pass
@@ -461,10 +457,7 @@ class GUI(QMainWindow):
         elif action == action_select_and_load_dataset:
             data_shape = get_data_shape(filepath)
             dataset = self.select_dataset(filepath)
-            if data_shape[dataset] == 3:
-                self.nb_frame = data_shape[dataset][0]
-            else:
-                self.nb_frame = 1
+            self.nb_frame = data_shape[dataset][0]
             if filepath.split('.')[-1] in ('cxi', 'h5'):
                 self.h5_obj = h5py.File(filepath, 'r')
             self.file = filepath
@@ -477,9 +470,9 @@ class GUI(QMainWindow):
         elif action == action_calc_mean_std:
             combo_box = self.mean_diag.combo_box
             combo_box.clear()
-            data_info = get_h5_info(filepath)
-            for i in range(len(data_info)):
-                combo_box.addItem(str(data_info[i]['key']))
+            data_shape = get_data_shape(filepath)
+            for dataset, shape in data_shape.items():
+                combo_box.addItem(dataset)
             self.mean_diag.progress_bar.setValue(0)
             self.mean_diag.exec_()
         elif action == action_del_file:
@@ -673,8 +666,8 @@ class GUI(QMainWindow):
     def select_dataset(self, filepath):
         combo_box = self.dataset_diag.combo_box
         combo_box.clear()
-        data_info = get_data_shape(filepath)
-        for dataset, shape in data_info.items():
+        data_shape = get_data_shape(filepath)
+        for dataset, shape in data_shape.items():
             combo_box.addItem('%s  %s' % (dataset, shape), userData=dataset)
         if self.dataset_diag.exec_() == QDialog.Accepted:
             id_select = combo_box.currentIndex()

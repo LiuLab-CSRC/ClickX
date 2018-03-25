@@ -169,7 +169,10 @@ def get_data_shape(filepath):
         data = np.load(filepath)
         keys = data.keys()
         for key in keys:
-            if len(data[key].shape) in (2, 3):
+            if len(data[key].shape) == 2:
+                x, y = data[key].shape
+                data_shape[key] = (1, x, y)
+            elif len(data[key].shape) == 3:
                 data_shape[key] = data[key].shape
     else:
         print('Unsupported file type: %s' % filepath)

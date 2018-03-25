@@ -9,6 +9,7 @@ import subprocess
 import math
 import operator
 from settings import settings
+from util import *
 
 
 class CalcMeanThread(QThread):
@@ -27,35 +28,23 @@ class CalcMeanThread(QThread):
 
     def run(self):
         count = 0
-        for f in self.files:
-            try:
-                data = h5py.File(f, 'r')[self.dataset]
-            except IOError:
-                print('Failed to load %s' % f)
-                continue
-            if len(data.shape) == 3:
-                n = data.shape[0]
-                for i in range(n):
-                    if count == 0:
-                        img_mean = data[0].astype(np.float32)
-                        count += 1
-                    else:
-                        img_mean += (data[i] - img_mean) / count
-                        count += 1
-                        ratio = count * 100. / self.max_frame
-                        self.update_progress.emit(ratio)
-                        if count == self.max_frame:
-                            break
+        for filepath in self.files:
+            ext = filepath.split('.')[-1]
+            if ext in ('cxi', 'h5'):
+                h5_obj = h5py.File(filepath, 'r')
             else:
+                h5_obj = None
+            data_shape = get_data_shape(filepath)
+            for i in range(data_shape[self.dataset][0]):
+                img = read_image(filepath, frame=i, h5_obj=h5_obj, dataset=self.dataset).astype(np.float32)
                 if count == 0:
-                    img_mean = data.value.astype(np.float32)
-                    count += 1
+                    img_mean = img
                 else:
-                    img_mean += (data.value - img_mean) / count
-                    count += 1
-                    ratio = count * 100. / self.max_frame
-                    self.update_progress.emit(ratio)
-                if count >= self.max_frame:
+                    img_mean += (img - img_mean) / count
+                count += 1
+                ratio = count * 100. / self.max_frame
+                self.update_progress.emit(ratio)
+                if count == self.max_frame:
                     break
             if count >= self.max_frame:
                 break
