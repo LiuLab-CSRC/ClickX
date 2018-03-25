@@ -13,22 +13,35 @@ from PyQt5.QtWidgets import QDialog, QFileDialog, QMenu
 from PyQt5.QtWidgets import QListWidgetItem, QTableWidgetItem
 from PyQt5.uic import loadUi
 
-from util import *
+from skimage.morphology import disk, binary_dilation, binary_erosion
 from threads import *
+from util import *
 from settings import get_settings
 from job_win import JobWindow
 import yaml
 from datetime import datetime
 
 
-
 class GUI(QMainWindow):
     def __init__(self, *args):
         super(GUI, self).__init__(*args)
+        # settings
+        self.workdir = settings.get('work dir', os.path.dirname(__file__))
+        self.peak_size = settings.get('peak size', 10)
+        self.dataset_def = settings.get('default dataset', '')
+        self.cxi_dtype = settings.get('cxi dtype', 'int32')
+        self.cxi_size = settings.get('cxi size', '100')
+        self.h5_dataset = settings.get('h5 dataset', None)
+        self.cxi_dataset = settings.get('cxi dataset', None)
+        self.max_info = settings.get('max info', 1000)
+        self.header_labels = settings.get(
+            'header labels',
+            ['job', 'h52cxi', 'compression ratio', 'tag', 'hit finding', 'raw frames', 'hits', 'hit rate']
+        )
 
         # setup layout
         loadUi('ui/gui.ui', self)
-        self.info_panel.setMaximumBlockCount(settings.get('max info', 1000))
+        self.info_panel.setMaximumBlockCount(self.max_info)
         self.inspector = QDialog()
         self.inspector.setWindowFlags(self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
         loadUi('ui/inspector.ui', self.inspector)
@@ -36,7 +49,12 @@ class GUI(QMainWindow):
         loadUi('ui/dataset_diag.ui', self.dataset_diag)
         self.mean_diag = QDialog()
         loadUi('ui/mean_std.ui', self.mean_diag)
-        self.job_win = JobWindow()
+
+        self.job_win = JobWindow(
+            workdir=self.workdir, h5_dataset=self.h5_dataset,
+            cxi_dataset=self.cxi_dataset, header_labels=self.header_labels,
+            cxi_size=self.cxi_size, cxi_dtype=self.cxi_dtype,
+        )
 
         self.gradient_view.hide()
         self.calib_mask_view.hide()
@@ -47,14 +65,13 @@ class GUI(QMainWindow):
         )
         self.setAcceptDrops(True)
 
+        self.show_file_list = True
         self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz')
-        self.workdir = settings.get('work dir', os.path.dirname(__file__))
         self.curr_files = []
         self.mask_file = None
         self.file = None
         self.h5_obj = None
         self.dataset = None
-        self.dataset_def = settings.get('default dataset', '')
         self.nb_frame = 0
         self.frame = 0
 
@@ -77,6 +94,9 @@ class GUI(QMainWindow):
         self.center = np.array([0., 0.])
         self.calib_mask_threshold = 0
         self.ring_radii = np.array([])
+        self.erosion1_size = 0
+        self.dilation_size = 0
+        self.erosion2_size = 0
 
         self.img = None  # raw image
         self.img2 = None  # gradient image
@@ -87,7 +107,6 @@ class GUI(QMainWindow):
         self.strong_peak_item = pg.ScatterPlotItem()
         self.center_item = pg.ScatterPlotItem()
         self.ring_item = pg.ScatterPlotItem()
-        self.peak_size = settings.get('peak size', 10)
 
         # threads
         self.calc_mean_thread = None
@@ -128,22 +147,30 @@ class GUI(QMainWindow):
 
         # hit finder parameter tree
         hit_finder_params = [
-                {'name': 'hit finding on', 'type': 'bool',
-                    'value': self.hit_finding_on},
-                {'name': 'mask on', 'type': 'bool',
-                    'value': self.mask_on},
-                {'name': 'gaussian filter sigma', 'type': 'float',
-                 'value': self.gaussian_sigma},
-                {'name': 'min peak num', 'type': 'int',
-                    'value': self.min_peak_num},
-                {'name': 'max peak num', 'type': 'int',
-                    'value': self.max_peak_num},
-                {'name': 'min gradient', 'type': 'float',
-                 'value': self.min_gradient},
-                {'name': 'min distance', 'type': 'int',
-                 'value': self.min_distance},
-                {'name': 'min snr', 'type': 'float',
-                 'value': self.min_snr},
+                {
+                    'name': 'hit finding on', 'type': 'bool', 'value': self.hit_finding_on
+                },
+                {
+                    'name': 'mask on', 'type': 'bool', 'value': self.mask_on
+                },
+                {
+                    'name': 'gaussian filter sigma', 'type': 'float', 'value': self.gaussian_sigma
+                },
+                {
+                    'name': 'min peak num', 'type': 'int', 'value': self.min_peak_num
+                },
+                {
+                    'name': 'max peak num', 'type': 'int', 'value': self.max_peak_num
+                },
+                {
+                    'name': 'min gradient', 'type': 'float', 'value': self.min_gradient
+                },
+                {
+                    'name': 'min distance', 'type': 'int', 'value': self.min_distance
+                },
+                {
+                    'name': 'min snr', 'type': 'float','value': self.min_snr
+                },
         ]
         self.hit_finder_params = Parameter.create(
             name='hit finder parameters',
@@ -157,24 +184,31 @@ class GUI(QMainWindow):
         # calib parameter tree
         calib_mask_params = [
             {
-                'name': 'show center', 'type': 'bool',
-                'value': self.show_center,
+                'name': 'show center', 'type': 'bool', 'value': self.show_center,
             },
             {
-                'name': 'threshold', 'type': 'float',
-                'value': self.calib_mask_threshold,
+                'name': 'threshold', 'type': 'float', 'value': self.calib_mask_threshold,
             },
             {
-                'name': 'center x', 'type': 'float',
-                'value': self.center[0]
+                'name': 'center x', 'type': 'float', 'value': self.center[0]
             },
             {
-                'name': 'center y', 'type': 'float',
-                'value': self.center[1]
+                'name': 'center y', 'type': 'float', 'value': self.center[1]
             },
             {
-                'name': 'radii of rings', 'type': 'str',
-                'value': ''
+                'name': 'radii of rings', 'type': 'str', 'value': ''
+            },
+            {
+                'name': 'erosion1 size', 'type': 'int', 'value': self.erosion1_size
+            },
+            {
+                'name': 'dilation size', 'type': 'int', 'value': self.dilation_size
+            },
+            {
+                'name': 'erosion2 size', 'type': 'int', 'value': self.erosion2_size
+            },
+            {
+                'name': 'save mask', 'type': 'action'
             }
         ]
         self.calib_mask_params = Parameter.create(
@@ -195,6 +229,9 @@ class GUI(QMainWindow):
         )
         self.action_show_gradient_view.triggered.connect(
             self.show_or_hide_gradient_view
+        )
+        self.action_test.triggered.connect(
+            self.show_or_hide_file_list
         )
         self.action_show_calib_mask_view.triggered.connect(
             self.show_or_hide_calib_mask_view
@@ -230,6 +267,18 @@ class GUI(QMainWindow):
         self.calib_mask_params.param(
             'radii of rings'
         ).sigValueChanged.connect(self.change_ring_radii)
+        self.calib_mask_params.param(
+            'erosion1 size'
+        ).sigValueChanged.connect(self.change_erosion1_size)
+        self.calib_mask_params.param(
+            'dilation size'
+        ).sigValueChanged.connect(self.change_dilation_size)
+        self.calib_mask_params.param(
+            'erosion2 size'
+        ).sigValueChanged.connect(self.change_erosion2_size)
+        self.calib_mask_params.param(
+            'save mask'
+        ).sigActivated.connect(self.save_mask)
 
         # file lists, image views
         self.raw_view.scene.sigMouseMoved.connect(
@@ -276,7 +325,7 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def save_conf(self):
         filepath, _ = QFileDialog.getSaveFileName(
-            self, "Save Hit Finding Conf File", "", "Yaml Files (*.yml)")
+            self, "Save Hit Finding Conf File", self.workdir, "Yaml Files (*.yml)")
         if len(filepath) == 0:
             return
         conf_dict = {
@@ -370,6 +419,16 @@ class GUI(QMainWindow):
             self.inspector.hide()
 
     @pyqtSlot()
+    def show_or_hide_file_list(self):
+        self.show_file_list = not self.show_file_list
+        if self.show_file_list:
+            self.action_test.setText('Hide file list')
+            self.file_list_frame.show()
+        else:
+            self.action_test.setText('Show file list')
+            self.file_list_frame.hide()
+
+    @pyqtSlot()
     def show_job_table(self):
         self.job_win.showMaximized()
         job_table = self.job_win.job_table
@@ -406,7 +465,8 @@ class GUI(QMainWindow):
 
     @pyqtSlot()
     def choose_dir(self):
-        dir_ = QFileDialog.getExistingDirectory(self, "Choose directory", "")
+        curr_dir = self.mean_diag.output_dir.text()
+        dir_ = QFileDialog.getExistingDirectory(self, "Choose directory", curr_dir)
         self.mean_diag.output_dir.setText(dir_)
 
     @pyqtSlot(float)
@@ -444,10 +504,9 @@ class GUI(QMainWindow):
         filepath = item.data(1)
         ext = filepath.split('.')[-1]
         action_set_as_mask = menu.addAction('set as mask')
-        action_select_and_load_dataset = menu.addAction(
-            'select and load dataset'
-        )
+        action_select_and_load_dataset = menu.addAction('select and load dataset')
         action_calc_mean_std = menu.addAction('calculate mean/sigma')
+        action_multiply_masks = menu.addAction('multiply masks')
         menu.addSeparator()
         action_del_file = menu.addAction('delete file(s)')
         action = menu.exec_(self.file_list.mapToGlobal(pos))
@@ -484,6 +543,22 @@ class GUI(QMainWindow):
             self.mean_diag.output_dir.setText(output_dir)
             self.mean_diag.progress_bar.setValue(0)
             self.mean_diag.exec_()
+        elif action == action_multiply_masks:
+            items = self.file_list.selectedItems()
+            mask_files = []
+            for item in items:
+                filepath = item.data(1)
+                if filepath.split('.')[-1] == 'npy':
+                    mask_files.append(filepath)
+            if len(mask_files) == 0:
+                return
+            save_file, _ = QFileDialog.getSaveFileName(self, "Save mask", self.workdir, "npy file(*.npy)")
+            if len(save_file) == 0:
+                return
+            mask = multiply_masks(mask_files)
+            np.save(save_file, mask)
+            self.add_info('Making mask %s from %s' % str(save_file, mask_files))
+
         elif action == action_del_file:
             items = self.file_list.selectedItems()
             for item in items:
@@ -617,6 +692,35 @@ class GUI(QMainWindow):
         self.ring_radii = np.array(list(map(float, radii_str.split(','))))
         self.update_display()
 
+    @pyqtSlot(object, object)
+    def change_erosion1_size(self, _, size):
+        self.erosion1_size = size
+        self.change_image()
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_dilation_size(self, _, size):
+        self.dilation_size = size
+        self.change_image()
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_erosion2_size(self, _, size):
+        self.erosion2_size = size
+        self.change_image()
+        self.update_display()
+
+    @pyqtSlot()
+    def save_mask(self):
+        if self.img3 is None:
+            self.add_info('No mask image available')
+        else:
+            filepath, _ = QFileDialog.getSaveFileName(self, "Save mask to", self.workdir, "npy file(*.npy)")
+            if len(filepath) == 0:
+                return
+            np.save(filepath, self.img3)
+            self.add_info('Mask saved to %s' % filepath)
+
 # hit finder slots
     @pyqtSlot(object, object)
     def apply_mask(self, _, mask_on):
@@ -692,14 +796,23 @@ class GUI(QMainWindow):
             self.file, frame=self.frame,
             h5_obj=self.h5_obj, dataset=self.dataset
         ).astype(np.float32)
-        # smoothed gradient image
         if self.gaussian_sigma > 0:
-            self.img2 = gaussian_filter(self.img, self.gaussian_sigma)
+            img2 = gaussian_filter(self.img, self.gaussian_sigma)
         else:
-            self.img2 = self.img.copy()
-        grad = np.gradient(self.img2.astype(np.float32))
+            img2 = self.img.copy()
+        grad = np.gradient(img2.astype(np.float32))
         self.img2 = np.sqrt(grad[0] ** 2. + grad[1] ** 2.)
-        self.img3 = (self.img > self.calib_mask_threshold).astype(np.int)
+        img3 = (self.img > self.calib_mask_threshold).astype(np.int)
+        if self.erosion1_size > 0:
+            selem = disk(self.erosion1_size)
+            img3 = binary_erosion(img3, selem)
+        if self.dilation_size > 0:
+            selem = disk(self.dilation_size)
+            img3 = binary_dilation(img3, selem)
+        if self.erosion2_size > 0:
+            selem = disk(self.erosion2_size)
+            img3 = binary_erosion(img3, selem)
+        self.img3 = img3
 
     def update_display(self):
         if self.img is None:

@@ -125,6 +125,7 @@ def master_run(args):
         if job_id % update_freq == 0:
             progress = float(job_id) / total_jobs * 100
             stat_dict = {
+                'time start': time_start,
                 'progress': '%.2f%%' % progress,
                 'duration/sec': 'not finished',
                 'total frames': total_frame,
@@ -184,13 +185,14 @@ def master_run(args):
 
     compression_ratio = float(h5_raw_size) / float(cxi_raw_size)
     stat_dict = {
+        'time start': time_start,
         'progress': 'done',
         'duration/sec': duration,
         'total frames': total_frame,
         'total jobs': total_jobs,
         'h5 raw size': h5_raw_size,
         'cxi raw size': cxi_raw_size,
-        'compression ratio': compression_ratio,
+        'compression ratio': '%.2f' % compression_ratio,
     }
     
     stat_file = os.path.join(cxi_dir, 'stat.yml')

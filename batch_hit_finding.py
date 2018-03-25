@@ -115,9 +115,25 @@ def master_run(args):
                     comm.isend(stop, dest=slave)
                     print('stop signal sent to %d' % slave)
         if job_id % update_freq == 0:
+            # update stat
             progress = float(job_id) / total_jobs * 100
-            with open(progress_file, 'w') as f:
-                f.write(str(progress))
+            df = pd.DataFrame(results)
+            nb_hits = len(df['nb_peak'] > min_peak)
+            nb_frames = len(df)
+            hit_rate = float(nb_hits) / nb_frames * 100.
+            stat_dict = {
+                'progress': '%.2f%%' % progress,
+                'processed hits': nb_hits,
+                'hit rate': hit_rate,
+                'duration/sec': 'not finished',
+                'processed frames': nb_frames,
+                'total jobs': total_jobs,
+                'time start': time_start,
+            }
+            stat_file = os.path.join(hit_dir, 'stat.yml')
+            with open(stat_file, 'w') as f:
+                yaml.dump(stat_dict, f, default_flow_style=False)
+            print('stat info updated')
 
     all_done = False
     while not all_done:
@@ -142,15 +158,17 @@ def master_run(args):
     df = pd.DataFrame(results)
     df.to_csv(csv_file)
 
-    total_hits = len(df['nb_peak'] > min_peak)
-    total_frame = len(df)
-    hit_rate = float(total_hits) / total_frame * 100.
+    nb_hits = len(df['nb_peak'] > min_peak)
+    nb_frames = len(df)
+    hit_rate = float(nb_hits) / nb_frames * 100.
     stat_dict = {
-        'duration/sec': duration,
-        'total frames': len(results),
-        'total jobs': total_jobs,
-        'total hits': total_hits,
+        'progress': 'done',
+        'processed hits': nb_hits,
         'hit rate': hit_rate,
+        'duration/sec': duration,
+        'processed frames': nb_frames,
+        'total jobs': total_jobs,
+        'time start': time_start,
     }
     stat_file = os.path.join(hit_dir, 'stat.yml')
     with open(stat_file, 'w') as f:
@@ -175,7 +193,6 @@ def slave_run(args):
     else:
         mask = None
     max_pean_num = conf['max peak num']
-    min_peak_num = conf['min peak num']
     min_distance = conf['min distance']
     min_gradient = conf['min gradient']
     min_snr = conf['min snr']
@@ -198,8 +215,10 @@ def slave_run(args):
                                     min_gradient=min_gradient,
                                     max_peaks=max_pean_num,
                                     min_snr=min_snr)
-            print(peaks_dict)
-            job[i]['nb_peak'] = len(peaks_dict['strong'])
+            if peaks_dict['strong'] is not None:
+                job[i]['nb_peak'] = len(peaks_dict['strong'])
+            else:
+                job[i]['nb_peak'] = 0
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
 
