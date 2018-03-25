@@ -161,9 +161,6 @@ def master_run(args):
     duration = time_end - time_start
     
     # save results
-    with open(progress_file, 'w') as f:
-        f.write('done')
-
     csv_file = os.path.join(hit_dir, '%s.csv' % cxi_prefix)
     df = pd.DataFrame(results)
     df.to_csv(csv_file)
