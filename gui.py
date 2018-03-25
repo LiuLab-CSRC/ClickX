@@ -15,13 +15,11 @@ from PyQt5.uic import loadUi
 
 from util import *
 from threads import *
-from settings import settings
+from settings import get_settings
 from job_win import JobWindow
 import yaml
 from datetime import datetime
 
-
-PEAK_SIZE = int(settings.get('peak size', 10))
 
 
 class GUI(QMainWindow):
@@ -50,6 +48,7 @@ class GUI(QMainWindow):
         self.setAcceptDrops(True)
 
         self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz')
+        self.workdir = settings.get('work dir', os.path.dirname(__file__))
         self.curr_files = []
         self.mask_file = None
         self.file = None
@@ -88,6 +87,7 @@ class GUI(QMainWindow):
         self.strong_peak_item = pg.ScatterPlotItem()
         self.center_item = pg.ScatterPlotItem()
         self.ring_item = pg.ScatterPlotItem()
+        self.peak_size = settings.get('peak size', 10)
 
         # threads
         self.calc_mean_thread = None
@@ -473,6 +473,8 @@ class GUI(QMainWindow):
             data_shape = get_data_shape(filepath)
             for dataset, shape in data_shape.items():
                 combo_box.addItem(dataset)
+            output_dir = os.path.join(self.workdir, 'mean')
+            self.mean_diag.output_dir.setText(output_dir)
             self.mean_diag.progress_bar.setValue(0)
             self.mean_diag.exec_()
         elif action == action_del_file:
@@ -728,14 +730,14 @@ class GUI(QMainWindow):
                     '%d peaks remaining after mask cleaning' % len(peaks_dict['valid'])
                 )
                 self.peak_item.setData(
-                    pos=valid_peaks + 0.5, symbol='x', size=PEAK_SIZE,
+                    pos=valid_peaks + 0.5, symbol='x', size=self.peak_size,
                     pen='r', brush=(255, 255, 255, 0)
                 )
             # refine peak position
             opt_peaks = peaks_dict['opt']
             if opt_peaks is not None:
                 self.opt_peak_item.setData(
-                    pos=opt_peaks + 0.5, symbol='+', size=PEAK_SIZE,
+                    pos=opt_peaks + 0.5, symbol='+', size=self.peak_size,
                     pen='y', brush=(255, 255, 255, 0)
                 )
             # filtering weak peak
@@ -744,7 +746,7 @@ class GUI(QMainWindow):
                 self.add_info('%d strong peaks' % (len(strong_peaks)))
                 if len(strong_peaks) > 0:
                     self.strong_peak_item.setData(
-                        pos=strong_peaks + 0.5, symbol='o', size=PEAK_SIZE,
+                        pos=strong_peaks + 0.5, symbol='o', size=self.peak_size,
                         pen='g', brush=(255, 255, 255, 0))
         if self.show_view3:
             self.calib_mask_view.setImage(
@@ -811,6 +813,13 @@ class GUI(QMainWindow):
 
 
 def main():
+    global settings
+    if len(sys.argv) > 1:
+        settings = get_settings(sys.argv[1])
+        print('using setting from %s' % sys.argv[1])
+    else:
+        settings = get_settings()
+        print('using default settings')
     app = QApplication(sys.argv)
     win = GUI()
     win.setWindowTitle('SFX Suite')

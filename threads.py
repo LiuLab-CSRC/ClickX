@@ -8,7 +8,6 @@ import yaml
 import subprocess
 import math
 import operator
-from settings import settings
 from util import *
 
 
@@ -54,6 +53,9 @@ class CalcMeanThread(QThread):
             output = 'output.npz'
         else:
             output = self.output
+        dir_ = os.path.dirname((output))
+        if not os.path.isdir(dir_):
+            os.mkdir(dir_)
         np.savez(output, mean=img_mean, std=img_mean)
 
 
@@ -171,12 +173,16 @@ class ConversionThread(QThread):
                  workdir=None,
                  job=None,
                  h5_dataset=None,
-                 cxi_dataset=None):
+                 cxi_dataset=None,
+                 cxi_size=1000,
+                 cxi_dtype='int32'):
         super(ConversionThread, self).__init__(parent)
         self.workdir = workdir
         self.job = job
         self.h5_dataset = h5_dataset
         self.cxi_dataset = cxi_dataset
+        self.cxi_size = cxi_size
+        self.cxi_dtype = cxi_dtype
 
     def run(self):
         workdir = self.workdir
@@ -188,8 +194,8 @@ class ConversionThread(QThread):
         cxi_lst_dir = os.path.join(workdir, 'cxi_lst')
         shell_script = './scripts/run_h52cxi_local'
         python_script = './batch_h52cxi.py'
-        cxi_size = str(settings.get('cxi size', 1000))
-        cxi_dtype = settings.get('cxi dtype', 'int32')
+        cxi_size = str(self.cxi_size)
+        cxi_dtype = str(self.cxi_dtype)
         subprocess.run(
             [
                 shell_script,  python_script,
