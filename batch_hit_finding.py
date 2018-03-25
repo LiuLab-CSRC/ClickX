@@ -191,13 +191,14 @@ def slave_run(args):
                 filepath = _filepath
                 h5_obj = h5py.File(filepath, 'r')
             image = read_image(filepath, frame=frame,
-                               h5_obj=h5_obj, h5_dataset=dataset)
+                               h5_obj=h5_obj, dataset=dataset)
             peaks_dict = find_peaks(image, mask=mask,
-                               gaussian_sigma=gaussian_sigma,
-                               min_distance=min_distance,
-                               min_gradient=min_gradient,
-                               max_peaks=max_pean_num,
-                               min_snr=min_snr)
+                                    gaussian_sigma=gaussian_sigma,
+                                    min_distance=min_distance,
+                                    min_gradient=min_gradient,
+                                    max_peaks=max_pean_num,
+                                    min_snr=min_snr)
+            print(peaks_dict)
             job[i]['nb_peak'] = len(peaks_dict['strong'])
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
