@@ -3,7 +3,7 @@
 """Compress raw data in h5/cxi format to compressed cxi files on multiple cores using MPI.
 
 Usage:
-   batch_compression.py <in-lst> <in-dataset> <out-dir> <out-lst-dir> [options]
+   batch_compressor.py <in-lst> <in-dataset> <out-dir> <out-lst-dir> [options]
 
 Options:
     -h --help                   Show this screen.
