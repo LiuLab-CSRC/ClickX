@@ -3,14 +3,14 @@
 """Compress raw data in h5/cxi format to compressed cxi files on multiple cores using MPI.
 
 Usage:
-   batch_compressor.py <in-lst> <in-dataset> <out-dir> <out-lst-dir> [options]
+   batch_compressor.py <raw-lst> <raw-dataset> <comp-dir> <comp-lst-dir> [options]
 
 Options:
     -h --help                   Show this screen.
     --compression COMP_FILTER   Specify compression filter [default: lzf].
-    --out-size SIZE             Specify max frame in a cxi file [default: 1000].
-    --out-dataset DATASET       Specify cxi dataset [default: data].
-    --out-dtype DATATYPE        Specify the datatype [default: auto].
+    --comp-size SIZE            Specify max frame in a compressed cxi file [default: 1000].
+    --comp-dataset DATASET      Specify dataset for patterns in compressed cxi file [default: data].
+    --comp-dtype DATATYPE       Specify datatype of patterns in compressed cxi file [default: auto].
     --shuffle SHUFFLE           Whether use shuffle filter in compression [default: True]. 
     --batch-size SIZE           Specify batch size in a job [default: 50].
     --buffer-size SIZE          Specify buffer size in MPI communication
@@ -67,27 +67,27 @@ def collect_jobs(files, dataset, batch_size):
 
 def master_run(args):
     # mkdir for output if not exist
-    out_dir = os.path.abspath(args['<out-dir>'])
-    out_lst_dir = os.path.abspath(args['<out-lst-dir>'])
-    if not os.path.isdir(out_dir):
-        os.makedirs(out_dir)
-    if not os.path.isdir(out_lst_dir):
-        os.makedirs(out_lst_dir)
-    # get all h5 files
-    in_lst = args['<in-lst>']
-    with open(in_lst) as f:
+    comp_dir = os.path.abspath(args['<comp-dir>'])
+    comp_lst_dir = os.path.abspath(args['<comp-lst-dir>'])
+    if not os.path.isdir(comp_dir):
+        os.makedirs(comp_dir)
+    if not os.path.isdir(comp_lst_dir):
+        os.makedirs(comp_lst_dir)
+    # get all raw data files
+    raw_lst = args['<raw-lst>']
+    with open(raw_lst) as f:
         _files = f.readlines()
     # remove trailing '/n'
     files = []
-    in_size = 0  # total size fo input files(raw data)
+    raw_size = 0  # total size fo input files(raw data)
     for f in _files:
         files.append(f[:-1])
-        in_size += os.path.getsize(f[:-1])
+        raw_size += os.path.getsize(f[:-1])
     # collect jobs
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
-    in_dataset = args['<in-dataset>']
-    jobs, nb_frames = collect_jobs(files, in_dataset, batch_size)
+    raw_dataset = args['<raw-dataset>']
+    jobs, nb_frames = collect_jobs(files, raw_dataset, batch_size)
     nb_jobs = len(jobs)
     time_start = time.time()
     print('%d frames, %d jobs to be processed' % (nb_frames, nb_jobs))
@@ -135,7 +135,7 @@ def master_run(args):
                 'compression ratio': 'not finished',
             }
 
-            stat_file = os.path.join(out_dir, 'stat.yml')
+            stat_file = os.path.join(comp_dir, 'stat.yml')
             with open(stat_file, 'w') as f:
                 yaml.dump(stat_dict, f, default_flow_style=False)
 
@@ -173,27 +173,27 @@ def master_run(args):
 
     # write compressed cxi file lst
     compressed_size = 0
-    prefix = os.path.basename(in_lst).split('.')[0]
-    out_lst_file = open(os.path.join(out_lst_dir, '%s.lst' % prefix), 'w')
-    out_files = glob('%s/*.cxi' % out_dir)
-    for out_file in out_files:
-        compressed_size += os.path.getsize(os.path.abspath(out_file))
-        out_lst_file.write('%s\n' % out_file)
-    out_lst_file.close()
+    prefix = os.path.basename(raw_lst).split('.')[0]
+    comp_lst_file = open(os.path.join(comp_lst_dir, '%s.lst' % prefix), 'w')
+    comp_files = glob('%s/*.cxi' % comp_dir)
+    for comp_file in comp_files:
+        compressed_size += os.path.getsize(os.path.abspath(comp_file))
+        comp_lst_file.write('%s\n' % comp_file)
+    comp_lst_file.close()
 
-    compression_ratio = float(in_size) / float(compressed_size)
+    compression_ratio = float(raw_size) / float(compressed_size)
     stat_dict = {
         'time start': time_start,
         'progress': 'done',
         'duration/sec': duration,
         'total frames': nb_frames,
         'total jobs': nb_jobs,
-        'raw size': in_size,
+        'raw size': raw_size,
         'compressed size': compressed_size,
         'compression ratio': '%.2f' % compression_ratio,
     }
     
-    stat_file = os.path.join(out_dir, 'stat.yml')
+    stat_file = os.path.join(comp_dir, 'stat.yml')
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
 
@@ -202,13 +202,13 @@ def master_run(args):
 
 def slave_run(args):
     stop = False
-    in_lst = args['<in-lst>']
-    out_dir = args['<out-dir>']
-    out_dataset = args['--out-dataset']
-    out_size = int(args['--out-size'])
+    in_lst = args['<raw-lst>']
+    comp_dir = args['<comp-dir>']
+    comp_dataset = args['--comp-dataset']
+    comp_size = int(args['--comp-size'])
     buffer_size = int(args['--buffer-size'])
     prefix = os.path.basename(in_lst).split('.')[0]
-    out_dtype = args['--out-dtype']
+    comp_dtype = args['--comp-dtype']
     if args['--shuffle'] == 'True':
         shuffle = True
     else:
@@ -221,11 +221,11 @@ def slave_run(args):
         job = comm.recv(buf=buffer_size, source=0)
         for i in range(len(job)):
             batch.append(job[i])
-            if len(batch) == out_size:
-                out_file = os.path.join(
-                    out_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
+            if len(batch) == comp_size:
+                comp_file = os.path.join(
+                    comp_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
                 )
-                save_cxi(batch, out_file, out_dataset, out_dtype=out_dtype, shuffle=shuffle)
+                save_cxi(batch, comp_file, comp_dataset, out_dtype=comp_dtype, shuffle=shuffle)
                 sys.stdout.flush()
                 batch.clear()
                 count += 1
@@ -233,10 +233,10 @@ def slave_run(args):
         stop = comm.recv(source=0)
     # save last cxi batch if not empty
     if len(batch) > 0:
-        out_file = os.path.join(
-            out_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
+        comp_file = os.path.join(
+            comp_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
         )
-        save_cxi(batch, out_file, out_dataset, out_dtype=out_dtype, shuffle=shuffle)
+        save_cxi(batch, comp_file, comp_dataset, out_dtype=comp_dtype, shuffle=shuffle)
         sys.stdout.flush()
     done = True
     comm.send(done, dest=0)
