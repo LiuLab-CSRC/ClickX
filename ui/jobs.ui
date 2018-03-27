@@ -73,12 +73,12 @@
           <item>
            <widget class="QLabel" name="label_2">
             <property name="text">
-             <string>H5 dataset:</string>
+             <string>raw dataset:</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="h5_dataset_lineedit">
+           <widget class="QLineEdit" name="raw_dataset_lineedit">
             <property name="text">
              <string>data/rawdata0</string>
             </property>
@@ -91,12 +91,12 @@
           <item>
            <widget class="QLabel" name="label_3">
             <property name="text">
-             <string>cxi dataset:</string>
+             <string>compressed dataset:</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="cxi_dataset_lineedit">
+           <widget class="QLineEdit" name="comp_dataset_lineedit">
             <property name="text">
              <string>data</string>
             </property>

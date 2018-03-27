@@ -11,10 +11,10 @@ from threads import *
 class JobWindow(QWidget):
     def __init__(self, parent=None,
                  workdir=None,
-                 h5_dataset=None,
-                 cxi_dataset=None,
-                 cxi_size=None,
-                 cxi_dtype=None,
+                 raw_dataset=None,
+                 comp_dataset=None,
+                 comp_size=None,
+                 comp_dtype=None,
                  header_labels=None):
         super(JobWindow, self).__init__(parent)
         # setup ui
@@ -24,16 +24,16 @@ class JobWindow(QWidget):
             self.workdir = dirname(abspath(__file__))
         else:
             self.workdir = workdir
-        self.h5_dataset = h5_dataset
-        self.cxi_dataset = cxi_dataset
+        self.raw_dataset = raw_dataset
+        self.comp_dataset = comp_dataset
         self.workdir_lineedit.setText(self.workdir)
-        self.h5_dataset_lineedit.setText(self.h5_dataset)
-        self.cxi_dataset_lineedit.setText(self.cxi_dataset)
+        self.raw_dataset_lineedit.setText(self.raw_dataset)
+        self.comp_dataset_lineedit.setText(self.comp_dataset)
         self.header_labels = header_labels
         self.job_table.setColumnCount(len(self.header_labels))
         self.job_table.setHorizontalHeaderLabels(self.header_labels)
-        self.cxi_size = cxi_size
-        self.cxi_dtype = cxi_dtype
+        self.comp_size = comp_size
+        self.comp_dtype = comp_dtype
 
         self.curr_conf = []
         self.crawler_running = False
@@ -119,10 +119,10 @@ class JobWindow(QWidget):
             self.compressor_thread = CompressorThread(
                 workdir=workdir,
                 job=job,
-                raw_dataset=self.h5_dataset_lineedit.text(),
-                comp_dataset=self.cxi_dataset_lineedit.text(),
-                comp_size=self.cxi_size,
-                comp_dtype=self.cxi_dtype,
+                raw_dataset=self.raw_dataset_lineedit.text(),
+                comp_dataset=self.comp_dataset_lineedit.text(),
+                comp_size=self.comp_size,
+                comp_dtype=self.comp_dtype,
             )
             self.compressor_thread.start()
         elif action == action_hit_finding:
@@ -137,10 +137,8 @@ class JobWindow(QWidget):
                 job=job,
                 conf=conf,
                 tag=tag,
-                cxi_size=self.cxi_size,
-                cxi_dtype=self.cxi_dtype,
             )
-            self.hit_finding_thread.start()
+            self.hit_finder_thread.start()
 
     def fill_table_row(self, row_dict, row):
         row_count = self.job_table.rowCount()

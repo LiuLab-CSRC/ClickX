@@ -6,11 +6,11 @@ work dir: "/Volumes/LaCie/data/test"
 # visualization
 peak size: 10
 
-# data conversion from h5 to cxi
-cxi dtype: "int16"
-cxi size: 200  # consume ~0.8G memory each process
-h5 dataset: "data/rawdata0"
-cxi dataset: "data"
+# data compression
+raw dataset: "data/rawdata0"
+compressed dtype: "auto"
+cxi size: 200  # number of frames in compressed cxi and hits files
+compressed dataset: "data"
 
 # main window
 default dataset: "data/rawdata0"

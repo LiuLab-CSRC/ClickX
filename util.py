@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import h5py
 import pandas as pd
+from tqdm import tqdm
 
 from skimage.feature import peak_local_max
 from scipy.ndimage.filters import gaussian_filter, convolve1d
@@ -307,3 +308,37 @@ def get_size(obj, seen=None):
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([get_size(i, seen) for i in obj])
     return size
+
+
+def collect_jobs(files, dataset, batch_size):
+    jobs = []
+    batch = []
+    frames = 0
+    print('collecting jobs...')
+    for i in tqdm(range(len(files))):
+        try:
+            shape = h5py.File(files[i], 'r')[dataset].shape
+            if len(shape) == 3:
+                nb_frame = shape[0]
+                for j in range(nb_frame):
+                    batch.append(
+                        {'filepath': files[i], 'dataset': dataset, 'frame': j}
+                    )
+                    frames += 1
+                    if len(batch) == batch_size:
+                        jobs.append(batch)
+                        batch = []
+            else:
+                batch.append(
+                    {'filepath': files[i], 'dataset': dataset, 'frame': 0}
+                )
+                frames += 1
+                if len(batch) == batch_size:
+                    jobs.append(batch)
+                    batch = []
+        except OSError:
+            print('Failed to load %s' % files[i])
+            pass
+    if len(batch) > 0:
+        jobs.append(batch)
+    return jobs, frames

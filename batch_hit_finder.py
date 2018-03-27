@@ -3,13 +3,11 @@
 """Run hit finding on multiple cores using MPI.
 
 Usage:
-   batch_hit_finding.py <list-file> <conf-file> <hit-dir> [options]
+   batch_hit_finder.py <cxi-lst> <conf-file> <hit-dir> [options]
 
 Options:
     -h --help               Show this screen.
     --batch-size SIZE       Specify batch size in a job [default: 50].
-    --cxi-size SIZE         Specify cxi size [default: 100].
-    --cxi-dtype DATATYPE    Specify cxi datatype [default: int32].
     --buffer-size SIZE      Specify buffer size in MPI communication
                             [default: 500000].
     --update-freq FREQ      Specify update frequency of progress [default: 10].
@@ -24,46 +22,15 @@ import os
 from docopt import docopt
 import yaml
 
-from util import find_peaks, read_image, csv2cxi
-import numpy as np
-
-import warnings
-warnings.filterwarnings("ignore")
-
-
-def collect_jobs(files, dataset, batch_size):
-    jobs = []
-    batch = []
-    total_frame = 0
-    for f in files:
-        try:
-            shape = h5py.File(f, 'r')[dataset].shape
-            if len(shape) == 3:
-                nb_frame = shape[0]
-                for i in range(nb_frame):
-                    batch.append({'filepath': f, 'frame': i})
-                    total_frame += 1
-                    if len(batch) == batch_size:
-                        jobs.append(batch)
-                        batch = []
-            else:
-                batch.append({'filepath': f, 'frame': 0})
-                total_frame += 1
-                if len(batch) == batch_size:
-                    jobs.append(batch)
-                    batch = []
-        except OSError:
-            pass
-    if len(batch) > 0:
-        jobs.append(batch)
-    return jobs, total_frame
+from util import find_peaks, read_image, collect_jobs
 
 
 def master_run(args):
+    # mkdir if not exist
     hit_dir = args['<hit-dir>']
     if not os.path.isdir(hit_dir):
         os.makedirs(hit_dir)
-    cxi_lst = args['<list-file>']
+    cxi_lst = args['<cxi-lst>']
     with open(cxi_lst) as f:
         _files = f.readlines()
     # remove trailing '/n'
@@ -78,22 +45,12 @@ def master_run(args):
     min_peak = conf['min peak num']
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
-    cxi_size = int(args['--cxi-size'])
-    if args['--cxi-dtype'] == 'int32':
-        dtype = np.int32
-    elif args['--cxi-dtype'] == 'int16':
-        dtype = np.int16
-    elif args['--cxi-dtype'] == 'uint16':
-        dtype = np.uint16
-    else:
-        print('Unsupported cxi datatype: %s' % args['--cxi-dtype'])
-        sys.exit()
-    jobs, total_frame = collect_jobs(files, dataset, batch_size)
-    total_jobs = len(jobs)
-    print('%d frames, %d jobs to be processed' % (total_frame, total_jobs))
+    jobs, nb_frames = collect_jobs(files, dataset, batch_size)
+    nb_jobs = len(jobs)
+    print('%d frames, %d jobs to be processed' % (nb_frames, nb_jobs))
 
     update_freq = int(args['--update-freq'])
-    cxi_prefix = os.path.basename(cxi_lst).split('.')[0]
+    prefix = os.path.basename(cxi_lst).split('.')[0]
 
     # distribute jobs
     job_id = 0
@@ -104,18 +61,18 @@ def master_run(args):
     for slave in slaves:
         comm.isend(jobs[job_id], dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d sent to %d' % (job_id, total_jobs, slave))
+        print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
         sys.stdout.flush()
         job_id += 1
-    while job_id < total_jobs:
+    while job_id < nb_jobs:
         stop = False
         time.sleep(0.1)  # take a break
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
                 results += result
-                if job_id < total_jobs:
-                    print('job %d/%d sent to %d' % (job_id, total_jobs, slave))
+                if job_id < nb_jobs:
+                    print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
                     sys.stdout.flush()
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
@@ -127,18 +84,18 @@ def master_run(args):
                     print('stop signal sent to %d' % slave)
         if job_id % update_freq == 0:
             # update stat
-            progress = float(job_id) / total_jobs * 100
+            progress = float(job_id) / nb_jobs * 100
             df = pd.DataFrame(results)
-            nb_hits = len(df[df['nb_peak'] >= min_peak])
-            nb_frames = len(df)
-            hit_rate = float(nb_hits) / nb_frames * 100.
+            processed_hits = len(df[df['nb_peak'] >= min_peak])
+            processed_frames = len(df)
+            hit_rate = float(processed_hits) / processed_frames * 100.
             stat_dict = {
                 'progress': '%.2f%%' % progress,
-                'processed hits': nb_hits,
+                'processed hits': processed_hits,
                 'hit rate': '%.2f%%' % hit_rate,
                 'duration/sec': 'not finished',
-                'processed frames': nb_frames,
-                'total jobs': total_jobs,
+                'processed frames': processed_frames,
+                'total jobs': nb_jobs,
                 'time start': time_start,
             }
             stat_file = os.path.join(hit_dir, 'stat.yml')
@@ -161,28 +118,26 @@ def master_run(args):
     duration = time_end - time_start
     
     # save results
-    csv_file = os.path.join(hit_dir, '%s.csv' % cxi_prefix)
+    csv_file = os.path.join(hit_dir, '%s.csv' % prefix)
     df = pd.DataFrame(results)
     df.to_csv(csv_file)
 
-    nb_hits = len(df[df['nb_peak'] >= min_peak])
-    nb_frames = len(df)
-    hit_rate = float(nb_hits) / nb_frames * 100.
+    processed_hits = len(df[df['nb_peak'] >= min_peak])
+    processed_frames = len(df)
+    hit_rate = float(processed_hits) / processed_frames * 100.
     stat_dict = {
         'progress': 'done',
-        'processed hits': nb_hits,
+        'processed hits': processed_hits,
         'hit rate': '%.2f%%' % hit_rate,
         'duration/sec': duration,
-        'processed frames': nb_frames,
-        'total jobs': total_jobs,
+        'processed frames': processed_frames,
+        'total jobs': nb_jobs,
         'time start': time_start,
     }
     stat_file = os.path.join(hit_dir, 'stat.yml')
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
 
-    # save hits in cxi format
-    csv2cxi(csv_file, hit_dir, dataset, dtype=dtype, min_peak=min_peak, cxi_size=cxi_size)
     print('All Done!')
 
 
@@ -236,7 +191,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     if size == 1:
-        print('Run batch hit finding with at least 2 processes!')
+        print('Run batch hit finder with at least 2 processes!')
         sys.exit()
 
     rank = comm.Get_rank()

@@ -239,26 +239,18 @@ class HitFinderThread(QThread):
                  workdir=None,
                  job=None,
                  conf=None,
-                 tag=None,
-                 cxi_size=100,
-                 cxi_dtype='int32'):
+                 tag=None):
         super(HitFinderThread, self).__init__(parent)
         self.workdir = workdir
         self.job = job
         self.conf = conf
         self.tag = tag
-        self.cxi_size = cxi_size
-        self.cxi_dtype = cxi_dtype
 
     def run(self):
         cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % self.job)
         conf = self.conf
         hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_hit_finding_local' % dir_
-        python_script = '%s/batch_hit_finding.py' % dir_
-        cxi_size = str(self.cxi_size)
-        cxi_dtype = str(self.cxi_dtype)
-        subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir,
-                        '--cxi-size', cxi_size,
-                        '--cxi-dtype', cxi_dtype])
+        shell_script = '%s/scripts/run_hit_finder_local' % dir_
+        python_script = '%s/batch_hit_finder.py' % dir_
+        subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])

@@ -25,18 +25,22 @@ from datetime import datetime
 class GUI(QMainWindow):
     def __init__(self, *args):
         super(GUI, self).__init__(*args)
-        # settings
+        # min gui
         self.workdir = settings.get('work dir', os.path.dirname(__file__))
         self.peak_size = settings.get('peak size', 10)
         self.dataset_def = settings.get('default dataset', '')
-        self.cxi_dtype = settings.get('cxi dtype', 'int32')
-        self.cxi_size = settings.get('cxi size', '100')
-        self.h5_dataset = settings.get('h5 dataset', None)
-        self.cxi_dataset = settings.get('cxi dataset', None)
         self.max_info = settings.get('max info', 1000)
+
+        # compression
+        self.raw_dataset = settings.get('raw dataset', None)
+        self.comp_dtype = settings.get('compressed dtype', 'auto')
+        self.comp_size = settings.get('compressed size', '100')
+        self.comp_dataset = settings.get('compressed dataset', None)
+
         self.header_labels = settings.get(
             'header labels',
-            ['job', 'h52cxi', 'compression ratio', 'tag', 'hit finding', 'raw frames', 'hits', 'hit rate']
+            ['job', 'compression', 'compression ratio', 'raw frames',
+             'tag', 'hit finding', 'processed frames', 'processed hits', 'hit rate']
         )
 
         # setup layout
@@ -52,9 +56,9 @@ class GUI(QMainWindow):
         loadUi('%s/ui/mean_std.ui' % dir_, self.mean_diag)
 
         self.job_win = JobWindow(
-            workdir=self.workdir, h5_dataset=self.h5_dataset,
-            cxi_dataset=self.cxi_dataset, header_labels=self.header_labels,
-            cxi_size=self.cxi_size, cxi_dtype=self.cxi_dtype,
+            workdir=self.workdir, raw_dataset=self.raw_dataset,
+            comp_dataset=self.comp_dataset, header_labels=self.header_labels,
+            comp_size=self.comp_size, comp_dtype=self.comp_dtype,
         )
 
         self.gradient_view.hide()
