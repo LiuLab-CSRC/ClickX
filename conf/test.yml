@@ -19,11 +19,12 @@ max info: 1000   # show up to 10k lines for info panel
 # job window
 header labels:
   - "job"
+  - "raw frames"
   - "compression"
   - "compression ratio"
-  - "raw frames"
   - "tag"
   - "hit finding"
   - 'processed frames'
   - "processed hits"
   - "hit rate"
+  - "csv2cxi"

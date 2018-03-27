@@ -192,7 +192,7 @@
           <item>
            <widget class="QLabel" name="label_5">
             <property name="text">
-             <string>Total Raw Frames:</string>
+             <string>Raw Frames:</string>
             </property>
            </widget>
           </item>

@@ -11,7 +11,7 @@ Options:
     --comp-size SIZE            Specify max frame in a compressed cxi file [default: 1000].
     --comp-dataset DATASET      Specify dataset for patterns in compressed cxi file [default: data].
     --comp-dtype DATATYPE       Specify datatype of patterns in compressed cxi file [default: auto].
-    --shuffle SHUFFLE           Whether use shuffle filter in compression [default: True]. 
+    --shuffle SHUFFLE           Whether to use shuffle filter in compression [default: True].
     --batch-size SIZE           Specify batch size in a job [default: 50].
     --buffer-size SIZE          Specify buffer size in MPI communication
                                 [default: 100000].

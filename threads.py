@@ -1,11 +1,15 @@
 from PyQt5.QtCore import QThread, pyqtSignal
+
+import os
+import subprocess
+import operator
 import time
 from glob import glob
 import yaml
-import subprocess
+
+import numpy as np
 import math
-import operator
-from util import *
+from util import get_data_shape, read_image
 
 
 class MeanCalculatorThread(QThread):
@@ -114,17 +118,19 @@ class CrawlerThread(QThread):
                     time2 = math.inf
                     processed_frames = 0
                     processed_hits = 0
+                    csv2cxi = 0
                     job_list.append(
                         {
                             'job': job_name,
-                            'tag': tag,
-                            'compression': compression,
-                            'hit finding': hit_finding,
                             'raw frames': raw_frames,
+                            'compression': compression,
+                            'compression ratio': comp_ratio,
+                            'tag': tag,
+                            'hit finding': hit_finding,
                             'processed frames': processed_frames,
                             'processed hits': processed_hits,
                             'hit rate': hit_rate,
-                            'compression ratio': comp_ratio,
+                            'csv2cxi': csv2cxi,
                             'time1': time1,
                             'time2': time2,
                         }
@@ -160,14 +166,15 @@ class CrawlerThread(QThread):
                         job_list.append(
                             {
                                 'job': job_name,
-                                'tag': tag,
-                                'compression': compression,
-                                'hit finding': hit_finding,
                                 'raw frames': raw_frames,
+                                'compression': compression,
+                                'compression ratio': comp_ratio,
+                                'tag': tag,
+                                'hit finding': hit_finding,
                                 'processed hits': processed_hits,
                                 'processed frames': processed_frames,
                                 'hit rate': hit_rate,
-                                'compression ratio': comp_ratio,
+                                'csv2cxi': csv2cxi,
                                 'time1': time1,
                                 'time2': time2,
                             }

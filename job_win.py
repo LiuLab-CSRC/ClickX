@@ -114,6 +114,7 @@ class JobWindow(QWidget):
         workdir = self.workdir_lineedit.text()
         action_compression = menu.addAction('run compressor')
         action_hit_finding = menu.addAction('run hit finder')
+        action_csv2cxi = menu.addAction('convert csv to cxi')
         action = menu.exec_(job_table.mapToGlobal(pos))
         if action == action_compression:
             self.compressor_thread = CompressorThread(
@@ -139,6 +140,9 @@ class JobWindow(QWidget):
                 tag=tag,
             )
             self.hit_finder_thread.start()
+        elif action == action_csv2cxi:
+
+            print('convert csv to cxi file for %s' % job)
 
     def fill_table_row(self, row_dict, row):
         row_count = self.job_table.rowCount()
