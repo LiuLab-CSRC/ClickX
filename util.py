@@ -1,10 +1,13 @@
-import h5py
+import os
+import sys
+
 import numpy as np
+import h5py
 import pandas as pd
+
 from skimage.feature import peak_local_max
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from skimage.morphology import disk
-import os
 
 
 def read_image(filepath, frame=0, h5_obj=None, dataset=None):
@@ -184,30 +187,43 @@ def get_data_shape(filepath):
     return data_shape
 
 
-def save_cxi(h5_files,
-             h5_dataset,
-             cxi_dataset,
-             cxi_file,
+def save_cxi(batch,
+             out_file,
+             out_dataset,
+             out_dtype=None,
              compression='lzf',
-             shuffle=True,
-             cxi_dtype=np.int32):
+             shuffle=True):
     data = []
-    for h5_file in h5_files:
-        try:
-            frame = h5py.File(h5_file, 'r')[h5_dataset].value
-            data.append(frame)
-        except IOError:
-            print('Warning: failed load dataset from %s' % h5_file)
-            continue
-    data = np.array(data).astype(cxi_dtype)
+    h5_obj = None
+    filepath_curr = None
+    for record in batch:
+        filepath = record['filepath']
+        if filepath != filepath_curr:
+            try:
+                h5_obj = h5py.File(filepath, 'r')
+                filepath_curr = filepath
+            except IOError:
+                print('Failed to load %s' % filepath)
+        dataset = h5_obj[record['dataset']]
+        if len(dataset.shape) == 3:
+            frame = dataset[record['frame']]
+        elif len(dataset.shape) == 2:
+            frame = dataset.value
+        data.append(frame)
+    in_dtype = frame.dtype
+    if out_dtype == 'auto':
+        out_dtype = in_dtype
+    else:
+        out_dtype = np.dtype(out_dtype)
+    data = np.array(data).astype(out_dtype)
     n, x, y = data.shape
-    if os.path.exists(cxi_file):
-        os.rename(cxi_file, '%s.bk' % cxi_file)
-    f = h5py.File(cxi_file, 'w')
+    if os.path.exists(out_file):
+        os.rename(out_file, '%s.bk' % out_file)
+    f = h5py.File(out_file, 'w')
     f.create_dataset(
-        cxi_dataset,
+        out_dataset,
         shape=(n, x, y),
-        dtype=cxi_dtype,
+        dtype=out_dtype,
         data=data,
         compression=compression,
         chunks=(1, x, y),
@@ -270,3 +286,24 @@ def csv2cxi(csv_file, output_dir, dataset, dtype=np.int32, min_peak=20, cxi_size
             shuffle=True,
         )
         print('save cxi %d/%d to %s' % (cxi_count, nb_cxi, output))
+
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
