@@ -8,7 +8,7 @@ import operator
 from util import *
 
 
-class CalcMeanThread(QThread):
+class MeanCalculatorThread(QThread):
     update_progress = pyqtSignal(float)
 
     def __init__(self, parent=None,
@@ -16,7 +16,7 @@ class CalcMeanThread(QThread):
                  dataset=None,
                  max_frame=0,
                  output=None):
-        super(CalcMeanThread, self).__init__(parent)
+        super(MeanCalculatorThread, self).__init__(parent)
         self.files = files
         self.dataset = dataset
         self.max_frame = max_frame
@@ -74,27 +74,27 @@ class CrawlerThread(QThread):
         while True:
             # check data from h5 lst
             job_list = []
-            lst_files = glob('%s/h5_lst/*.lst' % self.workdir)
+            raw_lst_files = glob('%s/raw_lst/*.lst' % self.workdir)
             total_raw_frames = 0
             total_processed_frames = {}
             total_processed_hits = {}
-            for lst_file in lst_files:
-                time1 = os.path.getmtime(lst_file)
-                job_name = os.path.basename(lst_file).split('.')[0]
+            for raw_lst in raw_lst_files:
+                time1 = os.path.getmtime(raw_lst)
+                job_name = os.path.basename(raw_lst).split('.')[0]
                 # check h52cxi status
-                cxi_raw = os.path.join(self.workdir, 'cxi_raw', job_name)
-                h52cxi = 'ready'
+                cxi_comp_dir = os.path.join(self.workdir, 'cxi_comp', job_name)
+                compression = 'ready'
                 hit_rate = 0
                 comp_ratio = 0
                 raw_frames = 0
-                if os.path.isdir(cxi_raw):
-                    stat_file = os.path.join(cxi_raw, 'stat.yml')
+                if os.path.isdir(cxi_comp_dir):
+                    stat_file = os.path.join(cxi_comp_dir, 'stat.yml')
                     if os.path.exists(stat_file):
                         with open(stat_file, 'r') as f:
                             stat = yaml.load(f)
                             if stat is None:
                                 stat = {}
-                            h52cxi = stat.get('progress', '0')
+                            compression = stat.get('progress', '0')
                             raw_frames = stat.get('total frames', 0)
                             comp_ratio = stat.get('compression ratio', 0)
                             if raw_frames is not None:
@@ -118,7 +118,7 @@ class CrawlerThread(QThread):
                         {
                             'job': job_name,
                             'tag': tag,
-                            'h52cxi': h52cxi,
+                            'compression': compression,
                             'hit finding': hit_finding,
                             'raw frames': raw_frames,
                             'processed frames': processed_frames,
@@ -161,7 +161,7 @@ class CrawlerThread(QThread):
                             {
                                 'job': job_name,
                                 'tag': tag,
-                                'h52cxi': h52cxi,
+                                'compression': compression,
                                 'hit finding': hit_finding,
                                 'raw frames': raw_frames,
                                 'processed hits': processed_hits,
@@ -192,49 +192,49 @@ class CrawlerThread(QThread):
             time.sleep(5)
 
 
-class ConversionThread(QThread):
+class CompressorThread(QThread):
     progress = pyqtSignal(float)
 
     def __init__(self, parent=None,
                  workdir=None,
                  job=None,
-                 h5_dataset=None,
-                 cxi_dataset=None,
-                 cxi_size=1000,
-                 cxi_dtype='int32'):
-        super(ConversionThread, self).__init__(parent)
+                 raw_dataset=None,
+                 comp_dataset=None,
+                 comp_size=1000,
+                 comp_dtype='auto'):
+        super(CompressorThread, self).__init__(parent)
         self.workdir = workdir
         self.job = job
-        self.h5_dataset = h5_dataset
-        self.cxi_dataset = cxi_dataset
-        self.cxi_size = cxi_size
-        self.cxi_dtype = cxi_dtype
+        self.raw_dataset = raw_dataset
+        self.comp_dataset = comp_dataset
+        self.comp_size = comp_size
+        self.comp_dtype = comp_dtype
 
     def run(self):
         workdir = self.workdir
         job = self.job
-        h5_lst = os.path.join(workdir, 'h5_lst', '%s.lst' % job)
-        h5_dataset = self.h5_dataset
-        cxi_dataset = self.cxi_dataset
-        cxi_dir = os.path.join(workdir, 'cxi_raw', job)
-        cxi_lst_dir = os.path.join(workdir, 'cxi_lst')
+        raw_lst = os.path.join(workdir, 'raw_lst', '%s.lst' % job)
+        raw_dataset = self.raw_dataset
+        comp_dataset = self.comp_dataset
+        comp_dir = os.path.join(workdir, 'cxi_comp', job)
+        comp_lst_dir = os.path.join(workdir, 'cxi_lst')
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_h52cxi_local' % dir_
-        python_script = '%s/batch_h52cxi.py' % dir_
-        cxi_size = str(self.cxi_size)
-        cxi_dtype = str(self.cxi_dtype)
+        shell_script = '%s/scripts/run_compressor_local' % dir_
+        python_script = '%s/batch_compressor.py' % dir_
+        comp_size = str(self.comp_size)
+        comp_dtype = str(self.comp_dtype)
         subprocess.run(
             [
                 shell_script,  python_script,
-                h5_lst, h5_dataset, cxi_dir, cxi_lst_dir,
-                '--cxi-dataset', cxi_dataset,
-                '--cxi-size', cxi_size,
-                '--cxi-dtype', cxi_dtype,
+                raw_lst, raw_dataset, comp_dir, comp_lst_dir,
+                '--comp-dataset', comp_dataset,
+                '--comp-size', comp_size,
+                '--comp-dtype', comp_dtype,
              ]
         )
 
 
-class HitFindingThread(QThread):
+class HitFinderThread(QThread):
     def __init__(self, parent=None,
                  workdir=None,
                  job=None,
@@ -242,7 +242,7 @@ class HitFindingThread(QThread):
                  tag=None,
                  cxi_size=100,
                  cxi_dtype='int32'):
-        super(HitFindingThread, self).__init__(parent)
+        super(HitFinderThread, self).__init__(parent)
         self.workdir = workdir
         self.job = job
         self.conf = conf

@@ -19,7 +19,7 @@ max info: 1000   # show up to 10k lines for info panel
 # job window
 header labels:
   - "job"
-  - "h52cxi"
+  - "compression"
   - "compression ratio"
   - "raw frames"
   - "tag"

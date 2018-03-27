@@ -40,8 +40,8 @@ class JobWindow(QWidget):
 
         # threads
         self.crawler_thread = None
-        self.conv_thread = None
-        self.hit_finding_thread = None
+        self.compressor_thread = None
+        self.hit_finder_thread = None
 
         # slots
         self.browse_btn.clicked.connect(self.select_workdir)
@@ -112,19 +112,19 @@ class JobWindow(QWidget):
         row = job_table.currentRow()
         job = job_table.item(row, 0).text()
         workdir = self.workdir_lineedit.text()
-        action_h52cxi = menu.addAction('run h52cxi')
-        action_hit_finding = menu.addAction('run hit finding')
+        action_compression = menu.addAction('run compressor')
+        action_hit_finding = menu.addAction('run hit finder')
         action = menu.exec_(job_table.mapToGlobal(pos))
-        if action == action_h52cxi:
-            self.conv_thread = ConversionThread(
+        if action == action_compression:
+            self.compressor_thread = CompressorThread(
                 workdir=workdir,
                 job=job,
-                h5_dataset=self.h5_dataset_lineedit.text(),
-                cxi_dataset=self.cxi_dataset_lineedit.text(),
-                cxi_size=self.cxi_size,
-                cxi_dtype=self.cxi_dtype,
+                raw_dataset=self.h5_dataset_lineedit.text(),
+                comp_dataset=self.cxi_dataset_lineedit.text(),
+                comp_size=self.cxi_size,
+                comp_dtype=self.cxi_dtype,
             )
-            self.conv_thread.start()
+            self.compressor_thread.start()
         elif action == action_hit_finding:
             curr_id = self.hit_finding_conf.currentIndex()
             if curr_id == -1:
@@ -132,7 +132,7 @@ class JobWindow(QWidget):
                 return
             conf = self.hit_finding_conf.itemData(curr_id)
             tag = self.hit_finding_conf.itemText(curr_id)
-            self.hit_finding_thread = HitFindingThread(
+            self.hit_finder_thread = HitFinderThread(
                 workdir=workdir,
                 job=job,
                 conf=conf,

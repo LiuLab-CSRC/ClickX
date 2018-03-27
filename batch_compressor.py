@@ -51,7 +51,7 @@ def collect_jobs(files, dataset, batch_size):
                         batch = []
             else:
                 batch.append(
-                    {'filepath': files[i], 'dataset': dataset, 'frame': j}
+                    {'filepath': files[i], 'dataset': dataset, 'frame': 0}
                 )
                 frames += 1
                 if len(batch) == batch_size:
