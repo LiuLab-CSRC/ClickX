@@ -212,11 +212,7 @@ def save_cxi(batch,
                 filepath_curr = filepath
             except IOError:
                 print('Failed to load %s' % filepath)
-        dataset = h5_obj[record['dataset']]
-        if len(dataset.shape) == 3:
-            frame = dataset[record['frame']]
-        elif len(dataset.shape) == 2:
-            frame = dataset.value
+        frame = read_image(filepath, record['frame'], h5_obj=h5_obj, dataset=record['dataset'])
         data.append(frame)
     in_dtype = frame.dtype
     if out_dtype == 'auto':
@@ -324,7 +320,8 @@ def collect_jobs(files, dataset, batch_size):
     print('collecting jobs...')
     for i in tqdm(range(len(files))):
         try:
-            shape = h5py.File(files[i], 'r')[dataset].shape
+            data_shape = get_data_shape(files[i])
+            shape = data_shape[dataset]
             if len(shape) == 3:
                 nb_frame = shape[0]
                 for j in range(nb_frame):
