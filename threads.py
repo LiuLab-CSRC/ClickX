@@ -9,6 +9,7 @@ import yaml
 
 import numpy as np
 import math
+import h5py
 from util import get_data_shape, read_image
 
 

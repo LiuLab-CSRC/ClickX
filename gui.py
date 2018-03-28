@@ -122,6 +122,8 @@ class GUI(QMainWindow):
         self.raw_view.getView().addItem(self.strong_peak_item)
         self.calib_mask_view.getView().addItem(self.center_item)
         self.calib_mask_view.getView().addItem(self.ring_item)
+        #self.raw_view.getView().addItem(self.ring_item)
+        self.gradient_view.getView().addItem(self.ring_item)
 
         # status tree
         status_params = [
@@ -457,7 +459,7 @@ class GUI(QMainWindow):
         prefix = self.mean_diag.prefix.text()
         output = os.path.join(output_dir, '%s.npz' % prefix)
 
-        self.calc_mean_thread = CalcMeanThread(
+        self.calc_mean_thread = MeanCalculatorThread(
             files=files, dataset=dataset, max_frame=max_frame, output=output
         )
         self.calc_mean_thread.update_progress.connect(
@@ -609,6 +611,14 @@ class GUI(QMainWindow):
                     return
             else:
                 dataset = self.dataset_def
+            if 'header/frame_num' in h5_obj.keys():  # PAL specific h5 file
+                self.file = filepath
+                self.h5_obj = h5_obj
+                self.dataset = dataset
+                if len(data_shape[dataset]) == 3:
+                    self.nb_frame = data_shape[dataset][0]
+                else:
+                    self.nb_frame = 1
             if dataset in h5_obj:
                 self.file = filepath
                 self.h5_obj = h5_obj
