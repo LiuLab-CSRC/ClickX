@@ -1,0 +1,9 @@
+#!/bin/bash
+
+#----hit finding script on PAL eh2c7.-----#
+
+mpiexec=/home/eh2adm/software/anaconda3/bin/mpiexec
+python_exec=/home/eh2adm/software/anaconda3/bin/python
+nb_process=2
+
+$mpiexec -n $nb_process $python_exec "$@"
