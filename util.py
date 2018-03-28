@@ -349,3 +349,67 @@ def collect_jobs(files, dataset, batch_size):
     if len(batch) > 0:
         jobs.append(batch)
     return jobs, frames
+
+
+def save_full_cxi(batch, cxi_file, conf=None, cxi_dtype=None, compression='lzf', shuffle=True):
+    print('saving %s' % cxi_file)
+    filepath_curr = None
+    h5_obj = None
+    data = []
+    if conf['mask file'] is not None:
+        mask = np.load(conf['mask file'])
+    gaussian_sigma = float(conf['gaussian filter sigma'])
+    max_peaks = int(conf['max peak num'])
+    min_distance = int(conf['min distance'])
+    min_gradient = float(conf['min gradient'])
+    min_peaks = int(conf['min peak num'])
+    min_snr = float(conf['min snr'])
+
+    for i in range(len(batch)):
+        record = batch[i]
+        filepath = record['filepath']
+        if filepath != filepath_curr:
+            try:
+                h5_obj = h5py.File(filepath, 'r')
+                filepath_curr = filepath
+            except IOError:
+                print('Failed to load %s' % filepath)
+                continue
+        dataset = h5_obj[record['dataset']]
+        if len(dataset.shape) == 3:
+            frame = dataset[record['frame']]
+        elif len(dataset.shape) == 2:
+            frame = dataset.value
+        else:
+            pass
+        data.append(frame)
+        peaks_dict = find_peaks(
+            frame, mask=mask,
+            gaussian_sigma=gaussian_sigma,
+            min_gradient=min_gradient,
+            min_distance=min_distance,
+            max_peaks=max_peaks,
+            min_snr=min_snr)
+        strong_peaks = peaks_dict['strong']
+    # in_dtype = frame.dtype
+    # if cxi_dtype == 'auto':
+    #     cxi_dtype = in_dtype
+    # else:
+    #     cxi_dtype = np.dtype(cxi_dtype)
+    # data = np.array(data).astype(cxi_dtype)
+    # n, x, y = data.shape
+    # if os.path.exists(cxi_file):
+    #     os.rename(cxi_file, '%s.bk' % cxi_file)
+    # f = h5py.File(cxi_file, 'w')
+    # # patterns
+    # f.create_dataset(
+    #     'data',
+    #     shape=(n, x, y),
+    #     dtype=cxi_dtype,
+    #     data=data,
+    #     compression=compression,
+    #     chunks=(1, x, y),
+    #     shuffle=shuffle,
+    # )
+    #
+    # # peaks

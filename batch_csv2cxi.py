@@ -7,7 +7,6 @@ Usage:
 
 Options:
     -h --help                   Show this screen.
-    --min-peak                  Specify min peak num for a hit [default: 20].
     --cxi-size SIZE             Specify max frame in a cxi file [default: 1000].
     --cxi-dtype DATATYPE        Specify datatype of patterns in compressed cxi file [default: auto].
     --shuffle SHUFFLE           Whether to use shuffle filter in compression [default: True].
@@ -25,6 +24,7 @@ import time
 import pandas as pd
 import numpy as np
 import yaml
+from util import save_full_cxi
 
 
 def master_run(args):
@@ -34,15 +34,19 @@ def master_run(args):
         os.mkdir(hit_dir)
     csv_file = args['<csv-file>']
 
+    conf_file = args['<conf-file>']
+    with open(conf_file, 'r') as f:
+        conf = yaml.load(f)
+    min_peaks = conf['min peak num']
+
     df = pd.read_csv(csv_file)
-    min_peak = int(args['--min-peak'])
-    df = df[df['nb_peak'] > min_peak]
+    df = df[df['nb_peak'] > min_peaks]
 
     batch_size = int(args['--batch-size'])
     nb_jobs = int(np.ceil(len(df) / batch_size))
 
     # collect jobs
-    ids = np.array_split(np.arange(nb_jobs), nb_jobs)
+    ids = np.array_split(np.arange(len(df)), nb_jobs)
     jobs = []
     for i in range(len(ids)):
         jobs.append(df.iloc[ids[i]])
@@ -124,7 +128,11 @@ def slave_run(args):
     stop = False
     csv_file = args['<csv-file>']
     hit_dir = args['<hit-dir>']
+    conf_file = args['<conf-file>']
+    with open(conf_file, 'r') as f:
+        conf = yaml.load(f)
     cxi_size = int(args['--cxi-size'])
+    cxi_dtype = args['--cxi-dtype']
     buffer_size = int(args['--buffer-size'])
     prefix = os.path.basename(csv_file).split('.')[0]
     if args['--shuffle'] == 'True':
@@ -144,7 +152,7 @@ def slave_run(args):
                 cxi_file = os.path.join(
                     hit_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
                 )
-                # save_cxi(batch, comp_file, comp_dataset, out_dtype=comp_dtype, shuffle=shuffle)
+                save_full_cxi(batch, cxi_file, conf=conf, cxi_dtype=cxi_dtype, shuffle=shuffle)
                 sys.stdout.flush()
                 batch.clear()
                 count += 1
@@ -156,7 +164,7 @@ def slave_run(args):
         cxi_file = os.path.join(
             hit_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
         )
-        # save_cxi(batch, comp_file, comp_dataset, out_dtype=comp_dtype, shuffle=shuffle)
+        save_full_cxi(batch, cxi_file, cxi_dtype=cxi_dtype, shuffle=shuffle)
         sys.stdout.flush()
     done = True
     comm.send(done, dest=0)
