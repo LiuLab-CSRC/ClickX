@@ -7,9 +7,9 @@ Usage:
 
 Options:
     -h --help               Show this screen.
-    --batch-size SIZE       Specify batch size in a job [default: 50].
+    --batch-size SIZE       Specify batch size in a job [default: 10].
     --buffer-size SIZE      Specify buffer size in MPI communication
-                            [default: 500000].
+                            [default: 100000].
     --update-freq FREQ      Specify update frequency of progress [default: 10].
 """
 from mpi4py import MPI
@@ -111,6 +111,8 @@ def master_run(args):
                 results += result
                 slaves.remove(slave)
                 stop = True
+                print('send stop signal to %d' % slave)
+                sys.stdout.flush()
                 comm.isend(stop, dest=slave)
             else:
                 all_done = False
@@ -185,6 +187,9 @@ def slave_run(args):
                 job[i]['nb_peak'] = 0
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
+        if stop:
+            print('slave %d is exiting' % rank)
+            sys.stdout.flush()
 
 
 if __name__ == '__main__':
