@@ -12,7 +12,7 @@ Options:
     --comp-dataset DATASET      Specify dataset for patterns in compressed cxi file [default: data].
     --comp-dtype DATATYPE       Specify datatype of patterns in compressed cxi file [default: auto].
     --shuffle SHUFFLE           Whether to use shuffle filter in compression [default: True].
-    --batch-size SIZE           Specify batch size in a job [default: 50].
+    --batch-size SIZE           Specify batch size in a job [default: 10].
     --buffer-size SIZE          Specify buffer size in MPI communication
                                 [default: 100000].
     --update-freq FREQ          Specify update frequency of progress [default: 10].
@@ -20,7 +20,7 @@ Options:
 from mpi4py import MPI
 import h5py
 
-from util import save_cxi
+from util import save_cxi, collect_jobs
 import time
 
 import sys
@@ -30,39 +30,6 @@ from docopt import docopt
 import yaml
 from tqdm import tqdm
 
-
-def collect_jobs(files, dataset, batch_size):
-    jobs = []
-    batch = []
-    frames = 0
-    print('collecting jobs...')
-    for i in tqdm(range(len(files))):
-        try:
-            shape = h5py.File(files[i], 'r')[dataset].shape
-            if len(shape) == 3:
-                nb_frame = shape[0]
-                for j in range(nb_frame):
-                    batch.append(
-                        {'filepath': files[i], 'dataset': dataset, 'frame': j}
-                    )
-                    frames += 1
-                    if len(batch) == batch_size:
-                        jobs.append(batch)
-                        batch = []
-            else:
-                batch.append(
-                    {'filepath': files[i], 'dataset': dataset, 'frame': 0}
-                )
-                frames += 1
-                if len(batch) == batch_size:
-                    jobs.append(batch)
-                    batch = []
-        except OSError:
-            print('Failed to load %s' % files[i])
-            pass
-    if len(batch) > 0:
-        jobs.append(batch)
-    return jobs, frames
 
 
 def master_run(args):
