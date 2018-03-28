@@ -131,7 +131,6 @@ class CrawlerThread(QThread):
                             'processed frames': processed_frames,
                             'processed hits': processed_hits,
                             'hit rate': hit_rate,
-                            'csv2cxi': csv2cxi,
                             'time1': time1,
                             'time2': time2,
                         }
@@ -175,13 +174,12 @@ class CrawlerThread(QThread):
                                 'processed hits': processed_hits,
                                 'processed frames': processed_frames,
                                 'hit rate': hit_rate,
-                                'csv2cxi': csv2cxi,
                                 'time1': time1,
                                 'time2': time2,
                             }
                         )
                 job_list = sorted(
-                    job_list, key=operator.itemgetter('time1', 'time2')
+                    job_list, key=operator.itemgetter('job', 'time2')
                 )
             self.jobs.emit(job_list)
 
@@ -227,7 +225,8 @@ class CompressorThread(QThread):
         comp_dir = os.path.join(workdir, 'cxi_comp', job)
         comp_lst_dir = os.path.join(workdir, 'cxi_lst')
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_compressor_local' % dir_
+        shell_script = '%s/scripts/run_compressor_PAL7' % dir_
+        print(shell_script)
         python_script = '%s/batch_compressor.py' % dir_
         comp_size = str(self.comp_size)
         comp_dtype = str(self.comp_dtype)
@@ -259,6 +258,6 @@ class HitFinderThread(QThread):
         conf = self.conf
         hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_hit_finder_local' % dir_
+        shell_script = '%s/scripts/run_hit_finder_PAL7' % dir_
         python_script = '%s/batch_hit_finder.py' % dir_
         subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])
