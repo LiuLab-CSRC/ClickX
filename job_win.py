@@ -39,7 +39,7 @@ class JobWindow(QWidget):
         self.crawler_running = False
 
         # threads
-        self.crawler_threads = []
+        self.crawler_thread = None
         self.compressor_threads = []
         self.hit_finder_threads = []
 
@@ -118,6 +118,8 @@ class JobWindow(QWidget):
         action_compression = menu.addAction('run compressor')
         action_hit_finding = menu.addAction('run hit finder')
         action_csv2cxi = menu.addAction('convert csv to cxi')
+        menu.addSeparator()
+        action_sum = menu.addAction('calc sum')
         action = menu.exec_(job_table.mapToGlobal(pos))
         if action == action_compression:
             for job in jobs:
@@ -149,6 +151,16 @@ class JobWindow(QWidget):
                 hit_finder_thread.start()
         elif action == action_csv2cxi:
             print('convert csv to cxi file for %s' % job)
+        elif action == action_sum:
+            print('calculate sum')
+            s = 0
+            for item in items:
+                try:
+                    s += int(item.text())
+                except ValueError:
+                    print('%s not a number' % item.text())
+            print('sum of selected items: %.2f' % s)
+
 
     def fill_table_row(self, row_dict, row):
         row_count = self.job_table.rowCount()
