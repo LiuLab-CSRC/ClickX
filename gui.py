@@ -16,32 +16,20 @@ from PyQt5.uic import loadUi
 from skimage.morphology import disk, binary_dilation, binary_erosion
 from threads import *
 from util import *
-from settings import get_settings
+from settings import Settings
 from job_win import JobWindow
 import yaml
 from datetime import datetime
 
 
 class GUI(QMainWindow):
-    def __init__(self, *args):
-        super(GUI, self).__init__(*args)
+    def __init__(self, parent=None, settings=None):
+        super(GUI, self).__init__(parent)
         # min gui
-        self.workdir = settings.get('work dir', os.path.dirname(__file__))
-        self.peak_size = settings.get('peak size', 10)
-        self.dataset_def = settings.get('default dataset', '')
-        self.max_info = settings.get('max info', 1000)
-
-        # compression
-        self.raw_dataset = settings.get('raw dataset', None)
-        self.comp_dtype = settings.get('compressed dtype', 'auto')
-        self.comp_size = settings.get('compressed size', '100')
-        self.comp_dataset = settings.get('compressed dataset', None)
-
-        self.header_labels = settings.get(
-            'header labels',
-            ['job', 'compression', 'compression ratio', 'raw frames',
-             'tag', 'hit finding', 'processed frames', 'processed hits', 'hit rate']
-        )
+        self.workdir = settings.workdir
+        self.peak_size = settings.peak_size
+        self.dataset_def = settings.dataset_def
+        self.max_info = settings.max_info
 
         # setup layout
         dir_ = os.path.abspath(os.path.dirname(__file__))
@@ -55,11 +43,7 @@ class GUI(QMainWindow):
         self.mean_diag = QDialog()
         loadUi('%s/ui/mean_std.ui' % dir_, self.mean_diag)
 
-        self.job_win = JobWindow(
-            workdir=self.workdir, raw_dataset=self.raw_dataset,
-            comp_dataset=self.comp_dataset, header_labels=self.header_labels,
-            comp_size=self.comp_size, comp_dtype=self.comp_dtype,
-        )
+        self.job_win = JobWindow(settings=settings)
 
         self.gradient_view.hide()
         self.calib_mask_view.hide()
@@ -949,15 +933,16 @@ class GUI(QMainWindow):
 
 
 def main():
-    global settings
     if len(sys.argv) > 1:
-        settings = get_settings(sys.argv[1])
         print('using setting from %s' % sys.argv[1])
+        with open(sys.argv[1], 'r') as f:
+            settings = Settings(yaml.load(f))
     else:
-        settings = get_settings()
+        settings = Settings()
         print('using default settings')
+    print(settings)
     app = QApplication(sys.argv)
-    win = GUI()
+    win = GUI(settings=settings)
     win.setWindowTitle('SFX Suite')
     win.showMaximized()
     sys.exit(app.exec_())

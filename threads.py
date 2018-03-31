@@ -201,35 +201,24 @@ class CrawlerThread(QThread):
 class CompressorThread(QThread):
     progress = pyqtSignal(float)
 
-    def __init__(self, parent=None,
-                 workdir=None,
-                 job=None,
-                 raw_dataset=None,
-                 comp_dataset=None,
-                 comp_size=1000,
-                 comp_dtype='auto'):
+    def __init__(self, job, settings, parent=None):
         super(CompressorThread, self).__init__(parent)
-        self.workdir = workdir
         self.job = job
-        self.raw_dataset = raw_dataset
-        self.comp_dataset = comp_dataset
-        self.comp_size = comp_size
-        self.comp_dtype = comp_dtype
+        self.settings = settings
 
     def run(self):
-        workdir = self.workdir
         job = self.job
+        workdir = self.settings.workdir
         raw_lst = os.path.join(workdir, 'raw_lst', '%s.lst' % job)
-        raw_dataset = self.raw_dataset
-        comp_dataset = self.comp_dataset
+        raw_dataset = self.settings.raw_dataset
+        comp_dataset = self.settings.comp_dataset
         comp_dir = os.path.join(workdir, 'cxi_comp', job)
         comp_lst_dir = os.path.join(workdir, 'cxi_lst')
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_compressor_PAL7' % dir_
-        print(shell_script)
+        shell_script = '%s/scripts/run_compressor_%s' % (dir_, self.settings.script_suffix)
         python_script = '%s/batch_compressor.py' % dir_
-        comp_size = str(self.comp_size)
-        comp_dtype = str(self.comp_dtype)
+        comp_size = str(self.settings.comp_size)
+        comp_dtype = str(self.settings.comp_dtype)
         subprocess.run(
             [
                 shell_script,  python_script,

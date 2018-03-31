@@ -9,31 +9,23 @@ from threads import *
 
 
 class JobWindow(QWidget):
-    def __init__(self, parent=None,
-                 workdir=None,
-                 raw_dataset=None,
-                 comp_dataset=None,
-                 comp_size=None,
-                 comp_dtype=None,
-                 header_labels=None):
+    def __init__(self, settings, parent=None):
         super(JobWindow, self).__init__(parent)
         # setup ui
         dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/jobs.ui' % dir_, self)
-        if workdir is None:
-            self.workdir = dirname(abspath(__file__))
-        else:
-            self.workdir = workdir
-        self.raw_dataset = raw_dataset
-        self.comp_dataset = comp_dataset
+        self.settings = settings
+        self.workdir = settings.workdir
+        self.raw_dataset = settings.raw_dataset
+        self.comp_dataset = settings.comp_dataset
         self.workdir_lineedit.setText(self.workdir)
         self.raw_dataset_lineedit.setText(self.raw_dataset)
         self.comp_dataset_lineedit.setText(self.comp_dataset)
-        self.header_labels = header_labels
+        self.header_labels = settings.header_labels
         self.job_table.setColumnCount(len(self.header_labels))
         self.job_table.setHorizontalHeaderLabels(self.header_labels)
-        self.comp_size = comp_size
-        self.comp_dtype = comp_dtype
+        self.comp_size = settings.comp_size
+        self.comp_dtype = settings.comp_dataset
 
         self.curr_conf = []
         self.crawler_running = False
@@ -123,14 +115,7 @@ class JobWindow(QWidget):
         action = menu.exec_(job_table.mapToGlobal(pos))
         if action == action_compression:
             for job in jobs:
-                compressor_thread = CompressorThread(
-                    workdir=workdir,
-                    job=job,
-                    raw_dataset=self.raw_dataset_lineedit.text(),
-                    comp_dataset=self.comp_dataset_lineedit.text(),
-                    comp_size=self.comp_size,
-                    comp_dtype=self.comp_dtype,
-                )
+                compressor_thread = CompressorThread(job, self.settings)
                 self.compressor_threads.append(compressor_thread)
                 compressor_thread.start()
         elif action == action_hit_finding:
@@ -150,7 +135,7 @@ class JobWindow(QWidget):
                 self.hit_finder_threads.append(hit_finder_thread)
                 hit_finder_thread.start()
         elif action == action_csv2cxi:
-            print('convert csv to cxi file for %s' % job)
+            print('convert csv to cxi file')
         elif action == action_sum:
             print('calculate sum')
             s = 0
@@ -160,7 +145,6 @@ class JobWindow(QWidget):
                 except ValueError:
                     print('%s not a number' % item.text())
             print('sum of selected items: %.2f' % s)
-
 
     def fill_table_row(self, row_dict, row):
         row_count = self.job_table.rowCount()
