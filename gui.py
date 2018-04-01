@@ -47,6 +47,8 @@ class GUI(QMainWindow):
         loadUi('%s/ui/dataset_diag.ui' % dir_, self.dataset_diag)
         self.mean_diag = QDialog()
         loadUi('%s/ui/mean_std.ui' % dir_, self.mean_diag)
+        self.powder_diag = QDialog()
+        loadUi('%s/ui/peak_powder.ui' % dir_, self.powder_diag)
 
         self.job_win = JobWindow(settings=settings)
 
@@ -247,9 +249,17 @@ class GUI(QMainWindow):
 
         # mean/std dialog
         self.mean_diag.apply_btn.clicked.connect(self.calc_mean_std)
-        self.mean_diag.browse_btn.clicked.connect(self.choose_dir)
+        self.mean_diag.browse_btn.clicked.connect(
+            partial(self.choose_dir, self.mean_diag.line_edit_1))
         self.mean_diag.combo_box.currentIndexChanged.connect(
             self.update_mean_diag_nframe)
+
+        # powder dialog
+        # self.powder_diag.submit_btn.clicked.connect(self.gen_powder)
+        self.powder_diag.browse_btn.clicked.connect(
+            partial(self.choose_dir, self.powder_diag.line_edit_1))
+        # self.powder_diag.combo_box.currentIndexChanged.connect(
+        #     self.update_powder_diag_nframe)
 
         # status
         self.status_params.param(
@@ -453,10 +463,10 @@ class GUI(QMainWindow):
         for item in selected_items:
             files.append(item.data(1))
         dataset = self.mean_diag.combo_box.currentText()
-        nb_frame = int(self.mean_diag.nb_frame.text())
-        max_frame = min(int(self.mean_diag.max_frame.text()), nb_frame)
-        output_dir = self.mean_diag.output_dir.text()
-        prefix = self.mean_diag.prefix.text()
+        nb_frame = int(self.mean_diag.label_1.text())
+        max_frame = min(int(self.mean_diag.spin_box_1.text()), nb_frame)
+        output_dir = self.mean_diag.line_edit_1.text()
+        prefix = self.mean_diag.line_edit_2.text()
         output = os.path.join(output_dir, '%s.npz' % prefix)
 
         self.calc_mean_thread = MeanCalculatorThread(
@@ -471,12 +481,16 @@ class GUI(QMainWindow):
         self.calc_mean_thread.start()
 
     @pyqtSlot()
-    def choose_dir(self):
-        curr_dir = self.mean_diag.output_dir.text()
+    def choose_dir(self, line_edit=None):
+        if line_edit is not None:
+            curr_dir = line_edit.text()
+        else:
+            curr_dir = ""
         dir_ = QFileDialog.getExistingDirectory(
             self, "Choose directory", curr_dir
         )
-        self.mean_diag.output_dir.setText(dir_)
+        if line_edit is not None:
+            line_edit.setText(dir_)
 
     @pyqtSlot(float)
     def update_progressbar(self, val):
@@ -501,7 +515,7 @@ class GUI(QMainWindow):
             except IOError:
                 self.add_info('Failed to open %s' % filepath)
                 pass
-        self.mean_diag.nb_frame.setText(str(nb_frame))
+        self.mean_diag.label_1.setText(str(nb_frame))
 
 # file list / image view slots
     @pyqtSlot(QPoint)
@@ -512,20 +526,19 @@ class GUI(QMainWindow):
             return
         filepath = item.data(1)
         ext = filepath.split('.')[-1]
-        action_set_as_mask = menu.addAction('set as mask')
         action_select_and_load_dataset = menu.addAction(
             'select and load dataset'
         )
-        action_calc_mean_std = menu.addAction('calculate mean/sigma')
+        menu.addSeparator()
+        action_set_as_mask = menu.addAction('set as mask')
         action_multiply_masks = menu.addAction('multiply masks')
+        menu.addSeparator()
+        action_calc_mean_std = menu.addAction('calculate mean/sigma')
+        action_gen_powder = menu.addAction('generate peak powder')
         menu.addSeparator()
         action_del_file = menu.addAction('delete file(s)')
         action = menu.exec_(self.file_list.mapToGlobal(pos))
-        if action == action_set_as_mask:
-            self.mask_file = filepath
-            self.mask = read_image(filepath)
-            self.status_params.param('mask file').setValue(filepath)
-        elif action == action_select_and_load_dataset:
+        if action == action_select_and_load_dataset:
             if ext == 'npy':
                 self.add_info(
                     'Unsupported file type for dataset selection: %s' % ext
@@ -543,21 +556,10 @@ class GUI(QMainWindow):
             self.status_params.param('dataset').setValue(self.dataset)
             self.status_params.param('total frame').setValue(self.nb_frame)
             self.change_image()
-        elif action == action_calc_mean_std:
-            if ext == 'npy':
-                self.add_info(
-                    'Unsupported file type for mean calculation: %s' % ext
-                )
-                return  # ignore npy files
-            combo_box = self.mean_diag.combo_box
-            combo_box.clear()
-            data_shape = get_data_shape(filepath)
-            for dataset, shape in data_shape.items():
-                combo_box.addItem(dataset)
-            output_dir = os.path.join(self.workdir, 'mean')
-            self.mean_diag.output_dir.setText(output_dir)
-            self.mean_diag.progress_bar.setValue(0)
-            self.mean_diag.exec_()
+        elif action == action_set_as_mask:
+            self.mask_file = filepath
+            self.mask = read_image(filepath)
+            self.status_params.param('mask file').setValue(filepath)
         elif action == action_multiply_masks:
             items = self.file_list.selectedItems()
             mask_files = []
@@ -577,7 +579,32 @@ class GUI(QMainWindow):
             self.add_info(
                 'Making mask %s from %s' % (save_file, mask_files)
             )
+        elif action == action_calc_mean_std:
+            if ext == 'npy':
+                self.add_info(
+                    'Unsupported file type for mean calculation: %s' % ext
+                )
+                return  # ignore npy files
+            combo_box = self.mean_diag.combo_box
+            combo_box.clear()
+            data_shape = get_data_shape(filepath)
+            for dataset, shape in data_shape.items():
+                combo_box.addItem(dataset)
+            output_dir = os.path.join(self.workdir, 'mean')
+            self.mean_diag.line_edit_1.setText(output_dir)
+            self.mean_diag.progress_bar.setValue(0)
+            self.mean_diag.exec_()
 
+        elif action == action_gen_powder:
+            conf_dir = os.path.join(self.workdir, 'conf')
+            confs = glob('%s/*.yml' % conf_dir)
+            self.powder_diag.combo_box.clear()
+            for conf in confs:
+                tag = os.path.basename(conf).split('.')[0]
+                self.powder_diag.combo_box.addItem(tag)
+            output_dir = os.path.join(self.workdir, 'powder')
+            self.powder_diag.line_edit_1.setText(output_dir)
+            self.powder_diag.exec_()
         elif action == action_del_file:
             items = self.file_list.selectedItems()
             for item in items:
