@@ -44,7 +44,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <widget class="QLabel" name="nb_frame">
+      <widget class="QLabel" name="label_1">
        <property name="text">
         <string>0</string>
        </property>
@@ -58,7 +58,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QSpinBox" name="max_frame">
+      <widget class="QSpinBox" name="spin_box_1">
        <property name="maximum">
         <number>999999</number>
        </property>
@@ -109,10 +109,13 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="output_dir"/>
+      <widget class="QLineEdit" name="line_edit_1"/>
      </item>
      <item>
       <widget class="QPushButton" name="browse_btn">
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
+       </property>
        <property name="text">
         <string>browse</string>
        </property>
@@ -133,7 +136,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="prefix">
+      <widget class="QLineEdit" name="line_edit_2">
        <property name="text">
         <string>test</string>
        </property>
@@ -181,6 +184,9 @@
    </item>
    <item>
     <widget class="QDialogButtonBox" name="apply_btn">
+     <property name="focusPolicy">
+      <enum>Qt::TabFocus</enum>
+     </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
