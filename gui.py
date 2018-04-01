@@ -1,11 +1,14 @@
 import sys
+import os
+from glob import glob
 from functools import partial
+import yaml
+from datetime import datetime
 
 import pyqtgraph as pg
-
 from pyqtgraph.parametertree import Parameter
 from pyqtgraph import mkPen
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtWidgets import QMainWindow, QApplication
@@ -14,12 +17,15 @@ from PyQt5.QtWidgets import QListWidgetItem, QTableWidgetItem
 from PyQt5.uic import loadUi
 
 from skimage.morphology import disk, binary_dilation, binary_erosion
-from threads import *
-from util import *
+from scipy.ndimage.filters import gaussian_filter
+import h5py
+import numpy as np
+
+from threads import MeanCalculatorThread
+from util import read_image, find_peaks, multiply_masks, calc_snr,\
+    get_data_shape
 from settings import Settings
 from job_win import JobWindow
-import yaml
-from datetime import datetime
 
 
 class GUI(QMainWindow):
@@ -974,7 +980,6 @@ def main():
     else:
         settings = Settings()
         print('using default settings')
-    print(settings)
     app = QApplication(sys.argv)
     win = GUI(settings=settings)
     win.setWindowTitle('SFX Suite')
