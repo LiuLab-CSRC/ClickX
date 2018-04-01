@@ -5,7 +5,7 @@ import os
 
 
 class Settings():
-    def __init__(self, settings_dict):
+    def __init__(self, settings_dict={}):
         # main window
         self.workdir = settings_dict.get('work dir', os.path.dirname(__file__))
         self.peak_size = settings_dict.get('peak size', 10)
@@ -15,7 +15,7 @@ class Settings():
         # compression
         self.raw_dataset = settings_dict.get('raw dataset', None)
         self.comp_dtype = settings_dict.get('compressed dtype', 'auto')
-        self.comp_size = settings_dict.get('compressed size', '100')
+        self.comp_size = settings_dict.get('compressed size', '1000')
         self.comp_dataset = settings_dict.get('compressed dataset', None)
 
         # job window
@@ -30,8 +30,8 @@ class Settings():
 
     def __str__(self):
         attrs = dir(self)
-        str = ''
+        s = ''
         for attr in attrs:
             if attr[:2] != '__':
-                str += '%s: %s\n' % (attr, getattr(self, attr))
-        return str
+                s += '%s: %s\n' % (attr, getattr(self, attr))
+        return s
