@@ -36,7 +36,8 @@ class GUI(QMainWindow):
         loadUi('%s/ui/gui.ui' % dir_, self)
         self.info_panel.setMaximumBlockCount(self.max_info)
         self.inspector = QDialog()
-        self.inspector.setWindowFlags(self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
+        self.inspector.setWindowFlags(
+            self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
         loadUi('%s/ui/inspector.ui' % dir_, self.inspector)
         self.dataset_diag = QDialog()
         loadUi('%s/ui/dataset_diag.ui' % dir_, self.dataset_diag)
@@ -106,8 +107,6 @@ class GUI(QMainWindow):
         self.raw_view.getView().addItem(self.strong_peak_item)
         self.calib_mask_view.getView().addItem(self.center_item)
         self.calib_mask_view.getView().addItem(self.ring_item)
-        #self.raw_view.getView().addItem(self.ring_item)
-        self.gradient_view.getView().addItem(self.ring_item)
 
         # status tree
         status_params = [
@@ -139,28 +138,34 @@ class GUI(QMainWindow):
         # hit finder parameter tree
         hit_finder_params = [
                 {
-                    'name': 'hit finding on', 'type': 'bool', 'value': self.hit_finding_on
+                    'name': 'hit finding on', 'type': 'bool',
+                    'value': self.hit_finding_on
                 },
                 {
                     'name': 'mask on', 'type': 'bool', 'value': self.mask_on
                 },
                 {
-                    'name': 'gaussian filter sigma', 'type': 'float', 'value': self.gaussian_sigma
+                    'name': 'gaussian filter sigma', 'type': 'float',
+                    'value': self.gaussian_sigma
                 },
                 {
-                    'name': 'min peak num', 'type': 'int', 'value': self.min_peak_num
+                    'name': 'min peak num', 'type': 'int',
+                    'value': self.min_peak_num
                 },
                 {
-                    'name': 'max peak num', 'type': 'int', 'value': self.max_peak_num
+                    'name': 'max peak num', 'type': 'int',
+                    'value': self.max_peak_num
                 },
                 {
-                    'name': 'min gradient', 'type': 'float', 'value': self.min_gradient
+                    'name': 'min gradient', 'type': 'float',
+                    'value': self.min_gradient
                 },
                 {
-                    'name': 'min distance', 'type': 'int', 'value': self.min_distance
+                    'name': 'min distance', 'type': 'int',
+                    'value': self.min_distance
                 },
                 {
-                    'name': 'min snr', 'type': 'float','value': self.min_snr
+                    'name': 'min snr', 'type': 'float', 'value': self.min_snr
                 },
         ]
         self.hit_finder_params = Parameter.create(
@@ -175,10 +180,12 @@ class GUI(QMainWindow):
         # calib parameter tree
         calib_mask_params = [
             {
-                'name': 'show center', 'type': 'bool', 'value': self.show_center,
+                'name': 'show center', 'type': 'bool',
+                'value': self.show_center,
             },
             {
-                'name': 'threshold', 'type': 'float', 'value': self.calib_mask_threshold,
+                'name': 'threshold', 'type': 'float',
+                'value': self.calib_mask_threshold,
             },
             {
                 'name': 'center x', 'type': 'float', 'value': self.center[0]
@@ -190,13 +197,16 @@ class GUI(QMainWindow):
                 'name': 'radii of rings', 'type': 'str', 'value': ''
             },
             {
-                'name': 'erosion1 size', 'type': 'int', 'value': self.erosion1_size
+                'name': 'erosion1 size', 'type': 'int',
+                'value': self.erosion1_size
             },
             {
-                'name': 'dilation size', 'type': 'int', 'value': self.dilation_size
+                'name': 'dilation size', 'type': 'int',
+                'value': self.dilation_size
             },
             {
-                'name': 'erosion2 size', 'type': 'int', 'value': self.erosion2_size
+                'name': 'erosion2 size', 'type': 'int',
+                'value': self.erosion2_size
             },
             {
                 'name': 'save mask', 'type': 'action'
@@ -316,7 +326,9 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def save_conf(self):
         filepath, _ = QFileDialog.getSaveFileName(
-            self, "Save Hit Finding Conf File", self.workdir, "Yaml Files (*.yml)")
+            self, "Save Hit Finding Conf File",
+            self.workdir, "Yaml Files (*.yml)"
+        )
         if len(filepath) == 0:
             return
         conf_dict = {
@@ -457,7 +469,9 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def choose_dir(self):
         curr_dir = self.mean_diag.output_dir.text()
-        dir_ = QFileDialog.getExistingDirectory(self, "Choose directory", curr_dir)
+        dir_ = QFileDialog.getExistingDirectory(
+            self, "Choose directory", curr_dir
+        )
         self.mean_diag.output_dir.setText(dir_)
 
     @pyqtSlot(float)
@@ -495,7 +509,9 @@ class GUI(QMainWindow):
         filepath = item.data(1)
         ext = filepath.split('.')[-1]
         action_set_as_mask = menu.addAction('set as mask')
-        action_select_and_load_dataset = menu.addAction('select and load dataset')
+        action_select_and_load_dataset = menu.addAction(
+            'select and load dataset'
+        )
         action_calc_mean_std = menu.addAction('calculate mean/sigma')
         action_multiply_masks = menu.addAction('multiply masks')
         menu.addSeparator()
@@ -507,7 +523,9 @@ class GUI(QMainWindow):
             self.status_params.param('mask file').setValue(filepath)
         elif action == action_select_and_load_dataset:
             if ext == 'npy':
-                self.add_info('Unsupported file type for dataset selection: %s' % ext)
+                self.add_info(
+                    'Unsupported file type for dataset selection: %s' % ext
+                )
                 return  # ignore npy file for dataset selection
             data_shape = get_data_shape(filepath)
             dataset = self.select_dataset(filepath)
@@ -523,7 +541,9 @@ class GUI(QMainWindow):
             self.change_image()
         elif action == action_calc_mean_std:
             if ext == 'npy':
-                self.add_info('Unsupported file type for mean calculation: %s' % ext)
+                self.add_info(
+                    'Unsupported file type for mean calculation: %s' % ext
+                )
                 return  # ignore npy files
             combo_box = self.mean_diag.combo_box
             combo_box.clear()
@@ -543,12 +563,16 @@ class GUI(QMainWindow):
                     mask_files.append(filepath)
             if len(mask_files) == 0:
                 return
-            save_file, _ = QFileDialog.getSaveFileName(self, "Save mask", self.workdir, "npy file(*.npy)")
+            save_file, _ = QFileDialog.getSaveFileName(
+                self, "Save mask", self.workdir, "npy file(*.npy)"
+            )
             if len(save_file) == 0:
                 return
             mask = multiply_masks(mask_files)
             np.save(save_file, mask)
-            self.add_info('Making mask %s from %s' % str(save_file, mask_files))
+            self.add_info(
+                'Making mask %s from %s' % (save_file, mask_files)
+            )
 
         elif action == action_del_file:
             items = self.file_list.selectedItems()
@@ -589,13 +613,15 @@ class GUI(QMainWindow):
         elif ext in ('h5', 'cxi'):
             h5_obj = h5py.File(filepath, 'r')
             data_shape = get_data_shape(filepath)
-            if self.dataset_def not in data_shape.keys():  # check default dataset
+            # check default dataset
+            if self.dataset_def not in data_shape.keys():
                 dataset = self.select_dataset(filepath)
                 if len(dataset) == 0:
                     return
             else:
                 dataset = self.dataset_def
-            if 'header/frame_num' in h5_obj.keys():  # PAL specific h5 file
+            # PAL specific h5 file
+            if 'header/frame_num' in h5_obj.keys():
                 self.file = filepath
                 self.h5_obj = h5_obj
                 self.dataset = dataset
@@ -715,7 +741,9 @@ class GUI(QMainWindow):
         if self.img3 is None:
             self.add_info('No mask image available')
         else:
-            filepath, _ = QFileDialog.getSaveFileName(self, "Save mask to", self.workdir, "npy file(*.npy)")
+            filepath, _ = QFileDialog.getSaveFileName(
+                self, "Save mask to", self.workdir, "npy file(*.npy)"
+            )
             if len(filepath) == 0:
                 return
             np.save(filepath, self.img3)
@@ -847,7 +875,8 @@ class GUI(QMainWindow):
             valid_peaks = peaks_dict['valid']
             if valid_peaks is not None:
                 self.add_info(
-                    '%d peaks remaining after mask cleaning' % len(peaks_dict['valid'])
+                    '%d peaks remaining after mask cleaning'
+                    % len(peaks_dict['valid'])
                 )
                 self.peak_item.setData(
                     pos=valid_peaks + 0.5, symbol='x', size=self.peak_size,
@@ -866,8 +895,11 @@ class GUI(QMainWindow):
                 self.add_info('%d strong peaks' % (len(strong_peaks)))
                 if len(strong_peaks) > 0:
                     self.strong_peak_item.setData(
-                        pos=strong_peaks + 0.5, symbol='o', size=self.peak_size,
-                        pen='g', brush=(255, 255, 255, 0))
+                        pos=strong_peaks + 0.5,
+                        symbol='o',
+                        size=self.peak_size,
+                        pen='g', brush=(255, 255, 255, 0)
+                    )
         if self.show_view3:
             self.calib_mask_view.setImage(
                 self.img3, autoRange=False, autoLevels=False,
@@ -929,7 +961,9 @@ class GUI(QMainWindow):
 
     def add_info(self, info):
         now = datetime.now()
-        self.info_panel.appendPlainText('[%s]: %s' % (f'{now:%Y-%m-%d %H:%M:%S}', info))
+        self.info_panel.appendPlainText(
+            '[%s]: %s' % (f'{now:%Y-%m-%d %H:%M:%S}', info)
+        )
 
 
 def main():
