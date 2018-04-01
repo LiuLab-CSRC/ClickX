@@ -60,7 +60,7 @@ class MeanCalculatorThread(QThread):
             output = 'output.npz'
         else:
             output = self.output
-        dir_ = os.path.dirname((output))
+        dir_ = os.path.dirname(output)
         if not os.path.isdir(dir_):
             os.mkdir(dir_)
         np.savez(output, mean=img_mean, sigma=img_sigma)

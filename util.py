@@ -51,10 +51,12 @@ def find_peaks(image,
         image = gaussian_filter(image.astype(np.float32), gaussian_sigma)
     grad = np.gradient(image.astype(np.float32))
     grad_mag = np.sqrt(grad[0] ** 2. + grad[1] ** 2.)
-    raw_peaks = peak_local_max(grad_mag,
-                               exclude_border=5,
-                               min_distance=int(round((min_distance - 1.) / 2.)),
-                               threshold_abs=min_gradient, num_peaks=max_peaks)
+    raw_peaks = peak_local_max(
+        grad_mag,
+        exclude_border=5,
+        min_distance=int(round((min_distance - 1.) / 2.)),
+        threshold_abs=min_gradient, num_peaks=max_peaks
+    )
     raw_peaks = np.reshape(raw_peaks, (-1, 2))
     peaks_dict['raw'] = raw_peaks
     if len(raw_peaks) == 0:
@@ -212,7 +214,12 @@ def save_cxi(batch,
                 filepath_curr = filepath
             except IOError:
                 print('Failed to load %s' % filepath)
-        frame = read_image(filepath, record['frame'], h5_obj=h5_obj, dataset=record['dataset'])
+        frame = read_image(
+            filepath,
+            record['frame'],
+            h5_obj=h5_obj,
+            dataset=record['dataset']
+        )
         data.append(frame)
     in_dtype = frame.dtype
     if out_dtype == 'auto':

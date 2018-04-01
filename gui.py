@@ -9,11 +9,9 @@ import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter
 from pyqtgraph import mkPen
 from PyQt5 import QtCore
-from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtCore import Qt, QPoint
-from PyQt5.QtWidgets import QMainWindow, QApplication
-from PyQt5.QtWidgets import QDialog, QFileDialog, QMenu
-from PyQt5.QtWidgets import QListWidgetItem, QTableWidgetItem
+from PyQt5.QtCore import Qt, QPoint, pyqtSlot
+from PyQt5.QtWidgets import QMainWindow, QApplication, QDialog, QFileDialog, \
+    QMenu, QListWidgetItem, QTableWidgetItem
 from PyQt5.uic import loadUi
 
 from skimage.morphology import disk, binary_dilation, binary_erosion

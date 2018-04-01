@@ -1,24 +1,30 @@
 #!/bin/env python
 
-"""Compress raw data in h5/cxi format to compressed cxi files on multiple cores using MPI.
+"""
+Compress raw data in h5/cxi format to compressed cxi files on multiple cores
+using MPI.
 
 Usage:
-   batch_compressor.py <raw-lst> <raw-dataset> <comp-dir> <comp-lst-dir> [options]
+   batch_compressor.py <raw-lst> <raw-dataset> <comp-dir> <comp-lst-dir> [options]  # nopep8
 
 Options:
     -h --help                   Show this screen.
     --compression COMP_FILTER   Specify compression filter [default: lzf].
-    --comp-size SIZE            Specify max frame in a compressed cxi file [default: 1000].
-    --comp-dataset DATASET      Specify dataset for patterns in compressed cxi file [default: data].
-    --comp-dtype DATATYPE       Specify datatype of patterns in compressed cxi file [default: auto].
-    --shuffle SHUFFLE           Whether to use shuffle filter in compression [default: True].
+    --comp-size SIZE            Specify max frame in a compressed cxi file
+                                [default: 1000].
+    --comp-dataset DATASET      Specify dataset for patterns in compressed cxi
+                                file [default: data].
+    --comp-dtype DATATYPE       Specify datatype of patterns in compressed cxi
+                                file [default: auto].
+    --shuffle SHUFFLE           Whether to use shuffle filter in compression
+                                [default: True].
     --batch-size SIZE           Specify batch size in a job [default: 10].
     --buffer-size SIZE          Specify buffer size in MPI communication
                                 [default: 100000].
-    --update-freq FREQ          Specify update frequency of progress [default: 10].
+    --update-freq FREQ          Specify update frequency of progress
+                                [default: 10].
 """
 from mpi4py import MPI
-import h5py
 
 from util import save_cxi, collect_jobs
 import time
@@ -28,8 +34,6 @@ import os
 from glob import glob
 from docopt import docopt
 import yaml
-from tqdm import tqdm
-
 
 
 def master_run(args):
@@ -210,6 +214,7 @@ def slave_run(args):
 
 
 if __name__ == '__main__':
+    print(docopt(__doc__))
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     if size == 1:
