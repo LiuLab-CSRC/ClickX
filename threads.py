@@ -221,7 +221,7 @@ class CompressorThread(QThread):
         comp_dtype = str(self.settings.comp_dtype)
         subprocess.run(
             [
-                shell_script,  python_script,
+                shell_script,  job, python_script,
                 raw_lst, raw_dataset, comp_dir, comp_lst_dir,
                 '--comp-dataset', comp_dataset,
                 '--comp-size', comp_size,
