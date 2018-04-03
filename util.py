@@ -2,6 +2,8 @@ import os
 import sys
 
 import numpy as np
+from scipy.linalg import eig, inv, det
+import math
 import h5py
 import pandas as pd
 from tqdm import tqdm
@@ -417,3 +419,53 @@ def save_full_cxi(batch, cxi_file, conf=None, cxi_dtype=None, compression='lzf',
     # )
     #
     # # peaks
+
+
+def fit_ellipse(x, y):
+    """
+    Fit ellipse to scattered data with Direct Least Squares Fitting Method.
+    DOI: 10.1109/ICPR.1996.546029
+    :param x: 1d array
+    :param y: 1d array
+    :return: ellipse parameters, including a, b, h, k, tao
+    """
+    x = np.array(x)
+    y = np.array(y)
+    if x.size != y.size:
+        raise ValueError('x, y should have the same length.')
+    nb_points = x.size
+    D = np.zeros((nb_points, 6))
+    D[:, 0] = x ** 2
+    D[:, 1] = x * y
+    D[:, 2] = y ** 2
+    D[:, 3] = x
+    D[:, 4] = y
+    D[:, 5] = 1
+    S = D.T.dot(D)
+    C = np.zeros((6, 6), dtype=np.float)
+    C[0, 2] = 2
+    C[1, 1] = -1
+    C[2, 0] = 2
+    eig_val, eig_vec = eig(inv(S).dot(C))
+    idx = np.where(eig_val.real > 0)[0][0]
+    solution = eig_vec[:, idx]
+    a, b, c, d, e, f = solution  # ax**2 + bxy + cy**2 + dx + ey + f = 0
+    # calculate ellipse parameters
+    M0 = np.array([[f, d/2., e/2.],
+                   [d/2., a, b/2.],
+                   [e/2., b/2., c]])
+    M = np.array([[a, b/2.],
+                  [b/2., c]])
+    eig_val, _ = eig(M)
+    l1, l2 = eig_val.real
+    if abs(l1 - a) > abs(l1 - c):
+        l1, l2 = l2, l1
+
+    ellipse = {
+        'a': math.sqrt(-det(M0)/det(M)/l1),
+        'b': math.sqrt(-det(M0)/det(M)/l2),
+        'h': (b*e - 2*c*d)/(4*a*c - b**2),
+        'k': (b*d - 2*a*e)/(4*a*c - b**2),
+        'tao': math.atan(b/(a-c))/2.
+    }
+    return ellipse
