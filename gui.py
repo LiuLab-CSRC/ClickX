@@ -19,17 +19,19 @@ from scipy.ndimage.filters import gaussian_filter
 import h5py
 import numpy as np
 
-from threads import MeanCalculatorThread
+from threads import MeanCalculatorThread, GenPowderThread
 from util import read_image, find_peaks, multiply_masks, calc_snr,\
     get_data_shape
 from settings import Settings
 from job_win import JobWindow
+from powder_win import PowderWindow
 
 
 class GUI(QMainWindow):
-    def __init__(self, parent=None, settings=None):
-        super(GUI, self).__init__(parent)
+    def __init__(self, settings):
+        super(GUI, self).__init__()
         # min gui
+        self.settings = settings
         self.workdir = settings.workdir
         self.peak_size = settings.peak_size
         self.dataset_def = settings.dataset_def
@@ -46,11 +48,12 @@ class GUI(QMainWindow):
         self.dataset_diag = QDialog()
         loadUi('%s/ui/dataset_diag.ui' % dir_, self.dataset_diag)
         self.mean_diag = QDialog()
-        loadUi('%s/ui/mean_std.ui' % dir_, self.mean_diag)
+        loadUi('%s/ui/mean_diag.ui' % dir_, self.mean_diag)
         self.powder_diag = QDialog()
-        loadUi('%s/ui/peak_powder.ui' % dir_, self.powder_diag)
+        loadUi('%s/ui/powder_diag.ui' % dir_, self.powder_diag)
 
-        self.job_win = JobWindow(settings=settings)
+        self.job_win = JobWindow(settings=self.settings)
+        self.powder_win = PowderWindow(settings=self.settings)
 
         self.gradient_view.hide()
         self.calib_mask_view.hide()
@@ -106,6 +109,7 @@ class GUI(QMainWindow):
 
         # threads
         self.calc_mean_thread = None
+        self.gen_powder_thread = None
 
         # add plot item to image view
         self.raw_view.getView().addItem(self.peak_item)
@@ -244,22 +248,25 @@ class GUI(QMainWindow):
             self.show_or_hide_calib_mask_view
         )
         self.action_job_table.triggered.connect(
-            self.show_job_table
+            self.show_job_win
+        )
+        self.action_powder_fit.triggered.connect(
+            self.show_powder_win
         )
 
         # mean/std dialog
-        self.mean_diag.apply_btn.clicked.connect(self.calc_mean_std)
         self.mean_diag.browse_btn.clicked.connect(
             partial(self.choose_dir, self.mean_diag.line_edit_1))
         self.mean_diag.combo_box.currentIndexChanged.connect(
             self.update_mean_diag_nframe)
+        self.mean_diag.apply_btn.clicked.connect(self.calc_mean_std)
 
         # powder dialog
-        # self.powder_diag.submit_btn.clicked.connect(self.gen_powder)
         self.powder_diag.browse_btn.clicked.connect(
             partial(self.choose_dir, self.powder_diag.line_edit_1))
-        # self.powder_diag.combo_box.currentIndexChanged.connect(
-        #     self.update_powder_diag_nframe)
+        self.powder_diag.combo_box.currentIndexChanged.connect(
+            self.update_powder_diag_nframe)
+        self.powder_diag.submit_btn.clicked.connect(self.gen_powder)
 
         # status
         self.status_params.param(
@@ -446,7 +453,7 @@ class GUI(QMainWindow):
             self.file_list_frame.hide()
 
     @pyqtSlot()
-    def show_job_table(self):
+    def show_job_win(self):
         self.job_win.showMaximized()
         job_table = self.job_win.job_table
         width = job_table.width()
@@ -455,7 +462,11 @@ class GUI(QMainWindow):
         for i in range(col_count):
             header.resizeSection(i, width//col_count)
 
-# mean/std diag slots
+    @pyqtSlot()
+    def show_powder_win(self):
+        self.powder_win.show()
+
+# mean/std dialog slots
     @pyqtSlot()
     def calc_mean_std(self):
         selected_items = self.file_list.selectedItems()
@@ -464,7 +475,7 @@ class GUI(QMainWindow):
             files.append(item.data(1))
         dataset = self.mean_diag.combo_box.currentText()
         nb_frame = int(self.mean_diag.label_1.text())
-        max_frame = min(int(self.mean_diag.spin_box_1.text()), nb_frame)
+        max_frame = min(int(self.mean_diag.spin_box.text()), nb_frame)
         output_dir = self.mean_diag.line_edit_1.text()
         prefix = self.mean_diag.line_edit_2.text()
         output = os.path.join(output_dir, '%s.npz' % prefix)
@@ -516,6 +527,50 @@ class GUI(QMainWindow):
                 self.add_info('Failed to open %s' % filepath)
                 pass
         self.mean_diag.label_1.setText(str(nb_frame))
+
+# peak powder dialog slots
+    @pyqtSlot(int)
+    def update_powder_diag_nframe(self, _):
+        tag = self.powder_diag.combo_box.currentText()
+        conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
+        with open(conf_file, 'r') as f:
+            conf = yaml.load(f)
+        dataset = conf['dataset']
+        selected_items = self.file_list.selectedItems()
+        nb_frame = 0
+        for item in selected_items:
+            filepath = item.data(1)
+            try:
+                data_shape = get_data_shape(filepath)
+                nb_frame += data_shape[dataset][0]
+            except IOError:
+                self.add_info('Failed to open %s' % filepath)
+                pass
+        self.powder_diag.label_1.setText(str(nb_frame))
+
+    @pyqtSlot()
+    def gen_powder(self):
+        print('generate peak powder')
+        selected_items = self.file_list.selectedItems()
+        files = []
+        for item in selected_items:
+            files.append(item.data(1))
+        powder_diag = self.powder_diag
+        tag = powder_diag.combo_box.currentText()
+        conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
+        nb_frame = int(powder_diag.label_1.text())
+        max_frame = min(int(powder_diag.spin_box.text()), nb_frame)
+        output_dir = powder_diag.line_edit_1.text()
+        prefix = powder_diag.line_edit_2.text()
+
+        self.gen_powder_thread = GenPowderThread(
+            files, conf_file, self.settings,
+            max_frame=max_frame,
+            output_dir=output_dir,
+            prefix=prefix
+        )
+        self.gen_powder_thread.info.connect(self.add_info)
+        self.gen_powder_thread.start()
 
 # file list / image view slots
     @pyqtSlot(QPoint)

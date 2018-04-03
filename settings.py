@@ -2,6 +2,7 @@
 SFX-suite settings.
 """
 import os
+import numpy as np
 
 
 class Settings():
@@ -27,6 +28,17 @@ class Settings():
 
         # scripts
         self.script_suffix = settings_dict.get('script suffix', 'local')
+
+        # powder fit
+        self.max_peak = settings_dict.get('max peak', 1000)
+        self.width = settings_dict.get('width', 1000)
+        self.height = settings_dict.get('height', 1000)
+        cx = settings_dict.get('center x', 500)
+        cy = settings_dict.get('center y', 500)
+        self.center = np.array([cx, cy])
+        self.eps = settings_dict.get('eps', 5.0)
+        self.min_samples = settings_dict.get('min samples', 10)
+        self.tol = settings_dict.get('outlier tol', 2.)
 
     def __str__(self):
         attrs = dir(self)

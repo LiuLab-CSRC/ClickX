@@ -23,8 +23,7 @@ import time
 import sys
 import os
 from docopt import docopt
-from ruamel.yaml import YAML
-
+import yaml
 from util import find_peaks, read_image, collect_jobs
 
 
@@ -47,7 +46,6 @@ def master_run(args):
             files.append(f)
     # load hit finding configuration file
     with open(args['<conf-file>']) as f:
-        yaml = YAML()
         conf = yaml.load(f)
     # collect jobs
     dataset = conf['dataset']
@@ -111,9 +109,7 @@ def master_run(args):
     result_dict['shape'] = image.shape
     result_dict['peaks'] = np.round(np.array(peaks), decimals=3).tolist()
     peak_file = os.path.join(output_dir, '%s.peaks' % prefix)
-    with open(peak_file, 'w') as f:
-        yaml = YAML(typ='safe')
-        yaml.dump(result_dict, f)
+    np.savetxt(peak_file, peaks, fmt='%.3f')
 
     # build and save peak powder
     powder = np.zeros(image.shape)
@@ -132,7 +128,6 @@ def slave_run(args):
 
     # hit finding parameters
     with open(args['<conf-file>']) as f:
-        yaml = YAML()
         conf = yaml.load(f)
     gaussian_sigma = conf['gaussian filter sigma']
     mask_file = conf['mask file']

@@ -316,6 +316,7 @@
      <string>Window</string>
     </property>
     <addaction name="action_job_table"/>
+    <addaction name="action_powder_fit"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -370,6 +371,11 @@
   <action name="action_test">
    <property name="text">
     <string>Hide file list</string>
+   </property>
+  </action>
+  <action name="action_powder_fit">
+   <property name="text">
+    <string>Powder Fit</string>
    </property>
   </action>
  </widget>

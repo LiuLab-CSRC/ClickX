@@ -9,6 +9,7 @@ import yaml
 
 import numpy as np
 import math
+import random
 import h5py
 from util import get_data_shape, read_image
 
@@ -16,12 +17,8 @@ from util import get_data_shape, read_image
 class MeanCalculatorThread(QThread):
     update_progress = pyqtSignal(float)
 
-    def __init__(self, parent=None,
-                 files=None,
-                 dataset=None,
-                 max_frame=0,
-                 output=None):
-        super(MeanCalculatorThread, self).__init__(parent)
+    def __init__(self, files, dataset, max_frame=0, output=None):
+        super(MeanCalculatorThread, self).__init__()
         self.files = files
         self.dataset = dataset
         self.max_frame = max_frame
@@ -37,7 +34,9 @@ class MeanCalculatorThread(QThread):
                 h5_obj = None
             data_shape = get_data_shape(filepath)
             for i in range(data_shape[self.dataset][0]):
-                img = read_image(filepath, frame=i, h5_obj=h5_obj, dataset=self.dataset).astype(np.float32)
+                img = read_image(
+                    filepath, frame=i, h5_obj=h5_obj,
+                    dataset=self.dataset).astype(np.float32)
                 if count == 0:
                     img_mean = img
                     img_sigma = np.zeros_like(img_mean)
@@ -66,6 +65,50 @@ class MeanCalculatorThread(QThread):
         np.savez(output, mean=img_mean, sigma=img_sigma)
 
 
+class GenPowderThread(QThread):
+    info = pyqtSignal(str)
+
+    def __init__(self, files, conf_file, settings,
+                 max_frame=0,
+                 output_dir=None,
+                 prefix='powder'):
+        super(GenPowderThread, self).__init__()
+        self.files = files
+        self.conf_file = conf_file
+        self.max_frame = max_frame
+        self.output_dir = output_dir
+        self.prefix = prefix
+        self.settings = settings
+
+    def run(self):
+        # make file lst
+        file_lst = '.powder-%d.lst' % random.randint(0, 99999)
+        with open(file_lst, 'w') as f:
+            for i in range(len(self.files)):
+                f.write('%s\n' % self.files[i])
+        conf_file = self.conf_file
+        if self.output_dir is None:
+            outout_dir = 'output'
+        else:
+            output_dir = self.output_dir
+        prefix = self.prefix
+        dir_ = os.path.dirname(__file__)
+        shell_script = '%s/scripts/run_powder_generator_%s' % (
+            dir_, self.settings.script_suffix)
+        python_script = '%s/batch_peak_powder.py' % dir_
+
+        self.info.emit('Submitting powder generation task.')
+        subprocess.run(
+            [
+                shell_script, python_script,
+                file_lst, conf_file,
+                '-o', output_dir,
+                '-p', prefix,
+            ]
+        )
+        self.info.emit('Powder generation done!')
+
+
 class CrawlerThread(QThread):
     jobs = pyqtSignal(list)
     conf = pyqtSignal(list)
@@ -86,7 +129,7 @@ class CrawlerThread(QThread):
             for raw_lst in raw_lst_files:
                 time1 = os.path.getmtime(raw_lst)
                 job_name = os.path.basename(raw_lst).split('.')[0]
-                # check h52cxi status
+                # check compression status
                 cxi_comp_dir = os.path.join(self.workdir, 'cxi_comp', job_name)
                 compression = 'ready'
                 hit_rate = 0
@@ -105,7 +148,8 @@ class CrawlerThread(QThread):
                             if raw_frames is not None:
                                 total_raw_frames += raw_frames
                 # check cxi lst status
-                cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % job_name)
+                cxi_lst = os.path.join(
+                    self.workdir, 'cxi_lst', '%s.lst' % job_name)
                 if os.path.exists(cxi_lst):
                     hit_finding = 'ready'
                 else:
@@ -215,10 +259,12 @@ class CompressorThread(QThread):
         comp_dir = os.path.join(workdir, 'cxi_comp', job)
         comp_lst_dir = os.path.join(workdir, 'cxi_lst')
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_compressor_%s' % (dir_, self.settings.script_suffix)
+        shell_script = '%s/scripts/run_compressor_%s' \
+                       % (dir_, self.settings.script_suffix)
         python_script = '%s/batch_compressor.py' % dir_
         comp_size = str(self.settings.comp_size)
         comp_dtype = str(self.settings.comp_dtype)
+        print(shell_script, job, python_script)
         subprocess.run(
             [
                 shell_script,  job, python_script,

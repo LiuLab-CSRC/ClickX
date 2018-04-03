@@ -1,5 +1,3 @@
-from os.path import abspath, dirname
-
 from PyQt5.QtCore import pyqtSlot, QPoint, Qt
 from PyQt5.QtWidgets import QWidget, QFileDialog, QMenu
 from PyQt5.QtWidgets import QTableWidgetItem
@@ -13,7 +11,7 @@ class JobWindow(QWidget):
         super(JobWindow, self).__init__(parent)
         # setup ui
         dir_ = os.path.abspath(os.path.dirname(__file__))
-        loadUi('%s/ui/jobs.ui' % dir_, self)
+        loadUi('%s/ui/jobs_win.ui' % dir_, self)
         self.settings = settings
         self.workdir = settings.workdir
         self.raw_dataset = settings.raw_dataset
