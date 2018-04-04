@@ -30,7 +30,7 @@ class Settings():
         self.script_suffix = settings_dict.get('script suffix', 'local')
 
         # powder fit
-        self.max_peak = settings_dict.get('max peak', 1000)
+        self.max_peaks = settings_dict.get('max peaks', 1000)
         self.width = settings_dict.get('width', 1000)
         self.height = settings_dict.get('height', 1000)
         cx = settings_dict.get('center x', 500)
@@ -39,6 +39,11 @@ class Settings():
         self.eps = settings_dict.get('eps', 5.0)
         self.min_samples = settings_dict.get('min samples', 10)
         self.tol = settings_dict.get('outlier tol', 2.)
+
+        # experiment parameters
+        self.photon_energy = settings_dict.get('photon energy', 9000)
+        self.detector_distance = settings_dict.get('detector distance', 100)
+        self.pixel_size = settings_dict.get('pixel size', 100)
 
     def __str__(self):
         attrs = dir(self)

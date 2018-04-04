@@ -3,6 +3,7 @@ import sys
 
 import numpy as np
 from scipy.linalg import eig, inv, det
+from scipy.optimize import minimize
 import math
 import h5py
 import pandas as pd
@@ -432,7 +433,7 @@ def fit_ellipse(x, y):
     x = np.array(x)
     y = np.array(y)
     if x.size != y.size:
-        raise ValueError('x, y should have the same length.')
+        raise ValueError('x, y must have the same length.')
     nb_points = x.size
     D = np.zeros((nb_points, 6))
     D[:, 0] = x ** 2
@@ -469,3 +470,88 @@ def fit_ellipse(x, y):
         'tao': math.atan(b/(a-c))/2.
     }
     return ellipse
+
+
+def fit_circle(x, y, tol=3.0, init_center=[0, 0], init_radius=1.):
+    """
+    Fit circle to scattered points with specified tolerance.
+    :param x: x coordinates, 1d array.
+    :param y: y coordinates, 1d array.
+    :param tol: fitting tolerance in sigma.
+    :param init_center: initial center for optimization, 2 elements array.
+    :param init_radius: initial center for optimization.
+    :return: circle parameters, including center, radius, radius_std,
+             radius_min, radius_max, fitting points num
+    """
+    x, y = np.array(x), np.array(y)
+    center = np.array(init_center).reshape(-1)
+    radius = init_radius
+    if x.size != y.size:
+        raise ValueError('x and y must have the same length.')
+    if center.size != 2:
+        raise ValueError('init_center must have 2 elements: x, y.')
+    while True:
+        def target(variables):
+            x0, y0, r = variables
+            return np.mean(
+                (np.sqrt(
+                    (x - x0) ** 2 + (y - y0) ** 2
+                ) - r) ** 2
+            )
+
+        ret = minimize(
+            target, (center[0], center[1], radius), method='CG')
+        center = ret.x[0:2]
+        radii = np.sqrt((x - center[0])**2 + (y - center[1])**2)
+        radii_mean = radii.mean()
+        radii_std = radii.std()
+        valid_idx = np.where(np.abs(radii - radii_mean) < tol * radii_std)[0]
+        if len(valid_idx) == x.size:
+            break
+        elif len(x) <= 10:  # exit if not enough points to fit
+            break
+        else:
+            x = x[valid_idx]
+            y = y[valid_idx]
+    circle = {
+        'center': center,
+        'radius': radii_mean,
+        'radius_std': radii_std,
+        'radius_min': radii.min(),
+        'radius_max': radii.max(),
+        'fitting peaks num': len(x)
+    }
+    return circle
+
+
+def get_photon_wavelength(photon_energy):
+    """
+    Calucate wavelength for given photon energy in eV.
+    :param photon_energy: photon energy in eV.
+    :return: photon wavelength in angstrom
+    """
+    h = 4.135667E-15  # in eV/s
+    c = 2.99792458E8  # in m/s
+    wavelength = h*c/photon_energy
+    wavelength *= 1.E10
+    return wavelength
+
+
+def get_photon_energy(photon_wavelength):
+    """
+    Calculate photon energy for give wavelength in angstrom.
+    :param photon_wavelength: photon wavelength in angstrom.
+    :return: photon energy in eV.
+    """
+    h = 4.135667E-15  # in eV/s
+    c = 2.99792458E8  # in m/s
+    photon_wavelength *= 1.E-10
+    photon_energy = h*c/photon_wavelength
+    return photon_energy
+
+
+def build_grid_image(dim0, dim1):
+    idx, idy = np.indices((dim0, dim1))
+    image = np.zeros((dim0, dim1))
+    image[(idx+idy)%2 == 0] = 1
+    return image
