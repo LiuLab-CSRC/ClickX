@@ -1,19 +1,19 @@
-# test conf for old LCLS data
+# test configuration file for PAL
 
 # work directory
-work dir: "/Volumes/LaCie/data/test"
+work dir: "/Users/lixuanxuan/Downloads/temp"
 
 # visualization
 peak size: 10
 
 # data compression
-raw dataset: "data/rawdata0"
+raw dataset: "ts-data-PAL"
 compressed dtype: "auto"
-cxi size: 200  # number of frames in compressed cxi and hits files
+compressed size: 100  # number of frames in compressed cxi and hits files
 compressed dataset: "data"
 
 # main window
-default dataset: "data/rawdata0"
+default dataset: "ts-data-PAL"
 max info: 1000   # show up to 10k lines for info panel
 
 # job window
@@ -27,4 +27,18 @@ header labels:
   - 'processed frames'
   - "processed hits"
   - "hit rate"
-  - "csv2cxi"
+
+# powder fit
+max peaks: 1000
+width: 1440
+height: 1440
+center x: 724.85
+center y: 720.49
+eps: 5.0
+min samples: 10
+outlier tol: 3.  # in pixel
+
+# exp parametes
+photon energy: 9700  # in eV
+detector distance: 119.87  # in mm
+pixel size: 156  # in um
