@@ -95,7 +95,7 @@ class GenPowderThread(QThread):
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/scripts/run_powder_generator_%s' % (
             dir_, self.settings.script_suffix)
-        python_script = '%s/batch_peak_powder.py' % dir_
+        python_script = '%s/mpi/batch_peak_powder.py' % dir_
 
         self.info.emit('Submitting powder generation task.')
         subprocess.run(
@@ -261,7 +261,7 @@ class CompressorThread(QThread):
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/scripts/run_compressor_%s' \
                        % (dir_, self.settings.script_suffix)
-        python_script = '%s/batch_compressor.py' % dir_
+        python_script = '%s/mpi/batch_compressor.py' % dir_
         comp_size = str(self.settings.comp_size)
         comp_dtype = str(self.settings.comp_dtype)
         print(shell_script, job, python_script)
@@ -294,5 +294,5 @@ class HitFinderThread(QThread):
         hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/scripts/run_hit_finder_PAL7' % dir_
-        python_script = '%s/batch_hit_finder.py' % dir_
+        python_script = '%s/mpi/batch_hit_finder.py' % dir_
         subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])
