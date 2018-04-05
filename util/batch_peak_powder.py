@@ -22,7 +22,7 @@ import sys
 import os
 from docopt import docopt
 import yaml
-from . import util
+import util
 
 
 def master_run(args):
