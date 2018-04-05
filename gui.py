@@ -20,8 +20,7 @@ import h5py
 import numpy as np
 
 from threads import MeanCalculatorThread, GenPowderThread
-from util import read_image, find_peaks, multiply_masks, calc_snr,\
-    get_data_shape
+from util import util
 from settings import Settings
 from job_win import JobWindow
 from powder_win import PowderWindow
@@ -378,7 +377,7 @@ class GUI(QMainWindow):
         if 'mask file' in conf_dict.keys():
             self.mask_file = conf_dict['mask file']
             self.status_params.param('mask file').setValue(self.mask_file)
-            self.mask = read_image(self.mask_file)
+            self.mask = util.read_image(self.mask_file)
         if 'gaussian filter sigma' in conf_dict.keys():
             self.gaussian_sigma = conf_dict['gaussian filter sigma']
             self.hit_finder_params.param(
@@ -521,7 +520,7 @@ class GUI(QMainWindow):
         for item in selected_items:
             filepath = item.data(1)
             try:
-                data_shape = get_data_shape(filepath)
+                data_shape = util.get_data_shape(filepath)
                 nb_frame += data_shape[dataset][0]
             except IOError:
                 self.add_info('Failed to open %s' % filepath)
@@ -541,7 +540,7 @@ class GUI(QMainWindow):
         for item in selected_items:
             filepath = item.data(1)
             try:
-                data_shape = get_data_shape(filepath)
+                data_shape = util.get_data_shape(filepath)
                 nb_frame += data_shape[dataset][0]
             except IOError:
                 self.add_info('Failed to open %s' % filepath)
@@ -562,12 +561,12 @@ class GUI(QMainWindow):
         max_frame = min(int(powder_diag.spin_box.text()), nb_frame)
         output_dir = powder_diag.line_edit_1.text()
         prefix = powder_diag.line_edit_2.text()
+        output = os.path.join(output_dir, '%s.npz' % prefix)
 
         self.gen_powder_thread = GenPowderThread(
             files, conf_file, self.settings,
             max_frame=max_frame,
-            output_dir=output_dir,
-            prefix=prefix
+            output=output,
         )
         self.gen_powder_thread.info.connect(self.add_info)
         self.gen_powder_thread.start()
@@ -599,7 +598,7 @@ class GUI(QMainWindow):
                     'Unsupported file type for dataset selection: %s' % ext
                 )
                 return  # ignore npy file for dataset selection
-            data_shape = get_data_shape(filepath)
+            data_shape = util.get_data_shape(filepath)
             dataset = self.select_dataset(filepath)
             self.nb_frame = data_shape[dataset][0]
             if filepath.split('.')[-1] in ('cxi', 'h5'):
@@ -613,7 +612,7 @@ class GUI(QMainWindow):
             self.change_image()
         elif action == action_set_as_mask:
             self.mask_file = filepath
-            self.mask = read_image(filepath)
+            self.mask = util.read_image(filepath)
             self.status_params.param('mask file').setValue(filepath)
         elif action == action_multiply_masks:
             items = self.file_list.selectedItems()
@@ -629,7 +628,7 @@ class GUI(QMainWindow):
             )
             if len(save_file) == 0:
                 return
-            mask = multiply_masks(mask_files)
+            mask = util.multiply_masks(mask_files)
             np.save(save_file, mask)
             self.add_info(
                 'Making mask %s from %s' % (save_file, mask_files)
@@ -642,7 +641,7 @@ class GUI(QMainWindow):
                 return  # ignore npy files
             combo_box = self.mean_diag.combo_box
             combo_box.clear()
-            data_shape = get_data_shape(filepath)
+            data_shape = util.get_data_shape(filepath)
             for dataset, shape in data_shape.items():
                 combo_box.addItem(dataset)
             output_dir = os.path.join(self.workdir, 'mean')
@@ -685,7 +684,7 @@ class GUI(QMainWindow):
             self.file = filepath
             self.nb_frame = 1
         elif ext == 'npz':
-            data_shape = get_data_shape(filepath)
+            data_shape = util.get_data_shape(filepath)
             if self.dataset_def not in data_shape.keys():
                 dataset = self.select_dataset(filepath)
                 if len(dataset) == 0:
@@ -698,7 +697,7 @@ class GUI(QMainWindow):
                     self.nb_frame = 1
         elif ext in ('h5', 'cxi'):
             h5_obj = h5py.File(filepath, 'r')
-            data_shape = get_data_shape(filepath)
+            data_shape = util.get_data_shape(filepath)
             # check default dataset
             if self.dataset_def not in data_shape.keys():
                 dataset = self.select_dataset(filepath)
@@ -762,7 +761,7 @@ class GUI(QMainWindow):
                 return
             # calculate snr
             pos = np.reshape((x, y), (-1, 2))
-            snr = calc_snr(self.img, pos)
+            snr = util.calc_snr(self.img, pos)
             self.inspector.snr_label.setText('SNR@(%d, %d):' % (x, y))
             self.inspector.snr_value.setText('%.1f' % snr)
             # set table values
@@ -893,7 +892,7 @@ class GUI(QMainWindow):
     def select_dataset(self, filepath):
         combo_box = self.dataset_diag.combo_box
         combo_box.clear()
-        data_shape = get_data_shape(filepath)
+        data_shape = util.get_data_shape(filepath)
         for dataset, shape in data_shape.items():
             combo_box.addItem('%s  %s' % (dataset, shape), userData=dataset)
         if self.dataset_diag.exec_() == QDialog.Accepted:
@@ -906,7 +905,7 @@ class GUI(QMainWindow):
             return ''
 
     def change_image(self):
-        self.img = read_image(
+        self.img = util.read_image(
             self.file, frame=self.frame,
             h5_obj=self.h5_obj, dataset=self.dataset
         ).astype(np.float32)
@@ -947,7 +946,7 @@ class GUI(QMainWindow):
         self.strong_peak_item.clear()
 
         if self.hit_finding_on:
-            peaks_dict = find_peaks(
+            peaks_dict = util.find_peaks(
                 self.img, self.mask,
                 gaussian_sigma=self.gaussian_sigma,
                 min_gradient=self.min_gradient,
@@ -1060,6 +1059,9 @@ def main():
     else:
         settings = Settings()
         print('using default settings')
+    # add this directory to sys.path
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    print(sys.path)
     app = QApplication(sys.argv)
     win = GUI(settings=settings)
     win.setWindowTitle('SFX Suite')

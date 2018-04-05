@@ -11,7 +11,7 @@ import numpy as np
 import math
 import random
 import h5py
-from util import get_data_shape, read_image
+from util import util
 
 
 class MeanCalculatorThread(QThread):
@@ -32,9 +32,9 @@ class MeanCalculatorThread(QThread):
                 h5_obj = h5py.File(filepath, 'r')
             else:
                 h5_obj = None
-            data_shape = get_data_shape(filepath)
+            data_shape = util.get_data_shape(filepath)
             for i in range(data_shape[self.dataset][0]):
-                img = read_image(
+                img = util.read_image(
                     filepath, frame=i, h5_obj=h5_obj,
                     dataset=self.dataset).astype(np.float32)
                 if count == 0:
@@ -70,14 +70,12 @@ class GenPowderThread(QThread):
 
     def __init__(self, files, conf_file, settings,
                  max_frame=0,
-                 output_dir=None,
-                 prefix='powder'):
+                 output=None):
         super(GenPowderThread, self).__init__()
         self.files = files
         self.conf_file = conf_file
         self.max_frame = max_frame
-        self.output_dir = output_dir
-        self.prefix = prefix
+        self.output = output
         self.settings = settings
 
     def run(self):
@@ -87,23 +85,21 @@ class GenPowderThread(QThread):
             for i in range(len(self.files)):
                 f.write('%s\n' % self.files[i])
         conf_file = self.conf_file
-        if self.output_dir is None:
-            outout_dir = 'output'
+        if self.output is None:
+            output = 'output'
         else:
-            output_dir = self.output_dir
-        prefix = self.prefix
+            output = self.output
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/scripts/run_powder_generator_%s' % (
             dir_, self.settings.script_suffix)
-        python_script = '%s/mpi/batch_peak_powder.py' % dir_
+        python_script = '%s/util/batch_peak_powder.py' % dir_
 
         self.info.emit('Submitting powder generation task.')
         subprocess.run(
             [
                 shell_script, python_script,
                 file_lst, conf_file,
-                '-o', output_dir,
-                '-p', prefix,
+                '-o', output,
             ]
         )
         self.info.emit('Powder generation done!')
@@ -261,7 +257,7 @@ class CompressorThread(QThread):
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/scripts/run_compressor_%s' \
                        % (dir_, self.settings.script_suffix)
-        python_script = '%s/mpi/batch_compressor.py' % dir_
+        python_script = '%s/util/batch_compressor.py' % dir_
         comp_size = str(self.settings.comp_size)
         comp_dtype = str(self.settings.comp_dtype)
         print(shell_script, job, python_script)
@@ -294,5 +290,5 @@ class HitFinderThread(QThread):
         hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/scripts/run_hit_finder_PAL7' % dir_
-        python_script = '%s/mpi/batch_hit_finder.py' % dir_
+        python_script = '%s/util/batch_hit_finder.py' % dir_
         subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])

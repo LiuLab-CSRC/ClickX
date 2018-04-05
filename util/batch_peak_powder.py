@@ -8,9 +8,7 @@ Usage:
 
 Options:
     -h --help               Show this screen.
-    -o OUTPUT-DIR           Specify output directory [default: output].
-    -p PREFIX               Specify the prefix of output files
-                            [default: powder].
+    -o FILE                 Specify output filename [default: powder.npz].
     --batch-size SIZE       Specify batch size in a job [default: 10].
     --buffer-size SIZE      Specify buffer size in MPI communication
                             [default: 100000].
@@ -24,16 +22,10 @@ import sys
 import os
 from docopt import docopt
 import yaml
-from util import find_peaks, read_image, collect_jobs
+from . import util
 
 
 def master_run(args):
-    # mkdir if not exist
-    output_dir = args['-o']
-    if not os.path.isdir(output_dir):
-        os.makedirs(output_dir)
-    prefix = args['-p']
-
     file_lst = args['<file-lst>']
     with open(file_lst) as f:
         _files = f.readlines()
@@ -51,7 +43,7 @@ def master_run(args):
     dataset = conf['dataset']
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
-    jobs, nb_frames = collect_jobs(files, dataset, batch_size)
+    jobs, nb_frames = util.collect_jobs(files, dataset, batch_size)
     nb_jobs = len(jobs)
     print('%d frames, %d jobs to be processed' % (nb_frames, nb_jobs))
 
@@ -100,23 +92,20 @@ def master_run(args):
             else:
                 all_done = False
 
-    # save peaks
+    # build and save peak powder
     filepath = jobs[0][0]['filepath']
     frame = jobs[0][0]['frame']
     h5_obj = h5py.File(filepath, 'r')
-    image = read_image(filepath, frame=frame, h5_obj=h5_obj, dataset=dataset)
-    result_dict = dict()
-    result_dict['shape'] = image.shape
-    result_dict['peaks'] = np.round(np.array(peaks), decimals=3).tolist()
-    peak_file = os.path.join(output_dir, '%s.peaks' % prefix)
-    np.savetxt(peak_file, peaks, fmt='%.3f')
-
-    # build and save peak powder
+    image = util.read_image(
+        filepath, frame=frame, h5_obj=h5_obj, dataset=dataset)
     powder = np.zeros(image.shape)
     peaks = np.round(np.array(peaks)).astype(np.int)
     powder[peaks[:, 0], peaks[:, 1]] = 1
-    powder_file = os.path.join(output_dir, '%s.npy' % prefix)
-    np.save(powder_file, powder)
+    powder_file = args['-o']
+    dir_ = os.path.dirname(powder_file)
+    if not os.path.isdir(dir_):
+        os.mkdir(dir_)
+    np.savez(powder_file, powder_pattern=powder, powder_peaks=peaks)
     print('All Done!')
 
 
@@ -132,7 +121,7 @@ def slave_run(args):
     gaussian_sigma = conf['gaussian filter sigma']
     mask_file = conf['mask file']
     if mask_file is not None:
-        mask = read_image(mask_file)
+        mask = util.read_image(mask_file)
     else:
         mask = None
     max_peak_num = conf['max peak num']
@@ -151,14 +140,16 @@ def slave_run(args):
             if _filepath != filepath:
                 filepath = _filepath
                 h5_obj = h5py.File(filepath, 'r')
-            image = read_image(filepath, frame=frame,
+            image = util.read_image(filepath, frame=frame,
                                h5_obj=h5_obj, dataset=dataset)
-            peaks_dict = find_peaks(image, mask=mask,
-                                    gaussian_sigma=gaussian_sigma,
-                                    min_distance=min_distance,
-                                    min_gradient=min_gradient,
-                                    max_peaks=max_peak_num,
-                                    min_snr=min_snr)
+            peaks_dict = util.find_peaks(
+                image, mask=mask,
+                gaussian_sigma=gaussian_sigma,
+                min_distance=min_distance,
+                min_gradient=min_gradient,
+                max_peaks=max_peak_num,
+                min_snr=min_snr
+            )
             if peaks_dict['strong'] is not None:
                 peaks += peaks_dict['strong'].tolist()
         comm.send(peaks, dest=0)
@@ -176,8 +167,8 @@ if __name__ == '__main__':
         sys.exit()
 
     rank = comm.Get_rank()
-    args = docopt(__doc__)
+    argv = docopt(__doc__)
     if rank == 0:
-        master_run(args)
+        master_run(argv)
     else:
-        slave_run(args)
+        slave_run(argv)

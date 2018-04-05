@@ -318,7 +318,9 @@ def get_size(obj, seen=None):
         size += sum([get_size(k, seen) for k in obj.keys()])
     elif hasattr(obj, '__dict__'):
         size += get_size(obj.__dict__, seen)
-    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+    elif hasattr(obj, '__iter__') and not isinstance(
+            obj, (str, bytes, bytearray)
+    ):
         size += sum([get_size(i, seen) for i in obj])
     return size
 
@@ -358,7 +360,11 @@ def collect_jobs(files, dataset, batch_size):
     return jobs, frames
 
 
-def save_full_cxi(batch, cxi_file, conf=None, cxi_dtype=None, compression='lzf', shuffle=True):
+def save_full_cxi(batch, cxi_file, conf,
+                  cxi_dtype=None,
+                  compression='lzf',
+                  shuffle=True
+                  ):
     print('saving %s' % cxi_file)
     filepath_curr = None
     h5_obj = None
@@ -499,8 +505,8 @@ def fit_circle(x, y, tol=3.0, init_center=[0, 0], init_radius=1.):
                 ) - r) ** 2
             )
 
-        ret = minimize(
-            target, (center[0], center[1], radius), method='CG')
+        in_vars = np.array([center[0], center[1], radius])
+        ret = minimize(target, in_vars, method='CG')
         center = ret.x[0:2]
         radii = np.sqrt((x - center[0])**2 + (y - center[1])**2)
         radii_mean = radii.mean()

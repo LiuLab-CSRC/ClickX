@@ -26,7 +26,7 @@ Options:
 """
 from mpi4py import MPI
 
-from util import save_cxi, collect_jobs
+from . import util
 import time
 
 import sys
@@ -58,7 +58,7 @@ def master_run(args):
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
     raw_dataset = args['<raw-dataset>']
-    jobs, nb_frames = collect_jobs(files, raw_dataset, batch_size)
+    jobs, nb_frames = util.collect_jobs(files, raw_dataset, batch_size)
     nb_jobs = len(jobs)
     time_start = time.time()
     print('%d frames, %d jobs to be processed' % (nb_frames, nb_jobs))
@@ -196,7 +196,10 @@ def slave_run(args):
                 comp_file = os.path.join(
                     comp_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
                 )
-                save_cxi(batch, comp_file, comp_dataset, out_dtype=comp_dtype, shuffle=shuffle)
+                util.save_cxi(
+                    batch, comp_file, comp_dataset,
+                    out_dtype=comp_dtype, shuffle=shuffle
+                )
                 sys.stdout.flush()
                 batch.clear()
                 count += 1
@@ -207,7 +210,10 @@ def slave_run(args):
         comp_file = os.path.join(
             comp_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
         )
-        save_cxi(batch, comp_file, comp_dataset, out_dtype=comp_dtype, shuffle=shuffle)
+        util.save_cxi(
+            batch, comp_file, comp_dataset,
+            out_dtype=comp_dtype, shuffle=shuffle
+        )
         sys.stdout.flush()
     done = True
     comm.send(done, dest=0)
