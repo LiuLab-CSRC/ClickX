@@ -158,7 +158,7 @@ def slave_run(args):
         mask = read_image(mask_file)
     else:
         mask = None
-    max_pean_num = conf['max peak num']
+    max_peak_num = conf['max peak num']
     min_distance = conf['min distance']
     min_gradient = conf['min gradient']
     min_snr = conf['min snr']
@@ -179,7 +179,7 @@ def slave_run(args):
                                     gaussian_sigma=gaussian_sigma,
                                     min_distance=min_distance,
                                     min_gradient=min_gradient,
-                                    max_peaks=max_pean_num,
+                                    max_peaks=max_peak_num,
                                     min_snr=min_snr)
             if peaks_dict['strong'] is not None:
                 job[i]['nb_peak'] = len(peaks_dict['strong'])
