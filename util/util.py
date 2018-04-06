@@ -42,12 +42,15 @@ def find_peaks(image,
                min_distance=0,
                max_peaks=500,
                min_snr=0.,
-               ):
+               refine_mode='mean',
+               snr_mode='rings',
+               label_peaks=False):
     peaks_dict = {
-        'raw': None,
-        'valid': None,
-        'opt': None,
-        'strong': None,
+        'raw': None,  # coordinates of raw peak
+        'valid': None,  # coordinates of valid peak after mask out bad peak
+        'opt': None,  # coordinates of optimized peak
+        'strong': None,  # coordinates of strong peak with high snr
+        'info': None,  # strong peak info, including intensity, snr, pixel num
     }
     raw_image = image.copy()
     if gaussian_sigma >= 0:
@@ -79,89 +82,274 @@ def find_peaks(image,
     if len(valid_peaks) == 0:
         return peaks_dict
     # refine peak location
-    opt_peaks = refine_peaks(raw_image, valid_peaks)
+    opt_peaks = refine_peaks(raw_image, valid_peaks, mode=refine_mode)
     peaks_dict['opt'] = opt_peaks
     # remove weak peak
-    snr = calc_snr(raw_image, opt_peaks)
-    strong_peaks = opt_peaks[snr >= min_snr]
+    snr_info = calc_snr(
+        raw_image, opt_peaks, label_pixels=label_peaks, mode=snr_mode)
+    strong_ids = np.where(snr_info['snr'] >= min_snr)[0]
+    print(snr_info['snr'])
+    strong_peaks = opt_peaks[strong_ids]
     peaks_dict['strong'] = strong_peaks
+    peaks_dict['info'] = {
+        'snr': snr_info['snr'][strong_ids],
+        'total intensity': snr_info['total intensity'][strong_ids],
+        'signal values': snr_info['signal values'],
+        'background values': snr_info['background values'][strong_ids],
+        'noise values': snr_info['noise values'][strong_ids],
+        'signal pixel num': snr_info['signal pixel num'][strong_ids],
+        'background pixel num': snr_info['background pixel num'][strong_ids],
+    }
     return peaks_dict
 
 
-def refine_peaks(image, peaks):
+def refine_peaks(image, peaks, crop_size=7, mode='gradient'):
+    """
+    Refine peak position with adaptive method.
+    :param image: 2d array.
+    :param peaks: peak coordinates with shape of (N, 2)
+    :param crop_size: size of crop used for refinement
+    :param mode: support 'gradient' and 'mean'
+    :return: optimized peak position.
+    """
+    image = np.array(image)
+    peaks = np.round(peaks).astype(np.int).reshape(-1, 2)
+    if len(image.shape) != 2:
+        raise ValueError('image must be 2d array.')
     opt_peaks = peaks.copy().astype(np.float32)
     crops = []
+    half_crop = crop_size // 2
     crop_1ds = []
-    for i in range(peaks.shape[0]):
+    nb_peaks = peaks.shape[0]
+    for i in range(nb_peaks):
         x, y = peaks[i]
-        crop = image[x - 4:x + 5, y - 4:y + 5].astype(np.float32)
+        crop = image[x - half_crop:x + half_crop + 1,
+                     y - half_crop:y + half_crop + 1]
         crops.append(crop)
         crop_1ds.append(np.sort(crop.flatten()))
     crops = np.array(crops)
-    crop_1ds = np.array(crop_1ds)
-    crop_1ds_smooth = convolve1d(crop_1ds, np.ones(3), mode='nearest')
-    if crop_1ds_smooth.shape[0] == 1:
-        grad = np.gradient(crop_1ds_smooth[0])
-        grad = np.reshape(grad, (-1, grad.size))
+    if mode == 'gradient':
+        crop_1ds = np.array(crop_1ds)
+        crop_1ds_smooth = convolve1d(crop_1ds, np.ones(3), mode='nearest')
+        if crop_1ds_smooth.shape[0] == 1:
+            grad = np.gradient(crop_1ds_smooth[0])
+            grad = np.reshape(grad, (-1, grad.size))
+        else:
+            grad = np.gradient(crop_1ds_smooth)[1]
+        max_ids = np.argmax(grad, axis=1)
+        hinge = crop_1ds[np.arange(nb_peaks), max_ids].reshape(-1, 1, 1)
+        hot_masks = crops >= hinge
+        calib_crops = crops
+    elif mode == 'mean':
+        crops_mean = np.mean(np.mean(crops, axis=1), axis=1).reshape(-1, 1, 1)
+        calib_crops = crops - crops_mean
+        hot_masks = calib_crops > 0
     else:
-        grad = np.gradient(crop_1ds_smooth)[1]
-    max_ids = np.argmax(grad, axis=1)
-    signal_masks = []
-    for i in range(len(max_ids)):
-        signal_mask = (crops[i] >= crop_1ds[i, max_ids[i]]).astype(np.int)
-        signal_masks.append(signal_mask)
-    signal_masks = np.array(signal_masks)
-    ids = (np.indices((9, 9)) - 4).astype(np.float)
-    weight = np.sum(np.sum(crops * signal_masks, axis=1), axis=1)
+        raise ValueError('only support gradient and mean mode.')
+    ids = (np.indices((crop_size, crop_size)) - half_crop).astype(np.float)
+    weight = np.sum(np.sum(calib_crops * hot_masks, axis=1), axis=1)
     weight = weight.astype(np.float32)
     opt_peaks[:, 0] += np.sum(np.sum(
-        crops * signal_masks * ids[0], axis=1), axis=1) / weight
+        calib_crops * hot_masks * ids[0], axis=1), axis=1) / weight
     opt_peaks[:, 1] += np.sum(np.sum(
-        crops * signal_masks * ids[1], axis=1), axis=1) / weight
+        calib_crops * hot_masks * ids[1], axis=1), axis=1) / weight
     return opt_peaks
 
 
 def calc_snr(image,
              pos,
+             mode='adaptive',
              signal_radius=1,
-             noise_inner_radius=2,
-             noise_outer_radius=3,
-             mode='static'):
+             bg_inner_radius=2,
+             bg_outer_radius=3,
+             crop_size=7,
+             BG_ratio=0.7,
+             signal_ratio=0.2,
+             signal_thres=5.,
+             label_pixels=True):
     """
-    Calculate SNR for each pos in the given image.
+    Calculate snr for given position on image.
+    :param image: 2d array.
+    :param pos: positions to calculate snr.
+    :param mode: support 'simple', 'rings' and 'adaptive' modes.
+    :param signal_radius: signal region radius, used in 'rings' mode.
+    :param bg_inner_radius: noise inner radius, used in 'rings mode.
+    :param bg_outer_radius: noise outer radius, used in 'rings mode.
+    :param crop_size: size of crop for snr estimation, used in 'simple' mode.
+    :param BG_ratio: background pixel ratio, used in 'simple' mode.
+    :param signal_thres: float, pixel with higher value than BG + \
+                         signal_thres * noise is considered as signal pixel.
+    :return: snr_info dict (including snr, signal pixels, background pixels)
     """
-    pos = np.round(pos).astype(np.int)
-    nb_pos = len(pos)
+    image = np.array(image)
+    pos = np.round(np.array(pos)).astype(np.int).reshape(-1, 2)
+    if len(image.shape) != 2:
+        raise ValueError('image must be 2d array.')
+    nb_pos = pos.shape[0]
     r1 = signal_radius
-    r2, r3 = noise_inner_radius, noise_outer_radius
+    r2, r3 = bg_inner_radius, bg_outer_radius
     crop_size = r3 * 2 + 1
     # collect crops
     crops = []
+    if mode == 'rings':
+        half_crop = r3
+    else:
+        half_crop = crop_size // 2
     for i in range(nb_pos):
         x, y = pos[i]
-        crop = image[x-r3:x+r3+1, y-r3:y+r3+1]
+        crop = image[x - half_crop:x + half_crop + 1,
+                     y - half_crop:y + half_crop + 1]
         crops.append(crop)
     crops = np.array(crops).astype(np.float32)
     crops = np.reshape(crops, (-1, crop_size, crop_size))
 
-    if mode == 'static':
+    # collect statistics
+    val_BG = []
+    val_signal = []
+    val_noise = []
+    val_total_intensity = []
+    nb_signal_pixels = []
+    nb_BG_pixels = []
+    if mode == 'rings':
         d1, d2, d3 = disk(r1), disk(r2), disk(r3)
         pad_signal, pad_BG = r3 - r1, r3 - r2
-        region_signal = np.pad(d1, pad_signal, 'constant', constant_values=0)
+        region_signal = np.pad(
+            d1, pad_signal, 'constant', constant_values=0).astype(bool)
         region_signal = np.reshape(region_signal, (1, crop_size, crop_size))
         region_signal = np.repeat(region_signal, nb_pos, axis=0)
         region_BG = (1 - np.pad(
             d2, pad_BG, 'constant', constant_values=0)) * d3
+        region_BG = region_BG.astype(bool)
         region_BG = np.reshape(region_BG, (1, crop_size, crop_size))
         region_BG = np.repeat(region_BG, nb_pos, axis=0)
-        val_BG = np.sum(np.sum(crops * region_BG, axis=1), axis=1)
-        val_BG /= (np.sum(region_BG) / nb_pos)
-        val_signal = np.sum(np.sum(crops * region_signal, axis=1), axis=1) 
-        val_signal /= (np.sum(region_signal) / nb_pos)
-        val_signal -= val_BG
-        val_noise = np.std(crops[region_BG == 1].reshape((nb_pos, -1)), axis=1)
-        snr = val_signal / val_noise
-    return snr
+        for i in range(nb_pos):
+            crop = crops[i]
+            BG = crop[region_BG[i]].mean()
+            noise = crop[region_BG[i]].std()
+            signal = crop[region_signal[i]].mean() - BG
+            total_intensity = signal * region_signal[i].sum()
+            val_BG.append(BG)
+            val_noise.append(noise)
+            val_signal.append(signal)
+            val_total_intensity.append(total_intensity)
+            nb_signal_pixels.append(region_signal[i].sum())
+            nb_BG_pixels.append(region_BG[i].sum())
+    elif mode == 'simple':
+        flat_crops = np.sort(crops.reshape(-1, crop_size ** 2), axis=1)
+        boundary_BG = flat_crops[:, int(crop_size ** 2 * BG_ratio)]
+        boundary_BG = boundary_BG.reshape(-1, 1, 1)
+        boundary_signal = flat_crops[:, ::-1][:,int(crop_size**2*signal_ratio)]
+        boundary_signal = boundary_signal.reshape(-1, 1, 1)
+        region_signal = crops > boundary_signal
+        region_BG = crops < boundary_BG
+        for i in range(nb_pos):
+            crop = crops[i]
+            crop_BG = crop[region_BG[i]]
+            crop_signal = crop[region_signal[i]]
+            BG, noise = np.mean(crop_BG), np.std(crop_BG)
+            signal = np.mean(crop_signal) - BG
+            val_BG.append(BG)
+            val_signal.append(signal)
+            val_noise.append(noise)
+            val_total_intensity.append(signal * crop_signal.size)
+            nb_signal_pixels.append(crop_signal.size)
+            nb_BG_pixels.append(crop_BG.size)
+    elif mode == 'adaptive':
+        flat_crops = np.sort(crops.reshape(-1, crop_size ** 2), axis=1)
+        boundary_BG = flat_crops[:, int(crop_size ** 2 * BG_ratio)]
+        boundary_BG = boundary_BG.reshape(-1, 1, 1)
+        region_BG = crops < boundary_BG
+        region_signal = []
+        for i in range(nb_pos):
+            crop = crops[i]
+            crop_BG = crop[region_BG[i]]
+            BG, noise = np.mean(crop_BG), np.std(crop_BG)
+            min_signal_val = BG + signal_thres * noise
+            crop_signal = crop[crop > min_signal_val]
+            if crop_signal.size > 0:
+                signal = np.mean(crop_signal) - BG
+            else:
+                signal = 0
+            region_signal.append(crop > min_signal_val)
+            val_BG.append(BG)
+            val_signal.append(signal)
+            val_noise.append(noise)
+            val_total_intensity.append(signal * crop_signal.size)
+            nb_signal_pixels.append(crop_signal.size)
+            nb_BG_pixels.append(crop_BG.size)
+    else:
+        raise ValueError('only support simple, rings, and adaptive mode.')
+
+    val_BG = np.array(val_BG)
+    val_signal = np.array(val_signal)
+    val_noise = np.array(val_noise)
+    val_total_intensity = np.array(val_total_intensity)
+    nb_signal_pixels = np.array(nb_signal_pixels)
+    nb_BG_pixels = np.array(nb_BG_pixels)
+    snr = val_signal / val_noise
+
+    if label_pixels:
+        signal_pixels = None
+        BG_pixels = None
+        for i in range(nb_pos):
+            signal_x, signal_y = np.where(region_signal[i] == 1)
+            signal_x += (pos[i, 0] - half_crop)
+            signal_y += (pos[i, 1] - half_crop)
+            signal_pixels_ = np.concatenate(
+                [
+                    signal_x.reshape(-1, 1),
+                    signal_y.reshape(-1, 1)
+                ],
+                axis=1
+            )
+            if signal_pixels is None:
+                signal_pixels = signal_pixels_
+            else:
+                signal_pixels = np.concatenate(
+                    [
+                        signal_pixels,
+                        signal_pixels_
+                    ],
+                    axis=0
+                )
+
+            BG_x, BG_y = np.where(region_BG[i] == 1)
+            BG_x += (pos[i, 0] - half_crop)
+            BG_y += (pos[i, 1] - half_crop)
+            BG_pixels_ = np.concatenate(
+                [
+                    BG_x.reshape(-1, 1),
+                    BG_y.reshape(-1, 1)
+                ],
+                axis=1
+            )
+            if BG_pixels is None:
+                BG_pixels = BG_pixels_
+            else:
+                BG_pixels = np.concatenate(
+                    [
+                        BG_pixels,
+                        BG_pixels_
+                    ],
+                    axis=0
+                )
+    else:
+        signal_pixels = None
+        BG_pixels = None
+
+    snr_info = {
+        'snr': snr,
+        'total intensity': val_total_intensity,
+        'signal values': val_signal,
+        'background values': val_BG,
+        'noise values': val_noise,
+        'signal pixel num': nb_signal_pixels,
+        'background pixel num': nb_BG_pixels,
+        'signal pixels': signal_pixels,
+        'background pixels': BG_pixels,
+    }
+
+    return snr_info
 
 
 def get_data_shape(filepath):

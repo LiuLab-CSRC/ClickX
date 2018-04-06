@@ -8,10 +8,10 @@ from datetime import datetime
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter
 from pyqtgraph import mkPen
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import Qt, QPoint, pyqtSlot
 from PyQt5.QtWidgets import QMainWindow, QApplication, QDialog, QFileDialog, \
-    QMenu, QListWidgetItem, QTableWidgetItem
+    QMenu, QListWidgetItem, QTableWidgetItem, QWidget
 from PyQt5.uic import loadUi
 
 from skimage.morphology import disk, binary_dilation, binary_erosion
@@ -50,6 +50,18 @@ class GUI(QMainWindow):
         loadUi('%s/ui/mean_diag.ui' % dir_, self.mean_diag)
         self.powder_diag = QDialog()
         loadUi('%s/ui/powder_diag.ui' % dir_, self.powder_diag)
+        self.peak_table = QWidget()
+        loadUi('%s/ui/peak_table.ui' % dir_, self.peak_table)
+        self.peak_table_headers = [
+            'id', 'snr', 'total intensity', 'signal', 'background', 'noise',
+            'signal pixels', 'background pixels'
+        ]
+        self.peak_table.peak_table.setColumnCount(
+            len(self.peak_table_headers)
+        )
+        self.peak_table.peak_table.setHorizontalHeaderLabels(
+            self.peak_table_headers
+        )
 
         self.job_win = JobWindow(settings=self.settings)
         self.powder_win = PowderWindow(settings=self.settings)
@@ -75,16 +87,19 @@ class GUI(QMainWindow):
 
         # hit finder parameters
         self.show_view2 = False  # gradient view
-        self.show_inspector = False
         self.mask_on = False
         self.hit_finding_on = False
         self.gaussian_sigma = 1
-        self.min_snr = 0.
         self.min_peak_num = 0
         self.max_peak_num = 500
         self.min_intensity = 0.
         self.min_gradient = 0.
         self.min_distance = 10
+        self.peak_refine_mode_list = ['gradient', 'mean']
+        self.peak_refine_mode = self.peak_refine_mode_list[0]
+        self.min_snr = 0.
+        self.snr_mode_list = ['rings', 'simple', 'adaptive']
+        self.snr_mode = self.snr_mode_list[0]
 
         # calib/mask parameters
         self.show_view3 = False  # show calib/mask view
@@ -100,9 +115,21 @@ class GUI(QMainWindow):
         self.img2 = None  # gradient image
         self.img3 = None  # calib/mask image
         self.mask = None
-        self.peak_item = pg.ScatterPlotItem()
-        self.opt_peak_item = pg.ScatterPlotItem()
-        self.strong_peak_item = pg.ScatterPlotItem()
+        self.peak_item = pg.ScatterPlotItem(
+            symbol='x', size=10, pen='r', brush=(255, 255, 255, 0)
+        )
+        self.opt_peak_item = pg.ScatterPlotItem(
+            symbol='+', size=10, pen='y', brush=(255, 255, 255, 0)
+        )
+        self.strong_peak_item = pg.ScatterPlotItem(
+            symbol='o', size=10, pen='g', brush=(255, 255, 255, 0)
+        )
+        self.signal_pixel_item = pg.ScatterPlotItem(
+            symbol='t', size=10, pen='g', brush=(255, 255, 255, 0)
+        )
+        self.background_pixel_item = pg.ScatterPlotItem(
+            symbol='t1', size=10, pen='r', brush=(255, 255, 255, 0)
+        )
         self.center_item = pg.ScatterPlotItem()
         self.ring_item = pg.ScatterPlotItem()
 
@@ -114,6 +141,8 @@ class GUI(QMainWindow):
         self.raw_view.getView().addItem(self.peak_item)
         self.raw_view.getView().addItem(self.opt_peak_item)
         self.raw_view.getView().addItem(self.strong_peak_item)
+        self.raw_view.getView().addItem(self.signal_pixel_item)
+        self.raw_view.getView().addItem(self.background_pixel_item)
         self.calib_mask_view.getView().addItem(self.center_item)
         self.calib_mask_view.getView().addItem(self.ring_item)
 
@@ -146,36 +175,44 @@ class GUI(QMainWindow):
 
         # hit finder parameter tree
         hit_finder_params = [
-                {
-                    'name': 'hit finding on', 'type': 'bool',
-                    'value': self.hit_finding_on
-                },
-                {
-                    'name': 'mask on', 'type': 'bool', 'value': self.mask_on
-                },
-                {
-                    'name': 'gaussian filter sigma', 'type': 'float',
-                    'value': self.gaussian_sigma
-                },
-                {
-                    'name': 'min peak num', 'type': 'int',
-                    'value': self.min_peak_num
-                },
-                {
-                    'name': 'max peak num', 'type': 'int',
-                    'value': self.max_peak_num
-                },
-                {
-                    'name': 'min gradient', 'type': 'float',
-                    'value': self.min_gradient
-                },
-                {
-                    'name': 'min distance', 'type': 'int',
-                    'value': self.min_distance
-                },
-                {
-                    'name': 'min snr', 'type': 'float', 'value': self.min_snr
-                },
+            {
+                'name': 'hit finding on', 'type': 'bool',
+                'value': self.hit_finding_on
+            },
+            {
+                'name': 'mask on', 'type': 'bool', 'value': self.mask_on
+            },
+            {
+                'name': 'gaussian filter sigma', 'type': 'float',
+                'value': self.gaussian_sigma
+            },
+            {
+                'name': 'min peak num', 'type': 'int',
+                'value': self.min_peak_num
+            },
+            {
+                'name': 'max peak num', 'type': 'int',
+                'value': self.max_peak_num
+            },
+            {
+                'name': 'min gradient', 'type': 'float',
+                'value': self.min_gradient
+            },
+            {
+                'name': 'min distance', 'type': 'int',
+                'value': self.min_distance
+            },
+            {
+                'name': 'peak refine mode', 'type': 'list',
+                'values': self.peak_refine_mode_list,
+            },
+            {
+                'name': 'min snr', 'type': 'float', 'value': self.min_snr
+            },
+            {
+                'name': 'snr mode', 'type': 'list',
+                'values': self.snr_mode_list,
+            }
         ]
         self.hit_finder_params = Parameter.create(
             name='hit finder parameters',
@@ -235,7 +272,7 @@ class GUI(QMainWindow):
         self.action_save_hit_finding_conf.triggered.connect(self.save_conf)
         self.action_load_hit_finding_conf.triggered.connect(self.load_conf)
         self.action_show_inspector.triggered.connect(
-            self.show_or_hide_inspector
+            self.show_inspector
         )
         self.action_show_gradient_view.triggered.connect(
             self.show_or_hide_gradient_view
@@ -245,6 +282,9 @@ class GUI(QMainWindow):
         )
         self.action_show_calib_mask_view.triggered.connect(
             self.show_or_hide_calib_mask_view
+        )
+        self.action_show_peak_table.triggered.connect(
+            self.show_peak_table
         )
         self.action_job_table.triggered.connect(
             self.show_job_win
@@ -332,7 +372,12 @@ class GUI(QMainWindow):
         self.hit_finder_params.param(
             'min distance').sigValueChanged.connect(self.change_min_distance)
         self.hit_finder_params.param(
+            'peak refine mode').sigValueChanged.connect(
+            self.change_peak_refine_mode)
+        self.hit_finder_params.param(
             'min snr').sigValueChanged.connect(self.change_min_snr)
+        self.hit_finder_params.param(
+            'snr mode').sigValueChanged.connect(self.change_snr_mode)
 
 # menu slots
     @pyqtSlot()
@@ -367,7 +412,7 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def load_conf(self):
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Open Hit Finding Conf File", "", "Yaml Files (*.yml)")
+            self, "Open Hit Finding Conf File", self.workdir, "Yaml Files (*.yml)")
         if len(filepath) == 0:
             return
         with open(filepath, 'r') as f:
@@ -432,14 +477,12 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot()
-    def show_or_hide_inspector(self):
-        self.show_inspector = not self.show_inspector
-        if self.show_inspector:
-            self.action_show_inspector.setText('Hide inspector')
-            self.inspector.show()
-        else:
-            self.action_show_inspector.setText('Show inspector')
-            self.inspector.hide()
+    def show_peak_table(self):
+        self.peak_table.show()
+
+    @pyqtSlot()
+    def show_inspector(self):
+        self.inspector.show()
 
     @pyqtSlot()
     def show_or_hide_file_list(self):
@@ -753,7 +796,7 @@ class GUI(QMainWindow):
             self.statusbar.showMessage(message, 5000)
         else:
             return
-        if self.show_inspector:  # show data inspector
+        if self.inspector.isVisible():  # show data inspector
             # out of bound check
             if x - 3 < 0 or x + 4 > self.img.shape[0]:
                 return
@@ -761,19 +804,34 @@ class GUI(QMainWindow):
                 return
             # calculate snr
             pos = np.reshape((x, y), (-1, 2))
-            snr = util.calc_snr(self.img, pos)
+            snr_info = util.calc_snr(
+                self.img, pos, label_pixels=True, mode=self.snr_mode
+            )
             self.inspector.snr_label.setText('SNR@(%d, %d):' % (x, y))
-            self.inspector.snr_value.setText('%.1f' % snr)
+            self.inspector.snr_value.setText(
+                '%.1f(sig %.1f, bg %.1f, noise %.1f)' %
+                (snr_info['snr'][0],
+                 snr_info['signal values'][0],
+                 snr_info['background values'][0],
+                 snr_info['noise values'][0]))
             # set table values
-            for i in range(5):
-                for j in range(5):
-                    v1 = self.img[x + i - 2, y + j - 2]
+            signal_pixels = (snr_info['signal pixels'] - pos + 3).tolist()
+            BG_pixels = (snr_info['background pixels'] - pos + 3).tolist()
+            for i in range(7):
+                for j in range(7):
+                    v1 = self.img[x + i - 3, y + j - 3]
                     if self.show_view2:
-                        v2 = self.img2[x + i - 2, y + j - 2]
+                        v2 = self.img2[x + i - 3, y + j - 3]
                         item = QTableWidgetItem('%d\n%d' % (v1, v2))
                     else:
                         item = QTableWidgetItem('%d' % v1)
                     item.setTextAlignment(Qt.AlignCenter)
+                    if [i, j] in signal_pixels:
+                        item.setBackground(QtGui.QColor(178, 247, 143))
+                    elif [i, j] in BG_pixels:
+                        item.setBackground(QtGui.QColor(165, 173, 186))
+                    else:
+                        item.setBackground(QtGui.QColor(255, 255, 255))
                     self.inspector.data_table.setItem(j, i, item)
 
 # calib/mask slots
@@ -871,8 +929,18 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot(object, object)
+    def change_peak_refine_mode(self, _, mode):
+        self.peak_refine_mode = mode
+        self.update_display()
+
+    @pyqtSlot(object, object)
     def change_min_snr(self, _, min_snr):
         self.min_snr = min_snr
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_snr_mode(self, _, mode):
+        self.snr_mode = mode
         self.update_display()
 
 # status slots
@@ -953,6 +1021,9 @@ class GUI(QMainWindow):
                 min_distance=self.min_distance,
                 max_peaks=self.max_peak_num,
                 min_snr=self.min_snr,
+                label_peaks=False,
+                refine_mode=self.peak_refine_mode,
+                snr_mode=self.snr_mode,
             )
             raw_peaks = peaks_dict['raw']
             if raw_peaks is not None:
@@ -963,28 +1034,17 @@ class GUI(QMainWindow):
                     '%d peaks remaining after mask cleaning'
                     % len(peaks_dict['valid'])
                 )
-                self.peak_item.setData(
-                    pos=valid_peaks + 0.5, symbol='x', size=self.peak_size,
-                    pen='r', brush=(255, 255, 255, 0)
-                )
+                self.peak_item.setData(pos=valid_peaks + 0.5)
             # refine peak position
             opt_peaks = peaks_dict['opt']
             if opt_peaks is not None:
-                self.opt_peak_item.setData(
-                    pos=opt_peaks + 0.5, symbol='+', size=self.peak_size,
-                    pen='y', brush=(255, 255, 255, 0)
-                )
+                self.opt_peak_item.setData(pos=opt_peaks + 0.5)
             # filtering weak peak
             strong_peaks = peaks_dict['strong']
             if strong_peaks is not None:
                 self.add_info('%d strong peaks' % (len(strong_peaks)))
                 if len(strong_peaks) > 0:
-                    self.strong_peak_item.setData(
-                        pos=strong_peaks + 0.5,
-                        symbol='o',
-                        size=self.peak_size,
-                        pen='g', brush=(255, 255, 255, 0)
-                    )
+                    self.strong_peak_item.setData(pos=strong_peaks + 0.5)
         if self.show_view3:
             self.calib_mask_view.setImage(
                 self.img3, autoRange=False, autoLevels=False,
@@ -1006,6 +1066,13 @@ class GUI(QMainWindow):
                 brush=(255, 255, 255, 0),
                 pxMode=False,
             )
+        # update peak table if visible
+        # if self.peak_table.isVisible():
+        #     self.update_peak_table(peak_info)
+
+    def update_peak_table(self, peak_info):
+        print('update peak table')
+        peak_table = self.peak_table.peak_table
 
     def dragEnterEvent(self, event):
         urls = event.mimeData().urls()
@@ -1059,9 +1126,6 @@ def main():
     else:
         settings = Settings()
         print('using default settings')
-    # add this directory to sys.path
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    print(sys.path)
     app = QApplication(sys.argv)
     win = GUI(settings=settings)
     win.setWindowTitle('SFX Suite')

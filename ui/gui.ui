@@ -307,9 +307,13 @@
      <string>View</string>
     </property>
     <addaction name="action_show_inspector"/>
+    <addaction name="separator"/>
     <addaction name="action_show_gradient_view"/>
     <addaction name="action_show_calib_mask_view"/>
     <addaction name="action_test"/>
+    <addaction name="separator"/>
+    <addaction name="action_show_peak_table"/>
+    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuWindow">
     <property name="title">
@@ -376,6 +380,11 @@
   <action name="action_powder_fit">
    <property name="text">
     <string>Powder Fit</string>
+   </property>
+  </action>
+  <action name="action_show_peak_table">
+   <property name="text">
+    <string>Show peak table</string>
    </property>
   </action>
  </widget>
