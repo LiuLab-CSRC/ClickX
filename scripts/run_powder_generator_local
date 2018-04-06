@@ -4,6 +4,6 @@
 
 mpiexec=mpiexec
 python_exec=python
-nb_process=2
+nb_process=4
 
 $mpiexec -n $nb_process $python_exec "$@"

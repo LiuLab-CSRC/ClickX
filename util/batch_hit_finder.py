@@ -200,8 +200,8 @@ if __name__ == '__main__':
         sys.exit()
 
     rank = comm.Get_rank()
-    args = docopt(__doc__)
+    argv = docopt(__doc__)
     if rank == 0:
-        master_run(args)
+        master_run(argv)
     else:
-        slave_run(args)
+        slave_run(argv)
