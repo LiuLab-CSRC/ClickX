@@ -42,8 +42,16 @@ def find_peaks(image,
                min_distance=0,
                max_peaks=500,
                min_snr=0.,
+               min_pixels=2,
                refine_mode='mean',
                snr_mode='rings',
+               signal_radius=1,
+               bg_inner_radius=2,
+               bg_outer_radius=3,
+               crop_size=7,
+               bg_ratio=0.7,
+               signal_ratio=0.2,
+               signal_thres=5.,
                label_peaks=False):
     peaks_dict = {
         'raw': None,  # coordinates of raw peak
@@ -84,11 +92,22 @@ def find_peaks(image,
     # refine peak location
     opt_peaks = refine_peaks(raw_image, valid_peaks, mode=refine_mode)
     peaks_dict['opt'] = opt_peaks
-    # remove weak peak
     snr_info = calc_snr(
-        raw_image, opt_peaks, label_pixels=label_peaks, mode=snr_mode)
-    strong_ids = np.where(snr_info['snr'] >= min_snr)[0]
-    print(snr_info['snr'])
+        raw_image, opt_peaks,
+        mode=snr_mode,
+        signal_radius=signal_radius,
+        bg_inner_radius=bg_inner_radius,
+        bg_outer_radius=bg_outer_radius,
+        crop_size=crop_size,
+        bg_ratio=bg_ratio,
+        signal_ratio=signal_ratio,
+        signal_thres=signal_thres,
+        label_pixels=label_peaks,
+    )
+    strong_ids = np.where(
+        (snr_info['snr'] >= min_snr) *
+        (snr_info['signal pixel num'] >= min_pixels)
+    )[0]
     strong_peaks = opt_peaks[strong_ids]
     peaks_dict['strong'] = strong_peaks
     peaks_dict['info'] = {
@@ -163,12 +182,14 @@ def calc_snr(image,
              bg_inner_radius=2,
              bg_outer_radius=3,
              crop_size=7,
-             BG_ratio=0.7,
+             bg_ratio=0.7,
              signal_ratio=0.2,
              signal_thres=5.,
              label_pixels=True):
     """
     Calculate snr for given position on image.
+    :param label_pixels: whether label signal/bg pixels.
+    :param signal_ratio: signal pixel ratio.
     :param image: 2d array.
     :param pos: positions to calculate snr.
     :param mode: support 'simple', 'rings' and 'adaptive' modes.
@@ -176,8 +197,8 @@ def calc_snr(image,
     :param bg_inner_radius: noise inner radius, used in 'rings mode.
     :param bg_outer_radius: noise outer radius, used in 'rings mode.
     :param crop_size: size of crop for snr estimation, used in 'simple' mode.
-    :param BG_ratio: background pixel ratio, used in 'simple' mode.
-    :param signal_thres: float, pixel with higher value than BG + \
+    :param bg_ratio: background pixel ratio, used in 'simple' mode.
+    :param signal_thres: float, pixel with higher value than bg + \
                          signal_thres * noise is considered as signal pixel.
     :return: snr_info dict (including snr, signal pixels, background pixels)
     """
@@ -188,7 +209,6 @@ def calc_snr(image,
     nb_pos = pos.shape[0]
     r1 = signal_radius
     r2, r3 = bg_inner_radius, bg_outer_radius
-    crop_size = r3 * 2 + 1
     # collect crops
     crops = []
     if mode == 'rings':
@@ -204,93 +224,93 @@ def calc_snr(image,
     crops = np.reshape(crops, (-1, crop_size, crop_size))
 
     # collect statistics
-    val_BG = []
+    val_bg = []
     val_signal = []
     val_noise = []
     val_total_intensity = []
     nb_signal_pixels = []
-    nb_BG_pixels = []
+    nb_bg_pixels = []
     if mode == 'rings':
         d1, d2, d3 = disk(r1), disk(r2), disk(r3)
-        pad_signal, pad_BG = r3 - r1, r3 - r2
+        pad_signal, pad_bg = r3 - r1, r3 - r2
         region_signal = np.pad(
             d1, pad_signal, 'constant', constant_values=0).astype(bool)
         region_signal = np.reshape(region_signal, (1, crop_size, crop_size))
         region_signal = np.repeat(region_signal, nb_pos, axis=0)
-        region_BG = (1 - np.pad(
-            d2, pad_BG, 'constant', constant_values=0)) * d3
-        region_BG = region_BG.astype(bool)
-        region_BG = np.reshape(region_BG, (1, crop_size, crop_size))
-        region_BG = np.repeat(region_BG, nb_pos, axis=0)
+        region_bg = (1 - np.pad(
+            d2, pad_bg, 'constant', constant_values=0)) * d3
+        region_bg = region_bg.astype(bool)
+        region_bg = np.reshape(region_bg, (1, crop_size, crop_size))
+        region_bg = np.repeat(region_bg, nb_pos, axis=0)
         for i in range(nb_pos):
             crop = crops[i]
-            BG = crop[region_BG[i]].mean()
-            noise = crop[region_BG[i]].std()
-            signal = crop[region_signal[i]].mean() - BG
+            bg = crop[region_bg[i]].mean()
+            noise = crop[region_bg[i]].std()
+            signal = crop[region_signal[i]].mean() - bg
             total_intensity = signal * region_signal[i].sum()
-            val_BG.append(BG)
+            val_bg.append(bg)
             val_noise.append(noise)
             val_signal.append(signal)
             val_total_intensity.append(total_intensity)
             nb_signal_pixels.append(region_signal[i].sum())
-            nb_BG_pixels.append(region_BG[i].sum())
+            nb_bg_pixels.append(region_bg[i].sum())
     elif mode == 'simple':
         flat_crops = np.sort(crops.reshape(-1, crop_size ** 2), axis=1)
-        boundary_BG = flat_crops[:, int(crop_size ** 2 * BG_ratio)]
-        boundary_BG = boundary_BG.reshape(-1, 1, 1)
+        boundary_bg = flat_crops[:, int(crop_size ** 2 * bg_ratio)]
+        boundary_bg = boundary_bg.reshape(-1, 1, 1)
         boundary_signal = flat_crops[:, ::-1][:,int(crop_size**2*signal_ratio)]
         boundary_signal = boundary_signal.reshape(-1, 1, 1)
         region_signal = crops > boundary_signal
-        region_BG = crops < boundary_BG
+        region_bg = crops < boundary_bg
         for i in range(nb_pos):
             crop = crops[i]
-            crop_BG = crop[region_BG[i]]
+            crop_bg = crop[region_bg[i]]
             crop_signal = crop[region_signal[i]]
-            BG, noise = np.mean(crop_BG), np.std(crop_BG)
-            signal = np.mean(crop_signal) - BG
-            val_BG.append(BG)
+            bg, noise = np.mean(crop_bg), np.std(crop_bg)
+            signal = np.mean(crop_signal) - bg
+            val_bg.append(bg)
             val_signal.append(signal)
             val_noise.append(noise)
             val_total_intensity.append(signal * crop_signal.size)
             nb_signal_pixels.append(crop_signal.size)
-            nb_BG_pixels.append(crop_BG.size)
+            nb_bg_pixels.append(crop_bg.size)
     elif mode == 'adaptive':
         flat_crops = np.sort(crops.reshape(-1, crop_size ** 2), axis=1)
-        boundary_BG = flat_crops[:, int(crop_size ** 2 * BG_ratio)]
-        boundary_BG = boundary_BG.reshape(-1, 1, 1)
-        region_BG = crops < boundary_BG
+        boundary_bg = flat_crops[:, int(crop_size ** 2 * bg_ratio)]
+        boundary_bg = boundary_bg.reshape(-1, 1, 1)
+        region_bg = crops < boundary_bg
         region_signal = []
         for i in range(nb_pos):
             crop = crops[i]
-            crop_BG = crop[region_BG[i]]
-            BG, noise = np.mean(crop_BG), np.std(crop_BG)
-            min_signal_val = BG + signal_thres * noise
+            crop_bg = crop[region_bg[i]]
+            bg, noise = np.mean(crop_bg), np.std(crop_bg)
+            min_signal_val = bg + signal_thres * noise
             crop_signal = crop[crop > min_signal_val]
             if crop_signal.size > 0:
-                signal = np.mean(crop_signal) - BG
+                signal = np.mean(crop_signal) - bg
             else:
                 signal = 0
             region_signal.append(crop > min_signal_val)
-            val_BG.append(BG)
+            val_bg.append(bg)
             val_signal.append(signal)
             val_noise.append(noise)
             val_total_intensity.append(signal * crop_signal.size)
             nb_signal_pixels.append(crop_signal.size)
-            nb_BG_pixels.append(crop_BG.size)
+            nb_bg_pixels.append(crop_bg.size)
     else:
         raise ValueError('only support simple, rings, and adaptive mode.')
 
-    val_BG = np.array(val_BG)
+    val_bg = np.array(val_bg)
     val_signal = np.array(val_signal)
     val_noise = np.array(val_noise)
     val_total_intensity = np.array(val_total_intensity)
     nb_signal_pixels = np.array(nb_signal_pixels)
-    nb_BG_pixels = np.array(nb_BG_pixels)
+    nb_bg_pixels = np.array(nb_bg_pixels)
     snr = val_signal / val_noise
 
     if label_pixels:
         signal_pixels = None
-        BG_pixels = None
+        bg_pixels = None
         for i in range(nb_pos):
             signal_x, signal_y = np.where(region_signal[i] == 1)
             signal_x += (pos[i, 0] - half_crop)
@@ -313,40 +333,40 @@ def calc_snr(image,
                     axis=0
                 )
 
-            BG_x, BG_y = np.where(region_BG[i] == 1)
-            BG_x += (pos[i, 0] - half_crop)
-            BG_y += (pos[i, 1] - half_crop)
-            BG_pixels_ = np.concatenate(
+            bg_x, bg_y = np.where(region_bg[i] == 1)
+            bg_x += (pos[i, 0] - half_crop)
+            bg_y += (pos[i, 1] - half_crop)
+            bg_pixels_ = np.concatenate(
                 [
-                    BG_x.reshape(-1, 1),
-                    BG_y.reshape(-1, 1)
+                    bg_x.reshape(-1, 1),
+                    bg_y.reshape(-1, 1)
                 ],
                 axis=1
             )
-            if BG_pixels is None:
-                BG_pixels = BG_pixels_
+            if bg_pixels is None:
+                bg_pixels = bg_pixels_
             else:
-                BG_pixels = np.concatenate(
+                bg_pixels = np.concatenate(
                     [
-                        BG_pixels,
-                        BG_pixels_
+                        bg_pixels,
+                        bg_pixels_
                     ],
                     axis=0
                 )
     else:
         signal_pixels = None
-        BG_pixels = None
+        bg_pixels = None
 
     snr_info = {
         'snr': snr,
         'total intensity': val_total_intensity,
         'signal values': val_signal,
-        'background values': val_BG,
+        'background values': val_bg,
         'noise values': val_noise,
         'signal pixel num': nb_signal_pixels,
-        'background pixel num': nb_BG_pixels,
+        'background pixel num': nb_bg_pixels,
         'signal pixels': signal_pixels,
-        'background pixels': BG_pixels,
+        'background pixels': bg_pixels,
     }
 
     return snr_info

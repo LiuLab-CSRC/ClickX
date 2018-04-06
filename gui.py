@@ -97,9 +97,17 @@ class GUI(QMainWindow):
         self.min_distance = 10
         self.peak_refine_mode_list = ['gradient', 'mean']
         self.peak_refine_mode = self.peak_refine_mode_list[0]
-        self.min_snr = 0.
+        self.min_snr = 0.  # min srn for a strong peak
+        self.min_pixels = 2  # min pixel num for a strong peak
         self.snr_mode_list = ['rings', 'simple', 'adaptive']
         self.snr_mode = self.snr_mode_list[0]
+        self.signal_radius = 1
+        self.bg_inner_radius = 2
+        self.bg_outer_radius = 3
+        self.crop_size = 7
+        self.bg_ratio = 0.7
+        self.signal_ratio = 0.2
+        self.signal_thres = 5.0
 
         # calib/mask parameters
         self.show_view3 = False  # show calib/mask view
@@ -210,8 +218,43 @@ class GUI(QMainWindow):
                 'name': 'min snr', 'type': 'float', 'value': self.min_snr
             },
             {
+                'name': 'min pixels', 'type': 'int', 'value': self.min_pixels
+            },
+            {
                 'name': 'snr mode', 'type': 'list',
                 'values': self.snr_mode_list,
+            },
+            {
+                'name': 'signal radius', 'type': 'int',
+                'value': self.signal_radius,
+                'visible': False,
+            },
+            {
+                'name': 'background inner radius', 'type': 'int',
+                'value': self.bg_inner_radius,
+                'visible': False,
+            },
+            {
+                'name': 'background outer radius', 'type': 'int',
+                'value': self.bg_outer_radius,
+                'visible': False,
+            },
+            {
+                'name': 'crop size', 'type': 'int',
+                'value': self.crop_size,
+                'visible': False,
+            },
+            {
+                'name': 'background ratio', 'type': 'float',
+                'value': self.bg_ratio,
+            },
+            {
+                'name': 'signal ratio', 'type': 'float',
+                'value': self.signal_ratio,
+            },
+            {
+                'name': 'signal threshold', 'type': 'float',
+                'value': self.signal_thres,
             }
         ]
         self.hit_finder_params = Parameter.create(
@@ -377,7 +420,26 @@ class GUI(QMainWindow):
         self.hit_finder_params.param(
             'min snr').sigValueChanged.connect(self.change_min_snr)
         self.hit_finder_params.param(
+            'min pixels').sigValueChanged.connect(self.change_min_pixels)
+        self.hit_finder_params.param(
             'snr mode').sigValueChanged.connect(self.change_snr_mode)
+        self.hit_finder_params.param(
+            'signal radius').sigValueChanged.connect(self.change_signal_radius)
+        self.hit_finder_params.param(
+            'background inner radius').sigValueChanged.connect(
+            self.change_bg_inner_radius)
+        self.hit_finder_params.param(
+            'background outer radius').sigValueChanged.connect(
+            self.change_bg_outer_radius)
+        self.hit_finder_params.param(
+            'crop size').sigValueChanged.connect(self.change_crop_size)
+        self.hit_finder_params.param(
+            'background ratio').sigValueChanged.connect(self.change_bg_ratio)
+        self.hit_finder_params.param(
+            'signal ratio').sigValueChanged.connect(self.change_signal_ratio)
+        self.hit_finder_params.param(
+            'signal threshold').sigValueChanged.connect(
+            self.change_signal_thres)
 
 # menu slots
     @pyqtSlot()
@@ -412,7 +474,10 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def load_conf(self):
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Open Hit Finding Conf File", self.workdir, "Yaml Files (*.yml)")
+            self, "Open Hit Finding Conf File",
+            self.workdir,
+            "Yaml Files (*.yml)"
+        )
         if len(filepath) == 0:
             return
         with open(filepath, 'r') as f:
@@ -479,6 +544,7 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def show_peak_table(self):
         self.peak_table.show()
+        self.update_display()
 
     @pyqtSlot()
     def show_inspector(self):
@@ -805,7 +871,16 @@ class GUI(QMainWindow):
             # calculate snr
             pos = np.reshape((x, y), (-1, 2))
             snr_info = util.calc_snr(
-                self.img, pos, label_pixels=True, mode=self.snr_mode
+                self.img, pos,
+                mode=self.snr_mode,
+                signal_radius=self.signal_radius,
+                bg_inner_radius=self.bg_inner_radius,
+                bg_outer_radius=self.bg_outer_radius,
+                crop_size=self.crop_size,
+                bg_ratio=self.bg_ratio,
+                signal_ratio=self.signal_ratio,
+                signal_thres=self.signal_thres,
+                label_pixels=True,
             )
             self.inspector.snr_label.setText('SNR@(%d, %d):' % (x, y))
             self.inspector.snr_value.setText(
@@ -939,8 +1014,48 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot(object, object)
+    def change_min_pixels(self, _, min_pixels):
+        self.min_pixels = min_pixels
+        self.update_display()
+
+    @pyqtSlot(object, object)
     def change_snr_mode(self, _, mode):
         self.snr_mode = mode
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_signal_radius(self, _, signal_radius):
+        self.signal_radius = signal_radius
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_bg_inner_radius(self, _, bg_inner_radius):
+        self.bg_inner_radius = bg_inner_radius
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_bg_outer_radius(self, _, bg_outer_radius):
+        self.bg_outer_radius = bg_outer_radius
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_crop_size(self, _, crop_size):
+        self.crop_size = crop_size
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_bg_ratio(self, _, bg_ratio):
+        self.bg_ratio = bg_ratio
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_signal_ratio(self, _, signal_ratio):
+        self.signal_ratio = signal_ratio
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_signal_thres(self, _, signal_thres):
+        self.signal_thres = signal_thres
         self.update_display()
 
 # status slots
@@ -1021,9 +1136,17 @@ class GUI(QMainWindow):
                 min_distance=self.min_distance,
                 max_peaks=self.max_peak_num,
                 min_snr=self.min_snr,
+                min_pixels=self.min_pixels,
                 label_peaks=False,
                 refine_mode=self.peak_refine_mode,
                 snr_mode=self.snr_mode,
+                signal_radius=self.signal_radius,
+                bg_inner_radius=self.bg_inner_radius,
+                bg_outer_radius=self.bg_outer_radius,
+                crop_size=self.crop_size,
+                bg_ratio=self.bg_ratio,
+                signal_ratio=self.signal_ratio,
+                signal_thres=self.signal_thres,
             )
             raw_peaks = peaks_dict['raw']
             if raw_peaks is not None:
@@ -1067,12 +1190,43 @@ class GUI(QMainWindow):
                 pxMode=False,
             )
         # update peak table if visible
-        # if self.peak_table.isVisible():
-        #     self.update_peak_table(peak_info)
+        if 'peaks_dict' in locals():
+            peak_info = peaks_dict['info']
+            if self.peak_table.isVisible():
+                self.update_peak_table(peak_info)
 
     def update_peak_table(self, peak_info):
-        print('update peak table')
-        peak_table = self.peak_table.peak_table
+        self.peak_table.peak_table.clearContents()
+        nb_peaks = peak_info['snr'].size
+
+        for i in range(nb_peaks):
+            row_dict = {
+                'id': str(i),
+                'snr': '%.1f' % peak_info['snr'][i],
+                'total intensity': '%d' % peak_info['total intensity'][i],
+                'signal': '%.1f' % peak_info['signal values'][i],
+                'background': '%.1f' % peak_info['background values'][i],
+                'noise': '%.1f' % peak_info['noise values'][i],
+                'signal pixels': '%d' % peak_info['signal pixel num'][i],
+                'background pixels': '%d' % peak_info['background pixel num'][i]
+            }
+            self.fill_table_row(row_dict, i)
+
+    def fill_table_row(self, row_dict, row):
+        table = self.peak_table.peak_table
+        row_count = table.rowCount()
+        if row_count == row:
+            table.insertRow(row_count)
+        for col, field in enumerate(self.peak_table_headers):
+            if field not in row_dict.keys():
+                continue
+            item = table.item(row, col)
+            if item is None:
+                item = QTableWidgetItem(row_dict[field])
+                item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+                table.setItem(row, col, item)
+            else:
+                item.setText(str(row_dict[field]))
 
     def dragEnterEvent(self, event):
         urls = event.mimeData().urls()
