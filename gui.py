@@ -79,6 +79,9 @@ class GUI(QMainWindow):
         self.show_view2 = False  # gradient view
         self.mask_on = True
         self.hit_finding_on = False
+        self.show_raw_peaks = False
+        self.show_valid_peaks = False
+        self.show_strong_peaks = True
         self.gaussian_sigma = 1
         self.min_peak_num = 0
         self.max_peak_num = 500
@@ -182,6 +185,18 @@ class GUI(QMainWindow):
             {
                 'name': 'mask on', 'type': 'bool', 'value': self.mask_on,
                 'visible': False
+            },
+            {
+                'name': 'show raw peaks', 'type': 'bool',
+                'value': self.show_raw_peak
+            },
+            {
+                'name': 'show valid peaks', 'type': 'bool',
+                'value': self.show_valid_peak
+            },
+            {
+                'name': 'show strong peaks', 'type': 'bool',
+                'value': self.show_strong_peak
             },
             {
                 'name': 'gaussian filter sigma', 'type': 'float',
@@ -401,6 +416,15 @@ class GUI(QMainWindow):
         self.hit_finder_params.param(
             'mask on').sigValueChanged.connect(
             self.apply_mask)
+        self.hit_finder_params.param(
+            'show raw peaks').sigValueChanged.connect(
+            self.change_show_raw_peaks)
+        self.hit_finder_params.param(
+            'show valid peaks').sigValueChanged.connect(
+            self.change_show_valid_peaks)
+        self.hit_finder_params.param(
+            'show strong peaks').sigValueChanged.connect(
+            self.change_show_strong_peaks)
         self.hit_finder_params.param(
             'gaussian filter sigma').sigValueChanged.connect(
             self.change_gaussian_sigma)
@@ -1046,6 +1070,21 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot(object, object)
+    def change_show_raw_peaks(self, _, show_raw_peaks):
+        self.show_raw_peaks = show_raw_peaks
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_show_valid_peaks(self, _, show_valid_peaks):
+        self.show_valid_peaks = show_valid_peaks
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_show_strong_peaks(self, _, show_strong_peaks):
+        self.show_strong_peaks = show_strong_peaks
+        self.update_display()
+
+    @pyqtSlot(object, object)
     def change_hit_finding(self, _, hit_finding_on):
         self.hit_finding_on = hit_finding_on
         self.update_display()
@@ -1221,10 +1260,10 @@ class GUI(QMainWindow):
                 label_pixels=False,
             )
             raw_peaks = peaks_dict['raw']
-            if raw_peaks is not None:
+            if raw_peaks is not None and self.show_raw_peaks:
                 self.add_info('%d raw peaks found' % len(raw_peaks))
             valid_peaks = peaks_dict['valid']
-            if valid_peaks is not None:
+            if valid_peaks is not None and self.show_valid_peaks:
                 self.add_info(
                     '%d peaks remaining after mask cleaning'
                     % len(peaks_dict['valid'])
@@ -1236,7 +1275,7 @@ class GUI(QMainWindow):
                 self.opt_peak_item.setData(pos=opt_peaks + 0.5)
             # filtering weak peak
             self.strong_peaks = peaks_dict['strong']
-            if self.strong_peaks is not None:
+            if self.strong_peaks is not None and self.show_strong_peaks:
                 self.add_info('%d strong peaks' % (len(self.strong_peaks)))
                 if len(self.strong_peaks) > 0:
                     self.strong_peak_item.setData(pos=self.strong_peaks + 0.5)
