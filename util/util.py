@@ -52,7 +52,7 @@ def find_peaks(image,
                bg_ratio=0.7,
                signal_ratio=0.2,
                signal_thres=5.,
-               label_peaks=False):
+               label_pixels=False):
     peaks_dict = {
         'raw': None,  # coordinates of raw peak
         'valid': None,  # coordinates of valid peak after mask out bad peak
@@ -102,7 +102,7 @@ def find_peaks(image,
         bg_ratio=bg_ratio,
         signal_ratio=signal_ratio,
         signal_thres=signal_thres,
-        label_pixels=label_peaks,
+        label_pixels=label_pixels,
     )
     strong_ids = np.where(
         (snr_info['snr'] >= min_snr) *

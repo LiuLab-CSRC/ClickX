@@ -113,6 +113,7 @@ class GUI(QMainWindow):
         self.img2 = None  # gradient image
         self.img3 = None  # calib/mask image
         self.strong_peaks = None
+        self.peak_info = None
         self.mask = None
         self.peak_item = pg.ScatterPlotItem(
             symbol='x', size=10, pen='r', brush=(255, 255, 255, 0)
@@ -633,13 +634,17 @@ class GUI(QMainWindow):
 
 # peak table slots
     @pyqtSlot(int, int)
-    def zoom_in_on_peak(self, row, col):
+    def zoom_in_on_peak(self, row, _):
         table = self.peak_table.peak_table
         peak_id = int(table.item(row, 0).text())
         x, y = self.strong_peaks[peak_id]
-        raw_view = self.raw_view.getView()
-        raw_view.setRange(xRange=(x-20, x+20), yRange=(y-20, y+20))
-
+        self.raw_view.getView().setRange(
+            xRange=(x-20, x+20), yRange=(y-20, y+20)
+        )
+        if self.peak_info is not None:
+            bg = self.peak_info['background values'][peak_id]
+            noise = self.peak_info['noise values'][peak_id]
+            self.raw_view.setLevels(bg, bg + self.signal_thres * noise)
 
 # mean/std dialog slots
     @pyqtSlot()
@@ -1204,7 +1209,6 @@ class GUI(QMainWindow):
                 max_peaks=self.max_peak_num,
                 min_snr=self.min_snr,
                 min_pixels=self.min_pixels,
-                label_peaks=False,
                 refine_mode=self.peak_refine_mode,
                 snr_mode=self.snr_mode,
                 signal_radius=self.signal_radius,
@@ -1214,6 +1218,7 @@ class GUI(QMainWindow):
                 bg_ratio=self.bg_ratio,
                 signal_ratio=self.signal_ratio,
                 signal_thres=self.signal_thres,
+                label_pixels=False,
             )
             raw_peaks = peaks_dict['raw']
             if raw_peaks is not None:
@@ -1258,9 +1263,9 @@ class GUI(QMainWindow):
             )
         # update peak table if visible
         if 'peaks_dict' in locals():
-            peak_info = peaks_dict['info']
+            self.peak_info = peaks_dict['info']
             if self.peak_table.isVisible():
-                self.update_peak_table(peak_info)
+                self.update_peak_table(self.peak_info)
 
     def update_peak_table(self, peak_info):
         table = self.peak_table.peak_table
