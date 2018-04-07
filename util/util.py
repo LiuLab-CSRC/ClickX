@@ -113,7 +113,7 @@ def find_peaks(image,
     peaks_dict['info'] = {
         'snr': snr_info['snr'][strong_ids],
         'total intensity': snr_info['total intensity'][strong_ids],
-        'signal values': snr_info['signal values'],
+        'signal values': snr_info['signal values'][strong_ids],
         'background values': snr_info['background values'][strong_ids],
         'noise values': snr_info['noise values'][strong_ids],
         'signal pixel num': snr_info['signal pixel num'][strong_ids],

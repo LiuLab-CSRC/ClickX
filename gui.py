@@ -52,16 +52,6 @@ class GUI(QMainWindow):
         loadUi('%s/ui/powder_diag.ui' % dir_, self.powder_diag)
         self.peak_table = QWidget()
         loadUi('%s/ui/peak_table.ui' % dir_, self.peak_table)
-        # self.peak_table_headers = [
-        #     'id', 'snr', 'total intensity', 'signal', 'background', 'noise',
-        #     'signal pixels', 'background pixels'
-        # ]
-        # self.peak_table.peak_table.setColumnCount(
-        #     len(self.peak_table_headers)
-        # )
-        # self.peak_table.peak_table.setHorizontalHeaderLabels(
-        #     self.peak_table_headers
-        # )
 
         self.job_win = JobWindow(settings=self.settings)
         self.powder_win = PowderWindow(settings=self.settings)
@@ -87,7 +77,7 @@ class GUI(QMainWindow):
 
         # hit finder parameters
         self.show_view2 = False  # gradient view
-        self.mask_on = False
+        self.mask_on = True
         self.hit_finding_on = False
         self.gaussian_sigma = 1
         self.min_peak_num = 0
@@ -189,7 +179,8 @@ class GUI(QMainWindow):
                 'value': self.hit_finding_on
             },
             {
-                'name': 'mask on', 'type': 'bool', 'value': self.mask_on
+                'name': 'mask on', 'type': 'bool', 'value': self.mask_on,
+                'visible': False
             },
             {
                 'name': 'gaussian filter sigma', 'type': 'float',
@@ -471,8 +462,18 @@ class GUI(QMainWindow):
             'min peak num': self.min_peak_num,
             'max peak num': self.max_peak_num,
             'min gradient': self.min_gradient,
+            'peak refine mode': self.peak_refine_mode,
             'min distance': self.min_distance,
             'min snr': self.min_snr,
+            'min pixels': self.min_pixels,
+            'snr mode': self.snr_mode,
+            'signal radius': self.signal_radius,
+            'background inner radius': self.bg_inner_radius,
+            'background outer radius': self.bg_outer_radius,
+            'crop size': self.crop_size,
+            'background ratio': self.bg_ratio,
+            'signal ratio': self.signal_ratio,
+            'signal threshold': self.signal_thres,
         }
         with open(filepath, 'w') as f:
             yaml.dump(conf_dict, f, default_flow_style=False)
@@ -514,6 +515,11 @@ class GUI(QMainWindow):
             self.hit_finder_params.param(
                 'min gradient'
             ).setValue(self.min_gradient)
+        if 'peak refine mode' in conf_dict.keys():
+            self.peak_refine_mode = conf_dict['peak refine mode']
+            self.hit_finder_params.param(
+                'peak refine mode'
+            ).setValue(self.peak_refine_mode)
         if 'min distance' in conf_dict.keys():
             self.min_distance = conf_dict['min distance']
             self.hit_finder_params.param(
@@ -524,6 +530,51 @@ class GUI(QMainWindow):
             self.hit_finder_params.param(
                 'min snr'
             ).setValue(self.min_snr)
+        if 'min pixels' in conf_dict.keys():
+            self.min_pixels = conf_dict['min pixels']
+            self.hit_finder_params.param(
+                'min pixels'
+            ).setValue(self.min_pixels)
+        if 'snr mode' in conf_dict.keys():
+            self.snr_mode = conf_dict['snr mode']
+            self.hit_finder_params.param(
+                'snr mode'
+            ).setValue(self.snr_mode)
+        if 'signal radius' in conf_dict.keys():
+            self.signal_radius = conf_dict['signal radius']
+            self.hit_finder_params.param(
+                'signal radius'
+            ).setValue(self.signal_radius)
+        if 'background inner radius' in conf_dict.keys():
+            self.bg_inner_radius = conf_dict['background inner radius']
+            self.hit_finder_params.param(
+                'background inner radius'
+            ).setValue(self.bg_inner_radius)
+        if 'background outer radius' in conf_dict.keys():
+            self.bg_outer_radius = conf_dict['background outer radius']
+            self.hit_finder_params.param(
+                'background outer radius'
+            ).setValue(self.bg_outer_radius)
+        if 'crop size' in conf_dict.keys():
+            self.crop_size = conf_dict['crop size']
+            self.hit_finder_params.param(
+                'crop size'
+            ).setValue(self.crop_size)
+        if 'background ratio' in conf_dict.keys():
+            self.bg_ratio = conf_dict['background ratio']
+            self.hit_finder_params.param(
+                'background ratio'
+            ).setValue(self.bg_ratio)
+        if 'signal ratio' in conf_dict.keys():
+            self.signal_ratio = conf_dict['signal ratio']
+            self.hit_finder_params.param(
+                'signal ratio'
+            ).setValue(self.signal_ratio)
+        if 'signal threshold' in conf_dict.keys():
+            self.signal_thres = conf_dict['signal threshold']
+            self.hit_finder_params.param(
+                'signal threshold'
+            ).setValue(self.signal_thres)
 
     @pyqtSlot()
     def show_or_hide_gradient_view(self):
