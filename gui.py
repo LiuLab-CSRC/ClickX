@@ -81,6 +81,7 @@ class GUI(QMainWindow):
         self.hit_finding_on = False
         self.show_raw_peaks = False
         self.show_valid_peaks = False
+        self.show_opt_peaks = False
         self.show_strong_peaks = True
         self.gaussian_sigma = 1
         self.min_peak_num = 0
@@ -188,15 +189,19 @@ class GUI(QMainWindow):
             },
             {
                 'name': 'show raw peaks', 'type': 'bool',
-                'value': self.show_raw_peak
+                'value': self.show_raw_peaks
             },
             {
                 'name': 'show valid peaks', 'type': 'bool',
-                'value': self.show_valid_peak
+                'value': self.show_valid_peaks
+            },
+            {
+                'name': 'show opt peaks', 'type': 'bool',
+                'value': self.show_opt_peaks
             },
             {
                 'name': 'show strong peaks', 'type': 'bool',
-                'value': self.show_strong_peak
+                'value': self.show_strong_peaks
             },
             {
                 'name': 'gaussian filter sigma', 'type': 'float',
@@ -422,6 +427,9 @@ class GUI(QMainWindow):
         self.hit_finder_params.param(
             'show valid peaks').sigValueChanged.connect(
             self.change_show_valid_peaks)
+        self.hit_finder_params.param(
+            'show opt peaks').sigValueChanged.connect(
+            self.change_show_opt_peaks)
         self.hit_finder_params.param(
             'show strong peaks').sigValueChanged.connect(
             self.change_show_strong_peaks)
@@ -1080,6 +1088,11 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot(object, object)
+    def change_show_opt_peaks(self, _, show_opt_peaks):
+        self.show_opt_peaks = show_opt_peaks
+        self.update_display()
+
+    @pyqtSlot(object, object)
     def change_show_strong_peaks(self, _, show_strong_peaks):
         self.show_strong_peaks = show_strong_peaks
         self.update_display()
@@ -1271,7 +1284,7 @@ class GUI(QMainWindow):
                 self.peak_item.setData(pos=valid_peaks + 0.5)
             # refine peak position
             opt_peaks = peaks_dict['opt']
-            if opt_peaks is not None:
+            if opt_peaks is not None and self.show_opt_peaks:
                 self.opt_peak_item.setData(pos=opt_peaks + 0.5)
             # filtering weak peak
             self.strong_peaks = peaks_dict['strong']
