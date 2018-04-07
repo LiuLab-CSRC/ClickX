@@ -22,7 +22,7 @@ import os
 from docopt import docopt
 import yaml
 
-from util import find_peaks, read_image, collect_jobs
+import util
 
 
 def master_run(args):
@@ -45,7 +45,7 @@ def master_run(args):
     min_peak = conf['min peak num']
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
-    jobs, nb_frames = collect_jobs(files, dataset, batch_size)
+    jobs, nb_frames = util.collect_jobs(files, dataset, batch_size)
     nb_jobs = len(jobs)
     print('%d frames, %d jobs to be processed' % (nb_frames, nb_jobs))
 
@@ -59,6 +59,8 @@ def master_run(args):
     slaves = list(range(1, size))
     time_start = time.time()
     for slave in slaves:
+        if job_id >= nb_jobs:
+            break
         comm.isend(jobs[job_id], dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
         print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
@@ -104,6 +106,7 @@ def master_run(args):
 
     all_done = False
     while not all_done:
+        time.sleep(0.1)
         all_done = True
         for slave in slaves:
             finished, result = reqs[slave].test()
@@ -155,7 +158,7 @@ def slave_run(args):
     gaussian_sigma = conf['gaussian filter sigma']
     mask_file = conf['mask file']
     if mask_file is not None:
-        mask = read_image(mask_file)
+        mask = util.read_image(mask_file)
     else:
         mask = None
     max_peak_num = conf['max peak num']
@@ -163,6 +166,16 @@ def slave_run(args):
     min_gradient = conf['min gradient']
     min_snr = conf['min snr']
     dataset = conf['dataset']
+    peak_refine_mode = conf['peak refine mode']
+    min_pixels = conf['min pixels']
+    snr_mode = conf['snr mode']
+    signal_radius = conf['signal radius']
+    bg_inner_radius = conf['background inner radius']
+    bg_outer_radius = conf['background outer radius']
+    crop_size = conf['crop size']
+    bg_ratio = conf['background ratio']
+    signal_ratio = conf['signal ratio']
+    signal_thres = conf['signal threshold']
 
     # perform hit finding
     while not stop:
@@ -173,14 +186,30 @@ def slave_run(args):
             if _filepath != filepath:
                 filepath = _filepath
                 h5_obj = h5py.File(filepath, 'r')
-            image = read_image(filepath, frame=frame,
-                               h5_obj=h5_obj, dataset=dataset)
-            peaks_dict = find_peaks(image, mask=mask,
-                                    gaussian_sigma=gaussian_sigma,
-                                    min_distance=min_distance,
-                                    min_gradient=min_gradient,
-                                    max_peaks=max_peak_num,
-                                    min_snr=min_snr)
+            image = util.read_image(filepath,
+                                    frame=frame,
+                                    h5_obj=h5_obj,
+                                    dataset=dataset)
+            peaks_dict = util.find_peaks(
+                image,
+                mask=mask,
+                gaussian_sigma=gaussian_sigma,
+                min_distance=min_distance,
+                min_gradient=min_gradient,
+                max_peaks=max_peak_num,
+                min_snr=min_snr,
+                min_pixels=min_pixels,
+                refine_mode=peak_refine_mode,
+                snr_mode=snr_mode,
+                signal_radius=signal_radius,
+                bg_inner_radius=bg_inner_radius,
+                bg_outer_radius=bg_outer_radius,
+                crop_size=crop_size,
+                bg_ratio=bg_ratio,
+                signal_ratio=signal_ratio,
+                signal_thres=signal_thres,
+                label_pixels=False,
+            )
             if peaks_dict['strong'] is not None:
                 job[i]['nb_peak'] = len(peaks_dict['strong'])
             else:

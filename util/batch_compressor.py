@@ -26,14 +26,14 @@ Options:
 """
 from mpi4py import MPI
 
-from . import util
-import time
-
 import sys
 import os
+import time
 from glob import glob
 from docopt import docopt
 import yaml
+
+import util
 
 
 def master_run(args):
@@ -220,7 +220,6 @@ def slave_run(args):
 
 
 if __name__ == '__main__':
-    print(docopt(__doc__))
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     if size == 1:

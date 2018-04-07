@@ -22,8 +22,17 @@ class Settings():
         # job window
         self.header_labels = settings_dict.get(
             'header labels',
-            ['job', 'compression', 'compression ratio', 'raw frames',
-             'tag', 'hit finding', 'processed frames', 'processed hits', 'hit rate']
+            [
+                'job',
+                'compression',
+                'compression ratio',
+                'raw frames',
+                'tag',
+                'hit finding',
+                'processed frames',
+                'processed hits',
+                'hit rate'
+            ]
         )
 
         # scripts

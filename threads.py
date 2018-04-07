@@ -273,12 +273,14 @@ class CompressorThread(QThread):
 
 
 class HitFinderThread(QThread):
-    def __init__(self, parent=None,
+    def __init__(self, settings,
+                 parent=None,
                  workdir=None,
                  job=None,
                  conf=None,
                  tag=None):
         super(HitFinderThread, self).__init__(parent)
+        self.settings = settings
         self.workdir = workdir
         self.job = job
         self.conf = conf
@@ -289,6 +291,7 @@ class HitFinderThread(QThread):
         conf = self.conf
         hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_hit_finder_PAL7' % dir_
+        shell_script = '%s/scripts/run_hit_finder_%s' % \
+                       (dir_, self.settings.script_suffix)
         python_script = '%s/util/batch_hit_finder.py' % dir_
         subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])

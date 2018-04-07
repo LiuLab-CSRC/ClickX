@@ -125,6 +125,7 @@ class JobWindow(QWidget):
             tag = self.hit_finding_conf.itemText(curr_id)
             for job in jobs:
                 hit_finder_thread = HitFinderThread(
+                    self.settings,
                     workdir=workdir,
                     job=job,
                     conf=conf,

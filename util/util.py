@@ -767,5 +767,5 @@ def get_photon_energy(photon_wavelength):
 def build_grid_image(dim0, dim1):
     idx, idy = np.indices((dim0, dim1))
     image = np.zeros((dim0, dim1))
-    image[(idx+idy)%2 == 0] = 1
+    image[(idx+idy) % 2 == 0] = 1
     return image
