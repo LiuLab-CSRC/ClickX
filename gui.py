@@ -52,16 +52,16 @@ class GUI(QMainWindow):
         loadUi('%s/ui/powder_diag.ui' % dir_, self.powder_diag)
         self.peak_table = QWidget()
         loadUi('%s/ui/peak_table.ui' % dir_, self.peak_table)
-        self.peak_table_headers = [
-            'id', 'snr', 'total intensity', 'signal', 'background', 'noise',
-            'signal pixels', 'background pixels'
-        ]
-        self.peak_table.peak_table.setColumnCount(
-            len(self.peak_table_headers)
-        )
-        self.peak_table.peak_table.setHorizontalHeaderLabels(
-            self.peak_table_headers
-        )
+        # self.peak_table_headers = [
+        #     'id', 'snr', 'total intensity', 'signal', 'background', 'noise',
+        #     'signal pixels', 'background pixels'
+        # ]
+        # self.peak_table.peak_table.setColumnCount(
+        #     len(self.peak_table_headers)
+        # )
+        # self.peak_table.peak_table.setHorizontalHeaderLabels(
+        #     self.peak_table_headers
+        # )
 
         self.job_win = JobWindow(settings=self.settings)
         self.powder_win = PowderWindow(settings=self.settings)
@@ -122,6 +122,7 @@ class GUI(QMainWindow):
         self.img = None  # raw image
         self.img2 = None  # gradient image
         self.img3 = None  # calib/mask image
+        self.strong_peaks = None
         self.mask = None
         self.peak_item = pg.ScatterPlotItem(
             symbol='x', size=10, pen='r', brush=(255, 255, 255, 0)
@@ -334,6 +335,11 @@ class GUI(QMainWindow):
         )
         self.action_powder_fit.triggered.connect(
             self.show_powder_win
+        )
+
+        # peak table
+        self.peak_table.peak_table.cellDoubleClicked.connect(
+            self.zoom_in_on_peak
         )
 
         # mean/std dialog
@@ -573,6 +579,16 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def show_powder_win(self):
         self.powder_win.show()
+
+# peak table slots
+    @pyqtSlot(int, int)
+    def zoom_in_on_peak(self, row, col):
+        table = self.peak_table.peak_table
+        peak_id = int(table.item(row, 0).text())
+        x, y = self.strong_peaks[peak_id]
+        raw_view = self.raw_view.getView()
+        raw_view.setRange(xRange=(x-20, x+20), yRange=(y-20, y+20))
+
 
 # mean/std dialog slots
     @pyqtSlot()
@@ -1163,11 +1179,11 @@ class GUI(QMainWindow):
             if opt_peaks is not None:
                 self.opt_peak_item.setData(pos=opt_peaks + 0.5)
             # filtering weak peak
-            strong_peaks = peaks_dict['strong']
-            if strong_peaks is not None:
-                self.add_info('%d strong peaks' % (len(strong_peaks)))
-                if len(strong_peaks) > 0:
-                    self.strong_peak_item.setData(pos=strong_peaks + 0.5)
+            self.strong_peaks = peaks_dict['strong']
+            if self.strong_peaks is not None:
+                self.add_info('%d strong peaks' % (len(self.strong_peaks)))
+                if len(self.strong_peaks) > 0:
+                    self.strong_peak_item.setData(pos=self.strong_peaks + 0.5)
         if self.show_view3:
             self.calib_mask_view.setImage(
                 self.img3, autoRange=False, autoLevels=False,
@@ -1196,37 +1212,31 @@ class GUI(QMainWindow):
                 self.update_peak_table(peak_info)
 
     def update_peak_table(self, peak_info):
-        self.peak_table.peak_table.clearContents()
-        nb_peaks = peak_info['snr'].size
-
-        for i in range(nb_peaks):
-            row_dict = {
-                'id': str(i),
-                'snr': '%.1f' % peak_info['snr'][i],
-                'total intensity': '%d' % peak_info['total intensity'][i],
-                'signal': '%.1f' % peak_info['signal values'][i],
-                'background': '%.1f' % peak_info['background values'][i],
-                'noise': '%.1f' % peak_info['noise values'][i],
-                'signal pixels': '%d' % peak_info['signal pixel num'][i],
-                'background pixels': '%d' % peak_info['background pixel num'][i]
-            }
-            self.fill_table_row(row_dict, i)
-
-    def fill_table_row(self, row_dict, row):
         table = self.peak_table.peak_table
-        row_count = table.rowCount()
-        if row_count == row:
-            table.insertRow(row_count)
-        for col, field in enumerate(self.peak_table_headers):
-            if field not in row_dict.keys():
-                continue
-            item = table.item(row, col)
-            if item is None:
-                item = QTableWidgetItem(row_dict[field])
-                item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-                table.setItem(row, col, item)
-            else:
-                item.setText(str(row_dict[field]))
+        nb_peaks = peak_info['snr'].size
+        data = []
+        for i in range(nb_peaks):
+            data.append((
+                i,
+                peak_info['snr'][i],
+                peak_info['total intensity'][i],
+                peak_info['signal values'][i],
+                peak_info['background values'][i],
+                peak_info['noise values'][i],
+                peak_info['signal pixel num'][i],
+                peak_info['background pixel num'][i],
+            ))
+        data = np.array(data, dtype=[
+            ('id', int),
+            ('snr', float),
+            ('total intensity', float),
+            ('signal', float),
+            ('background', float),
+            ('noise', float),
+            ('signal pixels', int),
+            ('background pixels', int),
+        ])
+        table.setData(data)
 
     def dragEnterEvent(self, event):
         urls = event.mimeData().urls()
