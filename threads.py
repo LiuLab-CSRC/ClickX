@@ -290,8 +290,30 @@ class HitFinderThread(QThread):
         cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % self.job)
         conf = self.conf
         hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
+        min_peak = str(self.settings.min_peak)
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/scripts/run_hit_finder_%s' % \
                        (dir_, self.settings.script_suffix)
         python_script = '%s/util/batch_hit_finder.py' % dir_
-        subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir])
+        subprocess.run([shell_script, python_script, cxi_lst, conf, hit_dir,
+                        '--min-peak', min_peak])
+
+
+class Peak2CxiThread(QThread):
+    def __init__(self, settings, workdir, job, tag):
+        super(Peak2CxiThread, self).__init__()
+        self.settings = settings
+        self.workdir = workdir
+        self.job = job
+        self.tag = tag
+
+    def run(self):
+        hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
+        peak_file = os.path.join(hit_dir, '%s.npy' % self.job)
+        min_peak = str(self.settings.min_peak)
+        dir_ = os.path.dirname(__file__)
+        shell_script = '%s/scripts/run_peak2cxi_%s' % \
+                       (dir_, self.settings.script_suffix)
+        python_script = '%s/util/batch_peak2cxi.py' % dir_
+        subprocess.run([shell_script, python_script, peak_file, hit_dir,
+                        '--min-peak', min_peak])

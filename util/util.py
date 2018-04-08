@@ -111,6 +111,7 @@ def find_peaks(image,
     strong_peaks = opt_peaks[strong_ids]
     peaks_dict['strong'] = strong_peaks
     peaks_dict['info'] = {
+        'pos': strong_peaks,
         'snr': snr_info['snr'][strong_ids],
         'total intensity': snr_info['total intensity'][strong_ids],
         'signal values': snr_info['signal values'][strong_ids],
@@ -568,24 +569,29 @@ def collect_jobs(files, dataset, batch_size):
     return jobs, frames
 
 
-def save_full_cxi(batch, cxi_file, conf,
-                  cxi_dtype=None,
+def save_full_cxi(batch, cxi_file,
+                  cxi_dtype='auto',
                   compression='lzf',
                   shuffle=True
                   ):
+    """
+    Save crystfel-compatible cxi file.
+    :param batch: a list contains frame and peak info.
+    :param cxi_file: output cxi filepath.
+    :param cxi_dtype: datatype of cxi file.
+    :param compression: compression filter used for raw data.
+    :param shuffle: whether shuffle used for compression.
+    :return: None.
+    """
     print('saving %s' % cxi_file)
+    nb_frame = len(batch)
     filepath_curr = None
-    h5_obj = None
-    data = []
-    if conf['mask file'] is not None:
-        mask = np.load(conf['mask file'])
-    gaussian_sigma = float(conf['gaussian filter sigma'])
-    max_peaks = int(conf['max peak num'])
-    min_distance = int(conf['min distance'])
-    min_gradient = float(conf['min gradient'])
-    min_peaks = int(conf['min peak num'])
-    min_snr = float(conf['min snr'])
-
+    frames = []
+    nb_peaks = np.zeros(nb_frame, dtype=np.int)
+    peaks_x = np.zeros((nb_frame, 1024))
+    peaks_y = np.zeros((nb_frame, 1024))
+    peaks_intensity = np.zeros((nb_frame, 1024))
+    peaks_snr = np.zeros((nb_frame, 1024))
     for i in range(len(batch)):
         record = batch[i]
         filepath = record['filepath']
@@ -596,44 +602,45 @@ def save_full_cxi(batch, cxi_file, conf,
             except IOError:
                 print('Failed to load %s' % filepath)
                 continue
-        dataset = h5_obj[record['dataset']]
-        if len(dataset.shape) == 3:
-            frame = dataset[record['frame']]
-        elif len(dataset.shape) == 2:
-            frame = dataset.value
-        else:
-            pass
-        data.append(frame)
-        peaks_dict = find_peaks(
-            frame, mask=mask,
-            gaussian_sigma=gaussian_sigma,
-            min_gradient=min_gradient,
-            min_distance=min_distance,
-            max_peaks=max_peaks,
-            min_snr=min_snr)
-        strong_peaks = peaks_dict['strong']
-    # in_dtype = frame.dtype
-    # if cxi_dtype == 'auto':
-    #     cxi_dtype = in_dtype
-    # else:
-    #     cxi_dtype = np.dtype(cxi_dtype)
-    # data = np.array(data).astype(cxi_dtype)
-    # n, x, y = data.shape
-    # if os.path.exists(cxi_file):
-    #     os.rename(cxi_file, '%s.bk' % cxi_file)
-    # f = h5py.File(cxi_file, 'w')
-    # # patterns
-    # f.create_dataset(
-    #     'data',
-    #     shape=(n, x, y),
-    #     dtype=cxi_dtype,
-    #     data=data,
-    #     compression=compression,
-    #     chunks=(1, x, y),
-    #     shuffle=shuffle,
-    # )
-    #
-    # # peaks
+        frame = read_image(filepath, record['frame'],
+                           h5_obj=h5_obj,
+                           dataset=record['dataset'])
+        peak_info = record['peak_info']
+        nb_peak = min(len(peak_info['snr']), 1024)
+        nb_peaks[i] = nb_peak
+        peaks_x[i, :nb_peak] = peak_info['pos'][:nb_peak, 0]
+        peaks_y[i, :nb_peak] = peak_info['pos'][:nb_peak, 1]
+        peaks_intensity[i, :nb_peak] = peak_info['total intensity'][:nb_peak]
+        peaks_snr[i, :nb_peak] = peak_info['snr'][:nb_peak]
+        frames.append(frame)
+
+    in_dtype = frame.dtype
+    if cxi_dtype == 'auto':
+        cxi_dtype = in_dtype
+    else:
+        cxi_dtype = np.dtype(cxi_dtype)
+    frames = np.array(frames).astype(cxi_dtype)
+    n, x, y = frames.shape
+    if os.path.exists(cxi_file):
+        os.rename(cxi_file, '%s.bk' % cxi_file)
+    f = h5py.File(cxi_file, 'w')
+    # save patterns
+    f.create_dataset(
+        'data',
+        shape=(n, x, y),
+        dtype=cxi_dtype,
+        data=frames,
+        compression=compression,
+        chunks=(1, x, y),
+        shuffle=shuffle,
+    )
+    # save peak info
+    f.create_dataset('peak_info/nPeaks', data=nb_peaks)
+    f.create_dataset('peak_info/peakXPosRaw', data=peaks_x)
+    f.create_dataset('peak_info/peakYPosRaw', data=peaks_y)
+    f.create_dataset('peak_info/peakTotalIntensity', data=peaks_intensity)
+    f.create_dataset('peak_info/peakSNR', data=peaks_snr)
+    f.close()
 
 
 def fit_ellipse(x, y):
@@ -686,7 +693,7 @@ def fit_ellipse(x, y):
     return ellipse
 
 
-def fit_circle(x, y, tol=3.0, init_center=[0, 0], init_radius=1.):
+def fit_circle(x, y, tol=3.0, init_center=(0, 0), init_radius=1.):
     """
     Fit circle to scattered points with specified tolerance.
     :param x: x coordinates, 1d array.
