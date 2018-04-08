@@ -45,29 +45,35 @@ def master_run(args):
     buffer_size = int(args['--buffer-size'])
     jobs, nb_frames = util.collect_jobs(files, dataset, batch_size)
     nb_jobs = len(jobs)
-    print('%d frames, %d jobs to be processed' % (nb_frames, nb_jobs))
+    print('%d frames, %d jobs to be processed' %
+          (nb_frames, nb_jobs), flush=True)
 
     # dispatch jobs
     job_id = 0
     reqs = {}
     peaks = []
-    slaves = list(range(1, size))
+    slaves = set(range(1, size))
+    finished_slaves = set()
     for slave in slaves:
-        comm.isend(jobs[job_id], dest=slave)
+        if job_id < nb_jobs:
+            job = jobs[job_id]
+        else:
+            job = []  # dummy job
+        comm.isend(job, dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
-        sys.stdout.flush()
+        print('job %d/%d  --> %d' % (job_id, nb_jobs, slave), flush=True)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
         time.sleep(0.1)  # take a break
+        slaves -= finished_slaves
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
                 peaks += result
                 if job_id < nb_jobs:
-                    print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
-                    sys.stdout.flush()
+                    print('job %d/%d --> %d' %
+                          (job_id, nb_jobs, slave), flush=True)
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
                     reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
@@ -76,19 +82,20 @@ def master_run(args):
                     stop = True
                     comm.isend(stop, dest=slave)
                     print('stop signal sent to %d' % slave)
+                    finished_slaves.add(slave)
 
     all_done = False
     while not all_done:
         all_done = True
+        slaves -= finished_slaves
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
                 peaks += result
-                slaves.remove(slave)
                 stop = True
-                print('send stop signal to %d' % slave)
-                sys.stdout.flush()
+                print('stop signal --> %d' % slave, flush=True)
                 comm.isend(stop, dest=slave)
+                finished_slaves.add(slave)
             else:
                 all_done = False
 
@@ -106,7 +113,8 @@ def master_run(args):
     if not os.path.isdir(dir_):
         os.mkdir(dir_)
     np.savez(powder_file, powder_pattern=powder, powder_peaks=peaks)
-    print('All Done!')
+    print('All Done!', flush=True)
+    MPI.Finalize()
 
 
 def slave_run(args):
@@ -155,8 +163,7 @@ def slave_run(args):
         comm.send(peaks, dest=0)
         stop = comm.recv(source=0)
         if stop:
-            print('slave %d is exiting' % rank)
-            sys.stdout.flush()
+            print('slave %d is exiting' % rank, flush=True)
 
 
 if __name__ == '__main__':

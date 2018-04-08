@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#----compressor script on sugon cluster.-----#
+#----peak2cxi script on sugon cluster.-----#
 
 mpiexec=/home/xxli/software/anaconda3/bin/mpiexec
 python_exec=/home/xxli/software/anaconda3/bin/python
-nb_process=2  # use less processes in case IO is too high
+nb_process=2
 
 echo "
 #!/bin/bash
@@ -21,5 +21,5 @@ cd \$PBS_O_WORKDIR
 
 $mpiexec -n $nb_process $python_exec "${@:2}"
 " > .$1.sh
-#qsub .$1.sh
+qsub .$1.sh
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#----compressor script on sugon cluster.-----#
+#----run hit finder script on sugon cluster.-----#
 
 mpiexec=/home/xxli/software/anaconda3/bin/mpiexec
 python_exec=/home/xxli/software/anaconda3/bin/python

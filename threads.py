@@ -260,7 +260,6 @@ class CompressorThread(QThread):
         python_script = '%s/util/batch_compressor.py' % dir_
         comp_size = str(self.settings.comp_size)
         comp_dtype = str(self.settings.comp_dtype)
-        print(shell_script, job, python_script)
         subprocess.run(
             [
                 shell_script,  job, python_script,
@@ -316,5 +315,5 @@ class Peak2CxiThread(QThread):
         shell_script = '%s/scripts/run_peak2cxi_%s' % \
                        (dir_, self.settings.script_suffix)
         python_script = '%s/util/batch_peak2cxi.py' % dir_
-        subprocess.run([shell_script, python_script, peak_file, hit_dir,
+        subprocess.run([shell_script, self.job, python_script, peak_file, hit_dir,
                         '--min-peak', min_peak])

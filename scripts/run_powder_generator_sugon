@@ -4,7 +4,7 @@
 
 mpiexec=/home/xxli/software/anaconda3/bin/mpiexec
 python_exec=/home/xxli/software/anaconda3/bin/python
-nb_process=5
+nb_process=24
 
 echo "
 #!/bin/bash

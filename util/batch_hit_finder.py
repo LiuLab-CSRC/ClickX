@@ -58,10 +58,14 @@ def master_run(args):
     job_id = 0
     reqs = {}
     results = []
-    slaves = list(range(1, size))
+    slaves = set(range(1, size))
+    finished_slaves = set()
     time_start = time.time()
-    finished_slaves = []
     for slave in slaves:
+        if job_id < nb_jobs:
+            job = jobs[job_id]
+        else:
+            job = []  # dummy job
         comm.isend(jobs[job_id], dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
         print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=True)
@@ -69,12 +73,11 @@ def master_run(args):
     while job_id < nb_jobs:
         stop = False
         time.sleep(0.1)  # take a break
-        slaves = list(set(slaves) - set(finished_slaves))
+        slaves -= finished_slaves
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
-                if result is not None:
-                    results += result
+                results += result
                 if job_id < nb_jobs:
                     print('job %d/%d --> slave %d' %
                           (job_id, nb_jobs, slave), flush=True)
@@ -86,7 +89,7 @@ def master_run(args):
                     stop = True
                     comm.isend(stop, dest=slave)
                     print('stop signal --> slave %d' % slave)
-                    finished_slaves.append(slave)
+                    finished_slaves.add(slave)
         if job_id % update_freq == 0:
             # update stat
             progress = float(job_id) / nb_jobs * 100
@@ -108,20 +111,18 @@ def master_run(args):
                 yaml.dump(stat_dict, f, default_flow_style=False)
 
     all_done = False
-    finished_slaves = []
     while not all_done:
         time.sleep(0.1)
         all_done = True
-        slaves = list(set(slaves) - set(finished_slaves))
+        slaves -= finished_slaves
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
-                if result is not None:
-                    results += result
+                results += result
                 stop = True
                 print('stop signal --> slave %d' % slave, flush=True)
                 comm.isend(stop, dest=slave)
-                finished_slaves.append(slave)
+                finished_slaves.add(slave)
             else:
                 all_done = False
     time_end = time.time()

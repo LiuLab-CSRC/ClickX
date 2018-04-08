@@ -47,7 +47,8 @@ def master_run(args):
     jobs = []
     for i in range(len(ids)):
         jobs.append(peak_info[ids[i]])
-    print('%d jobs, %d frames to be processed' % (nb_jobs, len(peak_info)))
+    print('%d jobs, %d frames to be processed' %
+          (nb_jobs, len(peak_info)), flush=True)
 
     # other parameters
     buffer_size = int(args['--buffer-size'])
@@ -56,29 +57,28 @@ def master_run(args):
     # dispatch jobs
     job_id = 0
     reqs = {}
-    slaves = list(range(1, size))
+    slaves = set(range(1, size))
+    finished_slaves = set()
     time_start = time.time()
     for slave in slaves:
-        stop = False
         if job_id < nb_jobs:
-            comm.isend(jobs[job_id], dest=slave)
-            reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-            print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
-            sys.stdout.flush()
-            job_id += 1
+            job = jobs[job_id]
         else:
-            stop = True
-            comm.isend(stop, dest=slave)
-            print('stop signal sent to %d' % slave)
+            job = []  # dummy job
+        comm.isend(jobs[job_id], dest=slave)
+        reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
+        print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=True)
+        job_id += 1
     while job_id < nb_jobs:
         stop = False
+        slaves -= finished_slaves
         time.sleep(0.1)  # take a break
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
                 if job_id < nb_jobs:
-                    print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
-                    sys.stdout.flush()
+                    print('job %d/%d --> slave %d' %
+                          (job_id, nb_jobs, slave), flush=True)
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
                     reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
@@ -86,7 +86,8 @@ def master_run(args):
                 else:
                     stop = True
                     comm.isend(stop, dest=slave)
-                    print('stop signal sent to %d' % slave)
+                    print('stop signal --> %d' % slave)
+                    finished_slaves.add(slave)
         if job_id % update_freq == 0:
             # update stat
             progress = float(job_id) / nb_jobs * 100
@@ -102,13 +103,14 @@ def master_run(args):
     all_done = False
     while not all_done:
         time.sleep(0.1)
+        slaves -= finished_slaves
         all_done = True
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
-                slaves.remove(slave)
                 stop = True
                 comm.isend(stop, dest=slave)
+                finished_slaves.add(slave)
             else:
                 all_done = False
     time_end = time.time()
@@ -124,6 +126,7 @@ def master_run(args):
         yaml.dump(stat_dict, f, default_flow_style=False)
 
     print('All Done!')
+    MPI.Finalize()
 
 
 def slave_run(args):
