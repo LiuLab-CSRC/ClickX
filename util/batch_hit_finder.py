@@ -7,12 +7,14 @@ Usage:
 
 Options:
     -h --help               Show this screen.
+    --min-peak NUM          Specify min peaks for a hit [default: 20].
     --batch-size SIZE       Specify batch size in a job [default: 10].
     --buffer-size SIZE      Specify buffer size in MPI communication
                             [default: 100000].
     --update-freq FREQ      Specify update frequency of progress [default: 10].
 """
 from mpi4py import MPI
+import numpy as np
 import pandas as pd
 import h5py
 import time
@@ -31,6 +33,7 @@ def master_run(args):
     if not os.path.isdir(hit_dir):
         os.makedirs(hit_dir)
     cxi_lst = args['<cxi-lst>']
+    min_peak = int(args['--min-peak'])
     with open(cxi_lst) as f:
         _files = f.readlines()
     # remove trailing '/n'
@@ -42,7 +45,6 @@ def master_run(args):
         conf = yaml.load(f)
     # collect jobs
     dataset = conf['dataset']
-    min_peak = conf['min peak num']
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
     jobs, nb_frames = util.collect_jobs(files, dataset, batch_size)
@@ -52,7 +54,7 @@ def master_run(args):
     update_freq = int(args['--update-freq'])
     prefix = os.path.basename(cxi_lst).split('.')[0]
 
-    # distribute jobs
+    # dispatch jobs
     job_id = 0
     reqs = {}
     results = []
@@ -121,12 +123,8 @@ def master_run(args):
                 all_done = False
     time_end = time.time()
     duration = time_end - time_start
-    
-    # save results
-    csv_file = os.path.join(hit_dir, '%s.csv' % prefix)
-    df = pd.DataFrame(results)
-    df.to_csv(csv_file)
 
+    # save stat file
     processed_hits = len(df[df['nb_peak'] >= min_peak])
     processed_frames = len(df)
     hit_rate = float(processed_hits) / processed_frames * 100.
@@ -142,6 +140,25 @@ def master_run(args):
     stat_file = os.path.join(hit_dir, 'stat.yml')
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
+
+    # save simple results to csv
+    csv_file = os.path.join(hit_dir, '%s.csv' % prefix)
+    simple_results = []
+    for i in range(len(results)):
+        simple_results.append(
+            {
+                'filepath': results[i]['filepath'],
+                'dataset': results[i]['dataset'],
+                'frame': results[i]['frame'],
+                'nb_peak': results[i]['nb_peak']
+            }
+        )
+    df = pd.DataFrame(simple_results)
+    df.to_csv(csv_file)
+
+    # save detailed peak info to npz
+    peak_file = os.path.join(hit_dir, '%s.npy' % prefix)
+    np.save(peak_file, results)
 
     print('All Done!')
 
@@ -212,6 +229,7 @@ def slave_run(args):
             )
             if peaks_dict['strong'] is not None:
                 job[i]['nb_peak'] = len(peaks_dict['strong'])
+                job[i]['peak_info'] = peaks_dict['info']
             else:
                 job[i]['nb_peak'] = 0
         comm.send(job, dest=0)

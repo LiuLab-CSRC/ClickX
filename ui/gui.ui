@@ -321,6 +321,7 @@
     </property>
     <addaction name="action_job_table"/>
     <addaction name="action_powder_fit"/>
+    <addaction name="action_hit_table"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -385,6 +386,11 @@
   <action name="action_show_peak_table">
    <property name="text">
     <string>Show peak table</string>
+   </property>
+  </action>
+  <action name="action_hit_table">
+   <property name="text">
+    <string>Hit Table</string>
    </property>
   </action>
  </widget>

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#----hit finding script on xxli mac.-----#
+#----hit finding script on local machine.-----#
 
 mpiexec=/opt/local/bin/mpiexec-mpich-mp
 python_exec=/opt/local/bin/python

@@ -32,6 +32,7 @@ class JobWindow(QWidget):
         self.crawler_thread = None
         self.compressor_threads = []
         self.hit_finder_threads = []
+        self.peak2cxi_threads = []
 
         # slots
         self.browse_btn.clicked.connect(self.select_workdir)
@@ -107,22 +108,22 @@ class JobWindow(QWidget):
         workdir = self.workdir_lineedit.text()
         action_compression = menu.addAction('run compressor')
         action_hit_finding = menu.addAction('run hit finder')
-        action_csv2cxi = menu.addAction('convert csv to cxi')
+        action_peak2cxi = menu.addAction('convert peaks to cxi')
         menu.addSeparator()
         action_sum = menu.addAction('calc sum')
         action = menu.exec_(job_table.mapToGlobal(pos))
+        curr_id = self.hit_finding_conf.currentIndex()
+        if curr_id == -1:
+            print('No valid conf available!')
+            return
+        conf = self.hit_finding_conf.itemData(curr_id)
+        tag = self.hit_finding_conf.itemText(curr_id)
         if action == action_compression:
             for job in jobs:
                 compressor_thread = CompressorThread(job, self.settings)
                 self.compressor_threads.append(compressor_thread)
                 compressor_thread.start()
         elif action == action_hit_finding:
-            curr_id = self.hit_finding_conf.currentIndex()
-            if curr_id == -1:
-                print('No valid conf available!')
-                return
-            conf = self.hit_finding_conf.itemData(curr_id)
-            tag = self.hit_finding_conf.itemText(curr_id)
             for job in jobs:
                 hit_finder_thread = HitFinderThread(
                     self.settings,
@@ -133,10 +134,18 @@ class JobWindow(QWidget):
                 )
                 self.hit_finder_threads.append(hit_finder_thread)
                 hit_finder_thread.start()
-        elif action == action_csv2cxi:
-            print('convert csv to cxi file')
+        elif action == action_peak2cxi:
+            print('convert peak to cxi file')
+            for job in jobs:
+                peak2cxi_thread = Peak2CxiThread(
+                    self.settings,
+                    workdir=workdir,
+                    job=job,
+                    tag=tag,
+                )
+                self.peak2cxi_threads.append(peak2cxi_thread)
+                peak2cxi_thread.start()
         elif action == action_sum:
-            print('calculate sum')
             s = 0
             for item in items:
                 try:

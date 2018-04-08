@@ -12,6 +12,7 @@ class Settings():
         self.peak_size = settings_dict.get('peak size', 10)
         self.dataset_def = settings_dict.get('default dataset', '')
         self.max_info = settings_dict.get('max info', 1000)
+        self.min_peak = settings_dict.get('min peak', 20)
 
         # compression
         self.raw_dataset = settings_dict.get('raw dataset', None)
