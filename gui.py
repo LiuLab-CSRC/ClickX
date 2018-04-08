@@ -55,7 +55,7 @@ class GUI(QMainWindow):
         self.peak_table = QWidget()
         loadUi('%s/ui/peak_table.ui' % dir_, self.peak_table)
 
-        self.job_win = JobWindow(settings=self.settings)
+        self.job_win = JobWindow(settings=self.settings, main_win=self)
         self.powder_win = PowderWindow(settings=self.settings)
 
         self.hit_win = HitWindow(settings=self.settings, main_win=self)
@@ -350,6 +350,9 @@ class GUI(QMainWindow):
         self.action_hit_table.triggered.connect(
             self.show_hit_table
         )
+
+        # job table
+        self.job_win.view_hits.connect(self.view_hits)
 
         # peak table
         self.peak_table.peak_table.cellDoubleClicked.connect(
@@ -660,6 +663,15 @@ class GUI(QMainWindow):
 
     @pyqtSlot()
     def show_hit_table(self):
+        self.hit_win.show()
+
+# job table slots
+    @pyqtSlot(str, str)
+    def view_hits(self, job, tag):
+        hit_file = os.path.join(
+            self.workdir, 'cxi_hit', job, tag, '%s.csv' % job)
+        self.hit_win.hit_file_le.setText(hit_file)
+        self.hit_win.load_hits(hit_file)
         self.hit_win.show()
 
 # peak table slots

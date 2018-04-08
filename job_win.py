@@ -1,4 +1,4 @@
-from PyQt5.QtCore import pyqtSlot, QPoint, Qt
+from PyQt5.QtCore import pyqtSlot, QPoint, Qt, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QFileDialog, QMenu
 from PyQt5.QtWidgets import QTableWidgetItem
 from PyQt5.uic import loadUi
@@ -7,12 +7,15 @@ from threads import *
 
 
 class JobWindow(QWidget):
-    def __init__(self, settings, parent=None):
-        super(JobWindow, self).__init__(parent)
+    view_hits = pyqtSignal(str, str)
+
+    def __init__(self, settings, main_win):
+        super(JobWindow, self).__init__()
         # setup ui
         dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/jobs_win.ui' % dir_, self)
         self.settings = settings
+        self.main_win = main_win
         self.workdir = settings.workdir
         self.raw_dataset = settings.raw_dataset
         self.comp_dataset = settings.comp_dataset
@@ -110,6 +113,8 @@ class JobWindow(QWidget):
         action_hit_finding = menu.addAction('run hit finder')
         action_peak2cxi = menu.addAction('convert peaks to cxi')
         menu.addSeparator()
+        action_view_hits = menu.addAction('view hits')
+        menu.addSeparator()
         action_sum = menu.addAction('calc sum')
         action = menu.exec_(job_table.mapToGlobal(pos))
         curr_id = self.hit_finding_conf.currentIndex()
@@ -145,6 +150,12 @@ class JobWindow(QWidget):
                 )
                 self.peak2cxi_threads.append(peak2cxi_thread)
                 peak2cxi_thread.start()
+        elif action == action_view_hits:
+            row = job_table.row(item)
+            job = job_table.item(row, 0).text()
+            tag_col = self.header_labels.index('tag')
+            tag = job_table.item(row, tag_col).text()
+            self.view_hits.emit(job, tag)
         elif action == action_sum:
             s = 0
             for item in items:
