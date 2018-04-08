@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+#----powder generator script on sugon cluster.-----#
+
+mpiexec=/home/xxli/software/anaconda3/bin/mpiexec
+python_exec=/home/xxli/software/anaconda3/bin/python
+nb_process=5
+
+echo "
+#!/bin/bash
+
+### Job Name
+#PBS -N powder
+### Output Files
+### Queue Name
+#PBS -q low
+### Number of nodes
+#PBS -l nodes=1:ppn=24
+
+cd \$PBS_O_WORKDIR
+
+$mpiexec -n $nb_process $python_exec "$@"
+" > .powder.sh
+qsub .powder.sh
