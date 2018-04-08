@@ -388,6 +388,9 @@
                    <property name="text">
                     <string> tol:</string>
                    </property>
+                   <property name="alignment">
+                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                   </property>
                   </widget>
                  </item>
                  <item>
@@ -496,7 +499,7 @@
           <enum>QAbstractScrollArea::AdjustIgnored</enum>
          </property>
          <property name="editTriggers">
-          <set>QAbstractItemView::EditKeyPressed</set>
+          <set>QAbstractItemView::DoubleClicked</set>
          </property>
          <attribute name="verticalHeaderVisible">
           <bool>false</bool>

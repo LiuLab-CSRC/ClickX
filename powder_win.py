@@ -128,7 +128,7 @@ class PowderWindow(QWidget):
         self.min_samples_sb.valueChanged.connect(self.change_min_samples)
         self.tol_sb.valueChanged.connect(self.change_tol)
         self.fit_btn.clicked.connect(self.cluster_and_fit)
-        self.powder_table.cellDoubleClicked.connect(self.highlight_cluster)
+        self.powder_table.cellClicked.connect(self.highlight_cluster)
         self.powder_table.cellChanged.connect(self.change_resolution)
 
     @pyqtSlot()
