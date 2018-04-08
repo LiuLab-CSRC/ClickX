@@ -24,6 +24,7 @@ from util import util
 from settings import Settings
 from job_win import JobWindow
 from powder_win import PowderWindow
+from hit_win import HitWindow
 
 
 class GUI(QMainWindow):
@@ -35,6 +36,7 @@ class GUI(QMainWindow):
         self.peak_size = settings.peak_size
         self.dataset_def = settings.dataset_def
         self.max_info = settings.max_info
+        self.min_peak = settings.min_peak
 
         # setup layout
         dir_ = os.path.abspath(os.path.dirname(__file__))
@@ -55,6 +57,8 @@ class GUI(QMainWindow):
 
         self.job_win = JobWindow(settings=self.settings)
         self.powder_win = PowderWindow(settings=self.settings)
+
+        self.hit_win = HitWindow(settings=self.settings, main_win=self)
 
         self.gradient_view.hide()
         self.calib_mask_view.hide()
@@ -84,8 +88,7 @@ class GUI(QMainWindow):
         self.show_opt_peaks = False
         self.show_strong_peaks = True
         self.gaussian_sigma = 1
-        self.min_peak_num = 0
-        self.max_peak_num = 500
+        self.max_peak = 500
         self.min_intensity = 0.
         self.min_gradient = 0.
         self.min_distance = 10
@@ -208,12 +211,8 @@ class GUI(QMainWindow):
                 'value': self.gaussian_sigma
             },
             {
-                'name': 'min peak num', 'type': 'int',
-                'value': self.min_peak_num
-            },
-            {
                 'name': 'max peak num', 'type': 'int',
-                'value': self.max_peak_num
+                'value': self.max_peak
             },
             {
                 'name': 'min gradient', 'type': 'float',
@@ -348,6 +347,9 @@ class GUI(QMainWindow):
         self.action_powder_fit.triggered.connect(
             self.show_powder_win
         )
+        self.action_hit_table.triggered.connect(
+            self.show_hit_table
+        )
 
         # peak table
         self.peak_table.peak_table.cellDoubleClicked.connect(
@@ -437,9 +439,7 @@ class GUI(QMainWindow):
             'gaussian filter sigma').sigValueChanged.connect(
             self.change_gaussian_sigma)
         self.hit_finder_params.param(
-            'min peak num').sigValueChanged.connect(self.change_min_peak_num)
-        self.hit_finder_params.param(
-            'max peak num').sigValueChanged.connect(self.change_max_peak_num)
+            'max peak num').sigValueChanged.connect(self.change_max_peak)
         self.hit_finder_params.param(
             'min gradient').sigValueChanged.connect(self.change_min_gradient)
         self.hit_finder_params.param(
@@ -475,7 +475,7 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def open_file(self):
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Open Data File", "", "Data (*.h5 *.cxi *.npy)")
+            self, "Open Data File", self.workdir, "Data (*.h5 *.cxi *.npy)")
         if len(filepath) == 0:
             return
         self.maybe_add_file(filepath)
@@ -492,8 +492,7 @@ class GUI(QMainWindow):
             'dataset': self.dataset,
             'mask file': self.mask_file,
             'gaussian filter sigma': self.gaussian_sigma,
-            'min peak num': self.min_peak_num,
-            'max peak num': self.max_peak_num,
+            'max peak num': self.max_peak,
             'min gradient': self.min_gradient,
             'peak refine mode': self.peak_refine_mode,
             'min distance': self.min_distance,
@@ -533,16 +532,11 @@ class GUI(QMainWindow):
             self.hit_finder_params.param(
                 'gaussian filter sigma'
             ).setValue(self.gaussian_sigma)
-        if 'min peak num' in conf_dict.keys():
-            self.min_peak_num = conf_dict['min peak num']
-            self.hit_finder_params.param(
-                'min peak num'
-            ).setValue(self.min_peak_num)
         if 'max peak num' in conf_dict.keys():
-            self.max_peak_num = conf_dict['max peak num']
+            self.max_peak = conf_dict['max peak num']
             self.hit_finder_params.param(
                 'max peak num'
-            ).setValue(self.max_peak_num)
+            ).setValue(self.max_peak)
         if 'min gradient' in conf_dict.keys():
             self.min_gradient = conf_dict['min gradient']
             self.hit_finder_params.param(
@@ -663,6 +657,10 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def show_powder_win(self):
         self.powder_win.show()
+
+    @pyqtSlot()
+    def show_hit_table(self):
+        self.hit_win.show()
 
 # peak table slots
     @pyqtSlot(int, int)
@@ -890,43 +888,45 @@ class GUI(QMainWindow):
 
     @pyqtSlot('QListWidgetItem*')
     def load_file(self, file_item):
-        self.add_info('Loading %s' % file_item.data(1))
         filepath = file_item.data(1)
-        ext = QtCore.QFileInfo(filepath).suffix()
+        self.add_info('Loading %s' % filepath)
+        self.load_frame(filepath)
+        # update file info and display
+        self.update_file_info()
+        self.change_image()
+        self.update_display()
+
+    def load_frame(self, filepath, dataset=None, frame=None):
+        if frame is not None:
+            self.frame = frame
+        ext = filepath.split('.')[-1]
         if ext == 'npy':
             self.file = filepath
             self.nb_frame = 1
         elif ext == 'npz':
             data_shape = util.get_data_shape(filepath)
-            if self.dataset_def not in data_shape.keys():
+            if dataset is None:
+                dataset = self.dataset_def
+            if dataset not in data_shape.keys():
                 dataset = self.select_dataset(filepath)
                 if len(dataset) == 0:
                     return
-                self.file = filepath
-                self.dataset = dataset
-                if len(data_shape[dataset]) == 3:
-                    self.nb_frame = data_shape[dataset][0]
-                else:
-                    self.nb_frame = 1
+            self.file = filepath
+            self.dataset = dataset
+            if len(data_shape[dataset]) == 3:
+                self.nb_frame = data_shape[dataset][0]
+            else:
+                self.nb_frame = 1
         elif ext in ('h5', 'cxi'):
             h5_obj = h5py.File(filepath, 'r')
             data_shape = util.get_data_shape(filepath)
             # check default dataset
-            if self.dataset_def not in data_shape.keys():
+            if dataset is None:
+                dataset = self.dataset_def
+            if dataset not in data_shape.keys():
                 dataset = self.select_dataset(filepath)
                 if len(dataset) == 0:
                     return
-            else:
-                dataset = self.dataset_def
-            # PAL specific h5 file
-            if 'header/frame_num' in h5_obj.keys():
-                self.file = filepath
-                self.h5_obj = h5_obj
-                self.dataset = dataset
-                if len(data_shape[dataset]) == 3:
-                    self.nb_frame = data_shape[dataset][0]
-                else:
-                    self.nb_frame = 1
             if dataset in h5_obj:
                 self.file = filepath
                 self.h5_obj = h5_obj
@@ -937,12 +937,11 @@ class GUI(QMainWindow):
                     self.nb_frame = 1
         else:
             return
-        # update file info and display
-        self.status_params.param('filepath').setValue(filepath)
+
+    def update_file_info(self):
+        self.status_params.param('filepath').setValue(self.file)
         self.status_params.param('dataset').setValue(self.dataset)
         self.status_params.param('total frame').setValue(self.nb_frame)
-        self.change_image()
-        self.update_display()
 
     @pyqtSlot(object)
     def mouse_moved(self, pos, flag=None):
@@ -1108,13 +1107,8 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot(object, object)
-    def change_min_peak_num(self, _, min_peak_num):
-        self.min_peak_num = min_peak_num
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_max_peak_num(self, _, max_peak_num):
-        self.max_peak_num = max_peak_num
+    def change_max_peak(self, _, max_peak):
+        self.max_peak = max_peak
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -1258,7 +1252,7 @@ class GUI(QMainWindow):
                 gaussian_sigma=self.gaussian_sigma,
                 min_gradient=self.min_gradient,
                 min_distance=self.min_distance,
-                max_peaks=self.max_peak_num,
+                max_peaks=self.max_peak,
                 min_snr=self.min_snr,
                 min_pixels=self.min_pixels,
                 refine_mode=self.peak_refine_mode,
