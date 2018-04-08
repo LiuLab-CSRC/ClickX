@@ -134,11 +134,11 @@ class PowderWindow(QWidget):
     @pyqtSlot()
     def load_peaks(self):
         peak_file, _ = QFileDialog.getOpenFileName(
-            self, "Select peak file", self.workdir, "Peak File (*.peaks)")
+            self, "Select peak file", self.workdir, "Peak File (*.npz)")
         if len(peak_file) == 0:
             return
         self.peak_file_le.setText(peak_file)
-        self.full_peaks = np.loadtxt(peak_file)
+        self.full_peaks = np.load(peak_file)['powder_peaks']
         if len(self.full_peaks) > self.max_peaks:
             self.peaks = self.full_peaks[:self.max_peaks]
         else:

@@ -478,7 +478,9 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def open_file(self):
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Open Data File", self.workdir, "Data (*.h5 *.cxi *.npy)")
+            self, "Open Data File",
+            self.workdir, "Data (*.h5 *.cxi *.npy *.npz)"
+        )
         if len(filepath) == 0:
             return
         self.maybe_add_file(filepath)
@@ -754,6 +756,8 @@ class GUI(QMainWindow):
     @pyqtSlot(int)
     def update_powder_diag_nframe(self, _):
         tag = self.powder_diag.combo_box.currentText()
+        if tag == '':
+            return
         conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
         with open(conf_file, 'r') as f:
             conf = yaml.load(f)
