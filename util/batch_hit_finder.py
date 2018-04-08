@@ -60,24 +60,24 @@ def master_run(args):
     results = []
     slaves = list(range(1, size))
     time_start = time.time()
+    finished_slaves = []
     for slave in slaves:
-        if job_id >= nb_jobs:
-            break
         comm.isend(jobs[job_id], dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
-        sys.stdout.flush()
+        print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=True)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
         time.sleep(0.1)  # take a break
+        slaves = list(set(slaves) - set(finished_slaves))
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
-                results += result
+                if result is not None:
+                    results += result
                 if job_id < nb_jobs:
-                    print('job %d/%d sent to %d' % (job_id, nb_jobs, slave))
-                    sys.stdout.flush()
+                    print('job %d/%d --> slave %d' %
+                          (job_id, nb_jobs, slave), flush=True)
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
                     reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
@@ -85,7 +85,8 @@ def master_run(args):
                 else:
                     stop = True
                     comm.isend(stop, dest=slave)
-                    print('stop signal sent to %d' % slave)
+                    print('stop signal --> slave %d' % slave)
+                    finished_slaves.append(slave)
         if job_id % update_freq == 0:
             # update stat
             progress = float(job_id) / nb_jobs * 100
@@ -107,24 +108,26 @@ def master_run(args):
                 yaml.dump(stat_dict, f, default_flow_style=False)
 
     all_done = False
+    finished_slaves = []
     while not all_done:
         time.sleep(0.1)
         all_done = True
+        slaves = list(set(slaves) - set(finished_slaves))
         for slave in slaves:
             finished, result = reqs[slave].test()
             if finished:
-                results += result
-                slaves.remove(slave)
+                if result is not None:
+                    results += result
                 stop = True
-                print('send stop signal to %d' % slave)
-                sys.stdout.flush()
+                print('stop signal --> slave %d' % slave, flush=True)
                 comm.isend(stop, dest=slave)
+                finished_slaves.append(slave)
             else:
                 all_done = False
     time_end = time.time()
     duration = time_end - time_start
-
     # save stat file
+    df = pd.DataFrame(results)
     processed_hits = len(df[df['nb_peak'] >= min_peak])
     processed_frames = len(df)
     hit_rate = float(processed_hits) / processed_frames * 100.
@@ -137,6 +140,7 @@ def master_run(args):
         'total jobs': nb_jobs,
         'time start': time_start,
     }
+
     stat_file = os.path.join(hit_dir, 'stat.yml')
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
@@ -160,7 +164,8 @@ def master_run(args):
     peak_file = os.path.join(hit_dir, '%s.npy' % prefix)
     np.save(peak_file, results)
 
-    print('All Done!')
+    print('All Done!', flush=True)
+    MPI.Finalize()
 
 
 def slave_run(args):
@@ -234,9 +239,7 @@ def slave_run(args):
                 job[i]['nb_peak'] = 0
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
-        if stop:
-            print('slave %d is exiting' % rank)
-            sys.stdout.flush()
+    print('slave %d is exiting' % rank)
 
 
 if __name__ == '__main__':

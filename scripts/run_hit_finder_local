@@ -6,4 +6,4 @@ mpiexec=/opt/local/bin/mpiexec-mpich-mp
 python_exec=/opt/local/bin/python
 nb_process=3
 
-$mpiexec -n $nb_process $python_exec "$@"
+$mpiexec -n $nb_process $python_exec "${@:2}"

@@ -1,0 +1,25 @@
+#!/bin/bash
+
+#----compressor script on sugon cluster.-----#
+
+mpiexec=/home/xxli/software/anaconda3/bin/mpiexec
+python_exec=/home/xxli/software/anaconda3/bin/python
+nb_process=24  
+
+echo "
+#!/bin/bash
+
+### Job Name
+#PBS -N $1
+### Output Files
+### Queue Name
+#PBS -q low
+### Number of nodes
+#PBS -l nodes=1:ppn=24
+
+cd \$PBS_O_WORKDIR
+
+$mpiexec -n $nb_process $python_exec "${@:2}"
+" > .$1.sh
+qsub .$1.sh
+
