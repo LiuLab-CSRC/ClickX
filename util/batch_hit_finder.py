@@ -10,8 +10,9 @@ Options:
     --min-peak NUM          Specify min peaks for a hit [default: 20].
     --batch-size SIZE       Specify batch size in a job [default: 10].
     --buffer-size SIZE      Specify buffer size in MPI communication
-                            [default: 100000].
+                            [default: 500000].
     --update-freq FREQ      Specify update frequency of progress [default: 10].
+    --flush                 Flush output of print.
 """
 from mpi4py import MPI
 import numpy as np
@@ -28,6 +29,7 @@ import util
 
 
 def master_run(args):
+    flush = args['--flush']
     # mkdir if not exist
     hit_dir = args['<hit-dir>']
     if not os.path.isdir(hit_dir):
@@ -49,7 +51,8 @@ def master_run(args):
     buffer_size = int(args['--buffer-size'])
     jobs, nb_frames = util.collect_jobs(files, dataset, batch_size)
     nb_jobs = len(jobs)
-    print('%d frames, %d jobs to be processed' % (nb_frames, nb_jobs))
+    print('%d frames, %d jobs to be processed' %
+          (nb_frames, nb_jobs), flush=flush)
 
     update_freq = int(args['--update-freq'])
     prefix = os.path.basename(cxi_lst).split('.')[0]
@@ -66,9 +69,9 @@ def master_run(args):
             job = jobs[job_id]
         else:
             job = []  # dummy job
-        comm.isend(jobs[job_id], dest=slave)
+        comm.isend(job, dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=True)
+        print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=flush)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
@@ -80,7 +83,7 @@ def master_run(args):
                 results += result
                 if job_id < nb_jobs:
                     print('job %d/%d --> slave %d' %
-                          (job_id, nb_jobs, slave), flush=True)
+                          (job_id, nb_jobs, slave), flush=flush)
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
                     reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
@@ -88,7 +91,7 @@ def master_run(args):
                 else:
                     stop = True
                     comm.isend(stop, dest=slave)
-                    print('stop signal --> slave %d' % slave)
+                    print('stop signal --> slave %d' % slave, flush=flush)
                     finished_slaves.add(slave)
         if job_id % update_freq == 0:
             # update stat
@@ -120,7 +123,7 @@ def master_run(args):
             if finished:
                 results += result
                 stop = True
-                print('stop signal --> slave %d' % slave, flush=True)
+                print('stop signal --> slave %d' % slave, flush=flush)
                 comm.isend(stop, dest=slave)
                 finished_slaves.add(slave)
             else:
@@ -165,7 +168,7 @@ def master_run(args):
     peak_file = os.path.join(hit_dir, '%s.npy' % prefix)
     np.save(peak_file, results)
 
-    print('All Done!', flush=True)
+    print('All Done!', flush=flush)
     MPI.Finalize()
 
 
@@ -174,6 +177,7 @@ def slave_run(args):
     filepath = None
     h5_obj = None
     buffer_size = int(args['--buffer-size'])
+    flush = args['--flush']
 
     # hit finding parameters
     with open(args['<conf-file>']) as f:
@@ -240,7 +244,7 @@ def slave_run(args):
                 job[i]['nb_peak'] = 0
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
-    print('slave %d is exiting' % rank)
+    print('slave %d is exiting' % rank, flush=flush)
 
 
 if __name__ == '__main__':

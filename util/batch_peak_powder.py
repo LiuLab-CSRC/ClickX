@@ -11,7 +11,8 @@ Options:
     -o FILE                 Specify output filename [default: powder.npz].
     --batch-size SIZE       Specify batch size in a job [default: 10].
     --buffer-size SIZE      Specify buffer size in MPI communication
-                            [default: 100000].
+                            [default: 500000].
+    --flush                 Flush output of print.
 """
 from mpi4py import MPI
 import h5py
@@ -26,6 +27,7 @@ import util
 
 
 def master_run(args):
+    flush = args['--flush']
     file_lst = args['<file-lst>']
     with open(file_lst) as f:
         _files = f.readlines()
@@ -46,7 +48,7 @@ def master_run(args):
     jobs, nb_frames = util.collect_jobs(files, dataset, batch_size)
     nb_jobs = len(jobs)
     print('%d frames, %d jobs to be processed' %
-          (nb_frames, nb_jobs), flush=True)
+          (nb_frames, nb_jobs), flush=flush)
 
     # dispatch jobs
     job_id = 0
@@ -61,7 +63,7 @@ def master_run(args):
             job = []  # dummy job
         comm.isend(job, dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d  --> %d' % (job_id, nb_jobs, slave), flush=True)
+        print('job %d/%d  --> %d' % (job_id, nb_jobs, slave), flush=flush)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
@@ -73,7 +75,7 @@ def master_run(args):
                 peaks += result
                 if job_id < nb_jobs:
                     print('job %d/%d --> %d' %
-                          (job_id, nb_jobs, slave), flush=True)
+                          (job_id, nb_jobs, slave), flush=flush)
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
                     reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
@@ -81,7 +83,7 @@ def master_run(args):
                 else:
                     stop = True
                     comm.isend(stop, dest=slave)
-                    print('stop signal sent to %d' % slave)
+                    print('stop signal --> %d' % slave, flush=flush)
                     finished_slaves.add(slave)
 
     all_done = False
@@ -93,7 +95,7 @@ def master_run(args):
             if finished:
                 peaks += result
                 stop = True
-                print('stop signal --> %d' % slave, flush=True)
+                print('stop signal --> %d' % slave, flush=flush)
                 comm.isend(stop, dest=slave)
                 finished_slaves.add(slave)
             else:
@@ -113,7 +115,7 @@ def master_run(args):
     if not os.path.isdir(dir_):
         os.mkdir(dir_)
     np.savez(powder_file, powder_pattern=powder, powder_peaks=peaks)
-    print('All Done!', flush=True)
+    print('All Done!', flush=flush)
     MPI.Finalize()
 
 
@@ -122,6 +124,7 @@ def slave_run(args):
     filepath = None
     h5_obj = None
     buffer_size = int(args['--buffer-size'])
+    flush = args['--flush']
 
     # hit finding parameters
     with open(args['<conf-file>']) as f:
@@ -163,7 +166,7 @@ def slave_run(args):
         comm.send(peaks, dest=0)
         stop = comm.recv(source=0)
         if stop:
-            print('slave %d is exiting' % rank, flush=True)
+            print('slave %d is exiting' % rank, flush=flush)
 
 
 if __name__ == '__main__':

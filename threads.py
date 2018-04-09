@@ -159,7 +159,7 @@ class CrawlerThread(QThread):
                     time2 = math.inf
                     processed_frames = 0
                     processed_hits = 0
-                    csv2cxi = 0
+                    peak2cxi = 'not ready'
                     job_list.append(
                         {
                             'job': job_name,
@@ -171,6 +171,7 @@ class CrawlerThread(QThread):
                             'processed frames': processed_frames,
                             'processed hits': processed_hits,
                             'hit rate': hit_rate,
+                            'peak2cxi': peak2cxi,
                             'time1': time1,
                             'time2': time2,
                         }
@@ -190,6 +191,13 @@ class CrawlerThread(QThread):
                             processed_hits = stat.get('processed hits', 0)
                             processed_frames = stat.get('processed frames', 0)
                             hit_finding = stat.get('progress', 0)
+                            if str(hit_finding) == 'done':
+                                peak2cxi = 'ready'
+                                cxi_files = glob('%s/*.cxi' % tag_dir)
+                                if len(cxi_files) > 0:
+                                    peak2cxi = 'done'
+                            else:
+                                peak2cxi = 'not ready'
                             if tag in total_processed_hits.keys():
                                 total_processed_hits[tag] += processed_hits
                             else:
@@ -214,6 +222,7 @@ class CrawlerThread(QThread):
                                 'processed hits': processed_hits,
                                 'processed frames': processed_frames,
                                 'hit rate': hit_rate,
+                                'peak2cxi': peak2cxi,
                                 'time1': time1,
                                 'time2': time2,
                             }

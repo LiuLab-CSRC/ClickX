@@ -32,7 +32,8 @@ class Settings():
                 'hit finding',
                 'processed frames',
                 'processed hits',
-                'hit rate'
+                'hit rate',
+                'peak2cxi'
             ]
         )
 

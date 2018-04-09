@@ -571,7 +571,7 @@ def collect_jobs(files, dataset, batch_size):
 
 def save_full_cxi(batch, cxi_file,
                   cxi_dtype='auto',
-                  compression='lzf',
+                  compression=None,
                   shuffle=True
                   ):
     """

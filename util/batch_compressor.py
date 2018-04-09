@@ -20,9 +20,10 @@ Options:
                                 [default: True].
     --batch-size SIZE           Specify batch size in a job [default: 10].
     --buffer-size SIZE          Specify buffer size in MPI communication
-                                [default: 100000].
+                                [default: 500000].
     --update-freq FREQ          Specify update frequency of progress
                                 [default: 10].
+    --flush                     Flush output of print.
 """
 from mpi4py import MPI
 
@@ -37,6 +38,7 @@ import util
 
 
 def master_run(args):
+    flush = args['--flush']
     # mkdir for output if not exist
     comp_dir = os.path.abspath(args['<comp-dir>'])
     comp_lst_dir = os.path.abspath(args['<comp-lst-dir>'])
@@ -61,7 +63,8 @@ def master_run(args):
     jobs, nb_frames = util.collect_jobs(files, raw_dataset, batch_size)
     nb_jobs = len(jobs)
     time_start = time.time()
-    print('%d frames, %d jobs to be processed' % (nb_frames, nb_jobs))
+    print('%d frames, %d jobs to be processed' %
+          (nb_frames, nb_jobs), flush=flush)
 
     update_freq = int(args['--update-freq'])
 
@@ -78,7 +81,7 @@ def master_run(args):
             job = []  # dummy job
         comm.isend(job, dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d --> %d' % (job_id, nb_jobs, slave), flush=True)
+        print('job %d/%d --> %d' % (job_id, nb_jobs, slave), flush=flush)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
@@ -90,7 +93,7 @@ def master_run(args):
                 results += result
                 if job_id < nb_jobs:
                     print('job %d/%d --> %d' %
-                          (job_id, nb_jobs, slave), flush=True)
+                          (job_id, nb_jobs, slave), flush=flush)
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
                     reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
@@ -129,7 +132,7 @@ def master_run(args):
                 finished_slaves.add(slave)
             else:
                 all_accepted = False
-    print('all jobs accepted', flush=True)
+    print('all jobs accepted', flush=flush)
 
     # check status of last job batch
     all_done = False
@@ -144,7 +147,7 @@ def master_run(args):
         for slave in slaves:
             done, _ = reqs[slave].test()
             if done:
-                print('slave %d done' % slave, flush=True)
+                print('slave %d done' % slave, flush=flush)
                 finished_slaves.add(slave)
             else:
                 all_done = False
@@ -178,7 +181,7 @@ def master_run(args):
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
 
-    print('All Done!')
+    print('All Done!', flush=flush)
     MPI.Finalize()
 
 

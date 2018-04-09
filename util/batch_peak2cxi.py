@@ -16,9 +16,10 @@ Options:
                                 [default: True].
     --batch-size SIZE           Specify batch size in a job [default: 10].
     --buffer-size SIZE          Specify buffer size in MPI communication
-                                [default: 100000].
+                                [default: 500000].
     --update-freq FREQ          Specify update frequency of progress
                                 [default: 10].
+    --flush                     Flush output of print.
 
 """
 from mpi4py import MPI
@@ -32,6 +33,7 @@ import util
 
 
 def master_run(args):
+    flush = args['--flush']
     # mkdir if not exist
     hit_dir = args['<hit-dir>']
     if not os.path.isdir(hit_dir):
@@ -48,7 +50,7 @@ def master_run(args):
     for i in range(len(ids)):
         jobs.append(peak_info[ids[i]])
     print('%d jobs, %d frames to be processed' %
-          (nb_jobs, len(peak_info)), flush=True)
+          (nb_jobs, len(peak_info)), flush=flush)
 
     # other parameters
     buffer_size = int(args['--buffer-size'])
@@ -67,7 +69,7 @@ def master_run(args):
             job = []  # dummy job
         comm.isend(jobs[job_id], dest=slave)
         reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=True)
+        print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=flush)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
@@ -78,7 +80,7 @@ def master_run(args):
             if finished:
                 if job_id < nb_jobs:
                     print('job %d/%d --> slave %d' %
-                          (job_id, nb_jobs, slave), flush=True)
+                          (job_id, nb_jobs, slave), flush=flush)
                     comm.isend(stop, dest=slave)
                     comm.isend(jobs[job_id], dest=slave)
                     reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
@@ -86,7 +88,7 @@ def master_run(args):
                 else:
                     stop = True
                     comm.isend(stop, dest=slave)
-                    print('stop signal --> %d' % slave)
+                    print('stop signal --> %d' % slave, flush=flush)
                     finished_slaves.add(slave)
         if job_id % update_freq == 0:
             # update stat
@@ -125,7 +127,7 @@ def master_run(args):
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
 
-    print('All Done!')
+    print('All Done!', flush=flush)
     MPI.Finalize()
 
 
@@ -159,7 +161,7 @@ def slave_run(args):
                 util.save_full_cxi(
                     batch, cxi_file,
                     cxi_dtype=cxi_dtype,
-                    shuffle=shuffle
+                    shuffle=shuffle,
                 )
                 sys.stdout.flush()
                 batch.clear()
