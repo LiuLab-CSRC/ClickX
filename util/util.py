@@ -636,8 +636,8 @@ def save_full_cxi(batch, cxi_file,
     )
     # save peak info
     f.create_dataset('peak_info/nPeaks', data=nb_peaks)
-    f.create_dataset('peak_info/peakXPosRaw', data=peaks_x)
-    f.create_dataset('peak_info/peakYPosRaw', data=peaks_y)
+    f.create_dataset('peak_info/peakXPosRaw', data=peaks_y)  # fs
+    f.create_dataset('peak_info/peakYPosRaw', data=peaks_x)  # ss
     f.create_dataset('peak_info/peakTotalIntensity', data=peaks_intensity)
     f.create_dataset('peak_info/peakSNR', data=peaks_snr)
     f.close()
