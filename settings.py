@@ -5,8 +5,8 @@ import os
 import numpy as np
 
 
-class Settings():
-    def __init__(self, settings_dict={}):
+class Settings(object):
+    def __init__(self, settings_dict):
         # main window
         self.workdir = settings_dict.get('work dir', os.path.dirname(__file__))
         self.peak_size = settings_dict.get('peak size', 10)

@@ -30,7 +30,7 @@ from hit_win import HitWindow
 class GUI(QMainWindow):
     def __init__(self, settings):
         super(GUI, self).__init__()
-        # min gui
+        # load settings
         self.settings = settings
         self.workdir = settings.workdir
         self.peak_size = settings.peak_size
@@ -1404,10 +1404,11 @@ def main():
     if len(sys.argv) > 1:
         print('using setting from %s' % sys.argv[1])
         with open(sys.argv[1], 'r') as f:
-            settings = Settings(yaml.load(f))
+            settings_dict = yaml.load(f)
     else:
-        settings = Settings()
+        settings_dict = {}
         print('using default settings')
+    settings = Settings(settings_dict)
     app = QApplication(sys.argv)
     win = GUI(settings=settings)
     win.setWindowTitle('SFX Suite')
