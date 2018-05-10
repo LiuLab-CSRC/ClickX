@@ -1,4 +1,7 @@
-# vs code 
+# mac
+*.DS_Store
+
+# vs code
 .vscode/
 
 # pycharm
