@@ -584,6 +584,9 @@ def save_full_cxi(batch, cxi_file,
     :return: None.
     """
     print('saving %s' % cxi_file)
+    if os.path.exists(cxi_file):
+        print('rename existing %s to %s.bk' % cxi_file)
+        os.rename(cxi_file, '%s.bk' % cxi_file)
     nb_frame = len(batch)
     filepath_curr = None
     frames = []
