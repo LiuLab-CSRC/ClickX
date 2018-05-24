@@ -1,129 +1,123 @@
-import sys
 import os
-from glob import glob
+import sys
+from datetime import datetime
 from functools import partial
 import yaml
-from datetime import datetime
+from glob import glob
 
-import pyqtgraph as pg
-from pyqtgraph.parametertree import Parameter
-from pyqtgraph import mkPen
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import Qt, QPoint, pyqtSlot
-from PyQt5.QtWidgets import QMainWindow, QApplication, QDialog, QFileDialog, \
-    QMenu, QListWidgetItem, QTableWidgetItem, QWidget
-from PyQt5.uic import loadUi
-
-from skimage.morphology import disk, binary_dilation, binary_erosion
-from scipy.ndimage.filters import gaussian_filter
 import h5py
 import numpy as np
+import pyqtgraph as pg
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtCore import pyqtSlot, QPoint, Qt
+from PyQt5.QtWidgets import QMainWindow, QApplication, QListWidgetItem, \
+    QDialog, QFileDialog, QMenu, QTableWidgetItem, QWidget
+from PyQt5.uic import loadUi
+from pyqtgraph.parametertree import Parameter
 
-from threads import MeanCalculatorThread, GenPowderThread
 from util import util
-from settings import Settings
-from job_win import JobWindow
-from powder_win import PowderWindow
-from hit_win import HitWindow
+from threads import MeanCalculatorThread, GenPowderThread
+from settings import Settings, SettingDialog
 
 
 class GUI(QMainWindow):
-    def __init__(self, settings):
+    def __init__(self):
         super(GUI, self).__init__()
-        # load settings
-        self.settings = settings
-        self.workdir = settings.workdir
-        self.peak_size = settings.peak_size
-        self.dataset_def = settings.dataset_def
-        self.max_info = settings.max_info
-        self.min_peak = settings.min_peak
-
         # setup layout
         dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/gui.ui' % dir_, self)
-        self.info_panel.setMaximumBlockCount(self.max_info)
+        self.dataset_diag = QDialog()
+        loadUi('%s/ui/dataset_diag.ui' % dir_, self.dataset_diag)
+        self.setting_diag = SettingDialog()
         self.inspector = QDialog()
         self.inspector.setWindowFlags(
             self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
         loadUi('%s/ui/inspector.ui' % dir_, self.inspector)
-        self.dataset_diag = QDialog()
-        loadUi('%s/ui/dataset_diag.ui' % dir_, self.dataset_diag)
+        self.peak_table = QWidget()
+        loadUi('%s/ui/peak_table.ui' % dir_, self.peak_table)
         self.mean_diag = QDialog()
         loadUi('%s/ui/mean_diag.ui' % dir_, self.mean_diag)
         self.powder_diag = QDialog()
         loadUi('%s/ui/powder_diag.ui' % dir_, self.powder_diag)
-        self.peak_table = QWidget()
-        loadUi('%s/ui/peak_table.ui' % dir_, self.peak_table)
-
-        self.job_win = JobWindow(settings=self.settings, main_win=self)
-        self.powder_win = PowderWindow(settings=self.settings)
-
-        self.hit_win = HitWindow(settings=self.settings, main_win=self)
-
-        self.gradient_view.hide()
-        self.calib_mask_view.hide()
+        self.splitter.setSizes([0.2 * self.height(),
+                                0.8 * self.height()])
         self.splitter_2.setSizes([0.2 * self.height(), 0.8 * self.height()])
-        self.splitter_3.setSizes([0.3 * self.height(), 0.7 * self.height()])
-        self.splitter_4.setSizes(
-            [0.25 * self.width(), 0.5 * self.width(), 0.25 * self.width()]
-        )
-        self.setAcceptDrops(True)
-
+        self.splitter_3.setSizes([0.2 * self.width(),
+                                  0.5 * self.width(),
+                                  0.3 * self.width()])
+        self.splitter_4.setSizes([0.5 * self.width(), 0.5 * self.width(), 0])
+        self.maskView.hide()
+        self.debugView.hide()
         self.show_file_list = True
+        self.show_mask_view = False
+        self.show_debug_view = False
+
+        # load settings
+        self.settings = Settings(self.setting_diag)
+        self.settings.save_settings()
+
+        # fixed attributes
         self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz')
-        self.curr_files = []
-        self.mask_file = None
-        self.file = None
-        self.h5_obj = None
-        self.dataset = None
-        self.nb_frame = 0
-        self.frame = 0
-
-        # hit finder parameters
-        self.show_view2 = False  # gradient view
-        self.mask_on = True
-        self.hit_finding_on = False
-        self.show_raw_peaks = False
-        self.show_valid_peaks = False
-        self.show_opt_peaks = False
-        self.show_strong_peaks = True
-        self.gaussian_sigma = 1
-        self.max_peak = 500
-        self.min_intensity = 0.
-        self.min_gradient = 0.
-        self.min_distance = 10
+        self.hit_finders = ['poisson model', 'snr model']
         self.peak_refine_mode_list = ['gradient', 'mean']
-        self.peak_refine_mode = self.peak_refine_mode_list[0]
-        self.min_snr = 0.  # min srn for a strong peak
-        self.min_pixels = 2  # min pixel num for a strong peak
-        self.snr_mode_list = ['rings', 'simple', 'adaptive']
-        self.snr_mode = self.snr_mode_list[0]
-        self.signal_radius = 1
-        self.bg_inner_radius = 2
-        self.bg_outer_radius = 3
-        self.crop_size = 7
-        self.bg_ratio = 0.7
-        self.signal_ratio = 0.2
-        self.signal_thres = 5.0
+        self.snr_mode_list = ['simple', 'rings', 'adaptive']
 
+        self.workdir = self.settings.workdir
+        self.all_files = []  # available files in file list
+        self.path = None  # path of current file
+        self.mask_file = None
+        self.mask = None
+        self.h5_obj = None  # h5 object
+        self.dataset = ''  # current dataset
+        self.total_frames = 0  # total frames of current dataset
+        self.curr_frame = 0  # current frame
+        self.raw_image = None  # current raw image for display
+        self.mask_image = None
+        self.debug_image = None
+        self.peak_info = None
+        self.strong_peaks = None
+        self.thres_map = None
         # calib/mask parameters
-        self.show_view3 = False  # show calib/mask view
         self.show_center = True
-        self.center = np.array([0., 0.])
-        self.calib_mask_threshold = 0
+        self.center = np.array([720, 720])
+        self.mask_thres = 0.
         self.ring_radii = np.array([])
         self.erosion1_size = 0
         self.dilation_size = 0
         self.erosion2_size = 0
-
-        self.img = None  # raw image
-        self.img2 = None  # gradient image
-        self.img3 = None  # calib/mask image
-        self.strong_peaks = None
-        self.peak_info = None
-        self.mask = None
-        self.peak_item = pg.ScatterPlotItem(
+        # hit finding parameters
+        self.hit_finding_on = False
+        self.mask_on = False
+        self.hit_finder = self.hit_finders[0]
+        self.max_peaks = 500
+        self.adu_per_photon = 20  # dummy number
+        self.epsilon = 1E-5
+        self.bin_size = 4
+        self.gaussian_sigma = 1.0
+        self.min_gradient = 10.
+        self.min_distance = 10
+        self.crop_size = 7
+        self.peak_refine_mode = self.peak_refine_mode_list[0]
+        self.min_snr = 6.  # min srn for a strong peak
+        self.min_pixels = 2  # min pixel num for a strong peak
+        self.max_pixels = 10  # max pixel num for a strong peak
+        self.snr_mode = self.snr_mode_list[0]
+        self.bg_ratio = 0.7
+        self.sig_ratio = 0.2
+        self.sig_radius = 1
+        self.bg_inner_radius = 2
+        self.bg_outer_radius = 3
+        self.sig_thres = 5.
+        self.show_raw_peaks = False
+        self.show_valid_peaks = False
+        self.show_opt_peaks = False
+        self.show_strong_peaks = True
+        # plot items
+        self.raw_peak_item = pg.ScatterPlotItem(
             symbol='x', size=10, pen='r', brush=(255, 255, 255, 0)
+        )
+        self.valid_peak_item = pg.ScatterPlotItem(
+            symbol='t', size=10, pen='c', brush=(255, 255, 255, 0)
         )
         self.opt_peak_item = pg.ScatterPlotItem(
             symbol='+', size=10, pen='y', brush=(255, 255, 255, 0)
@@ -131,44 +125,50 @@ class GUI(QMainWindow):
         self.strong_peak_item = pg.ScatterPlotItem(
             symbol='o', size=10, pen='g', brush=(255, 255, 255, 0)
         )
-        self.signal_pixel_item = pg.ScatterPlotItem(
-            symbol='t', size=10, pen='g', brush=(255, 255, 255, 0)
-        )
-        self.background_pixel_item = pg.ScatterPlotItem(
-            symbol='t1', size=10, pen='r', brush=(255, 255, 255, 0)
-        )
-        self.center_item = pg.ScatterPlotItem()
-        self.ring_item = pg.ScatterPlotItem()
-
+        self.raw_center_item = pg.ScatterPlotItem(
+            symbol='+', size=24, pen='g', brush=(255, 255, 255, 0))
+        self.mask_center_item = pg.ScatterPlotItem(
+            symbol='+', size=24, pen='g', brush=(255, 255, 255, 0))
+        self.raw_ring_item = pg.ScatterPlotItem(
+            symbol='o',
+            pen=pg.mkPen(width=3, color='y', style=QtCore.Qt.DotLine),
+            brush=(255, 255, 255, 0), pxMode=False)
+        self.mask_ring_item = pg.ScatterPlotItem(
+            symbol='o',
+            pen=pg.mkPen(width=3, color='y', style=QtCore.Qt.DotLine),
+            brush=(255, 255, 255, 0), pxMode=False)
+        self.rawView.view.addItem(self.raw_peak_item)
+        self.rawView.view.addItem(self.valid_peak_item)
+        self.rawView.view.addItem(self.opt_peak_item)
+        self.rawView.view.addItem(self.strong_peak_item)
+        self.rawView.view.addItem(self.raw_center_item)
+        self.rawView.view.addItem(self.raw_ring_item)
+        self.maskView.view.addItem(self.mask_center_item)
+        self.maskView.view.addItem(self.mask_ring_item)
         # threads
         self.calc_mean_thread = None
         self.gen_powder_thread = None
-
-        # add plot item to image view
-        self.raw_view.getView().addItem(self.peak_item)
-        self.raw_view.getView().addItem(self.opt_peak_item)
-        self.raw_view.getView().addItem(self.strong_peak_item)
-        self.raw_view.getView().addItem(self.signal_pixel_item)
-        self.raw_view.getView().addItem(self.background_pixel_item)
-        self.calib_mask_view.getView().addItem(self.center_item)
-        self.calib_mask_view.getView().addItem(self.ring_item)
-
         # status tree
         status_params = [
             {
-                'name': 'filepath', 'type': 'str', 'readonly': True
+                'name': 'filepath', 'type': 'str', 'readonly': True,
+                'value': self.path,
             },
             {
-                'name': 'dataset', 'type': 'str', 'readonly': True
+                'name': 'dataset', 'type': 'str', 'readonly': True,
+                'value': self.dataset,
             },
             {
-                'name': 'mask file', 'type': 'str', 'readonly': True
+                'name': 'mask file', 'type': 'str', 'readonly': True,
+                'value': self.mask_file,
             },
             {
                 'name': 'total frame', 'type': 'str', 'readonly': True,
+                'value': self.total_frames,
             },
             {
-                'name': 'current frame', 'type': 'int', 'value': self.frame,
+                'name': 'current frame', 'type': 'int',
+                'value': self.curr_frame,
             }
         ]
         self.status_params = Parameter.create(
@@ -176,109 +176,8 @@ class GUI(QMainWindow):
             type='group',
             children=status_params,
         )
-        self.status_tree.setParameters(
-            self.status_params, showTop=False
-        )
-
-        # hit finder parameter tree
-        hit_finder_params = [
-            {
-                'name': 'hit finding on', 'type': 'bool',
-                'value': self.hit_finding_on
-            },
-            {
-                'name': 'mask on', 'type': 'bool', 'value': self.mask_on,
-                'visible': False
-            },
-            {
-                'name': 'show raw peaks', 'type': 'bool',
-                'value': self.show_raw_peaks
-            },
-            {
-                'name': 'show valid peaks', 'type': 'bool',
-                'value': self.show_valid_peaks
-            },
-            {
-                'name': 'show opt peaks', 'type': 'bool',
-                'value': self.show_opt_peaks
-            },
-            {
-                'name': 'show strong peaks', 'type': 'bool',
-                'value': self.show_strong_peaks
-            },
-            {
-                'name': 'gaussian filter sigma', 'type': 'float',
-                'value': self.gaussian_sigma
-            },
-            {
-                'name': 'max peak num', 'type': 'int',
-                'value': self.max_peak
-            },
-            {
-                'name': 'min gradient', 'type': 'float',
-                'value': self.min_gradient
-            },
-            {
-                'name': 'min distance', 'type': 'int',
-                'value': self.min_distance
-            },
-            {
-                'name': 'peak refine mode', 'type': 'list',
-                'values': self.peak_refine_mode_list,
-            },
-            {
-                'name': 'min snr', 'type': 'float', 'value': self.min_snr
-            },
-            {
-                'name': 'min pixels', 'type': 'int', 'value': self.min_pixels
-            },
-            {
-                'name': 'snr mode', 'type': 'list',
-                'values': self.snr_mode_list,
-            },
-            {
-                'name': 'signal radius', 'type': 'int',
-                'value': self.signal_radius,
-                'visible': False,
-            },
-            {
-                'name': 'background inner radius', 'type': 'int',
-                'value': self.bg_inner_radius,
-                'visible': False,
-            },
-            {
-                'name': 'background outer radius', 'type': 'int',
-                'value': self.bg_outer_radius,
-                'visible': False,
-            },
-            {
-                'name': 'crop size', 'type': 'int',
-                'value': self.crop_size,
-                'visible': False,
-            },
-            {
-                'name': 'background ratio', 'type': 'float',
-                'value': self.bg_ratio,
-            },
-            {
-                'name': 'signal ratio', 'type': 'float',
-                'value': self.signal_ratio,
-            },
-            {
-                'name': 'signal threshold', 'type': 'float',
-                'value': self.signal_thres,
-            }
-        ]
-        self.hit_finder_params = Parameter.create(
-            name='hit finder parameters',
-            type='group',
-            children=hit_finder_params,
-        )
-        self.hit_finder_tree.setParameters(
-            self.hit_finder_params, showTop=False
-        )
-
-        # calib parameter tree
+        self.statusTree.setParameters(self.status_params, showTop=False)
+        # calib/mask parameter tree
         calib_mask_params = [
             {
                 'name': 'show center', 'type': 'bool',
@@ -286,7 +185,7 @@ class GUI(QMainWindow):
             },
             {
                 'name': 'threshold', 'type': 'float',
-                'value': self.calib_mask_threshold,
+                'value': self.mask_thres,
             },
             {
                 'name': 'center x', 'type': 'float', 'value': self.center[0]
@@ -309,82 +208,216 @@ class GUI(QMainWindow):
                 'name': 'erosion2 size', 'type': 'int',
                 'value': self.erosion2_size
             },
-            {
-                'name': 'save mask', 'type': 'action'
-            }
         ]
         self.calib_mask_params = Parameter.create(
             name='calib/mask parameters',
             type='group',
             children=calib_mask_params,
         )
-        self.calib_mask_tree.setParameters(
-            self.calib_mask_params, showTop=False
+        self.calibTree.setParameters(
+            self.calib_mask_params, showTop=False)
+        # hit finder parameter tree
+        hit_finder_params = [
+            {
+                'name': 'hit finding on', 'type': 'bool',
+                'value': self.hit_finding_on
+            },
+            {
+                'name': 'mask on', 'type': 'bool', 'value': self.mask_on,
+            },
+            {
+                'name': 'max peaks', 'type': 'int',
+                'value': self.max_peaks,
+            },
+            {
+                'name': 'min pixels', 'type': 'int',
+                'value': self.min_pixels
+            },
+            {
+                'name': 'max pixels', 'type': 'int',
+                'value': self.max_pixels
+            },
+            {
+                'name': 'hit finder', 'type': 'list',
+                'values': self.hit_finders, 'value': self.hit_finder,
+            },
+            {
+                'name': 'poisson model', 'type': 'group', 'children': [
+                    {
+                        'name': 'adu per photon', 'type': 'int',
+                        'value': self.adu_per_photon,
+                    },
+                    {
+                        'name': 'epsilon', 'type': 'float',
+                        'value': self.epsilon,
+                    },
+                    {
+                        'name': 'bin size', 'type': 'int',
+                        'value': self.bin_size,
+                    }
+                ]
+            },
+            {
+                'name': 'snr model', 'type': 'group', 'children': [
+                    {
+                        'name': 'gaussian filter sigma', 'type': 'float',
+                        'value': self.gaussian_sigma,
+                    },
+                    {
+                        'name': 'min gradient', 'type': 'int',
+                        'value': self.min_gradient,
+                    },
+                    {
+                        'name': 'min distance', 'type': 'int',
+                        'value': self.min_distance
+                    },
+                    {
+                        'name': 'crop size', 'type': 'int',
+                        'value': self.crop_size,
+                        'visible': False,
+                    },
+                    {
+                        'name': 'peak refine mode', 'type': 'list',
+                        'values': self.peak_refine_mode_list,
+                        'value': self.peak_refine_mode,
+                    },
+                    {
+                        'name': 'min snr', 'type': 'float',
+                        'value': self.min_snr
+                    },
+                    {
+                        'name': 'snr mode', 'type': 'list',
+                        'values': self.snr_mode_list,
+                        'value': self.snr_mode,
+                    },
+                    {
+                        'name': 'simple', 'type': 'group', 'children': [
+                            {
+                                'name': 'background ratio', 'type': 'float',
+                                'value': self.bg_ratio,
+                            },
+                            {
+                                'name': 'signal ratio', 'type': 'float',
+                                'value': self.sig_ratio,
+                            },
+                        ]
+                    },
+                    {
+                        'name': 'rings', 'type': 'group', 'children': [
+                            {
+                                'name': 'signal radius', 'type': 'int',
+                                'value': self.sig_radius,
+                            },
+                            {
+                                'name': 'background inner radius',
+                                'type': 'int',
+                                'value': self.bg_inner_radius,
+                            },
+                            {
+                                'name': 'background outer radius',
+                                'type': 'int',
+                                'value': self.bg_outer_radius,
+                            },
+                        ],
+                        'visible': False,
+                    },
+                    {
+                        'name': 'adaptive', 'type': 'group', 'children': [
+                            {
+                                'name': 'background ratio', 'type': 'float',
+                                'value': self.bg_ratio,
+                            },
+                            {
+                                'name': 'signal threshold', 'type': 'float',
+                                'value': self.sig_thres,
+                            },
+                        ],
+                        'visible': False,
+                    },
+                    
+                ],
+                'visible': False
+            },
+            {
+                'name': 'display', 'type': 'group', 'children': [
+                    {
+                        'name': 'show raw peaks', 'type': 'bool',
+                        'value': self.show_raw_peaks,
+                    },
+                    {
+                        'name': 'show valid peaks', 'type': 'bool',
+                        'value': self.show_valid_peaks,
+                    },
+                    {
+                        'name': 'show opt peaks', 'type': 'bool',
+                        'value': self.show_opt_peaks,
+                    },
+                ],
+                'expanded': False,
+            }
+        ]
+        self.hit_finder_params = Parameter.create(
+            name='hit finder parameters',
+            type='group',
+            children=hit_finder_params,
         )
-
+        self.hitFinderTree.setParameters(
+            self.hit_finder_params, showTop=False
+        )
+        # signal/slots
         # menu bar action
-        self.action_open.triggered.connect(self.open_file)
-        self.action_save_hit_finding_conf.triggered.connect(self.save_conf)
-        self.action_load_hit_finding_conf.triggered.connect(self.load_conf)
-        self.action_show_inspector.triggered.connect(
-            self.show_inspector
-        )
-        self.action_show_gradient_view.triggered.connect(
-            self.show_or_hide_gradient_view
-        )
-        self.action_test.triggered.connect(
-            self.show_or_hide_file_list
-        )
-        self.action_show_calib_mask_view.triggered.connect(
-            self.show_or_hide_calib_mask_view
-        )
-        self.action_show_peak_table.triggered.connect(
-            self.show_peak_table
-        )
-        self.action_job_table.triggered.connect(
-            self.show_job_win
-        )
-        self.action_powder_fit.triggered.connect(
-            self.show_powder_win
-        )
-        self.action_hit_table.triggered.connect(
-            self.show_hit_table
-        )
-
-        # job table
-        self.job_win.view_hits.connect(self.view_hits)
-
+        self.actionOpen_File.triggered.connect(self.open_file)
+        self.actionLoad_Hit_Finding_Conf.triggered.connect(self.load_hit_conf)
+        self.actionSave_Hit_Finding_Conf.triggered.connect(self.save_hit_conf)
+        self.actionSave_Mask.triggered.connect(self.save_mask)
+        self.actionSettings.triggered.connect(self.show_settings)
+        self.actionShow_Calib_Mask_View.triggered.connect(
+            self.show_or_hide_mask_view)
+        self.actionShow_Debug_View.triggered.connect(
+            self.show_or_hide_debug_view)
+        self.actionHide_File_List.triggered.connect(
+            self.show_or_hide_file_list)
+        self.actionShow_Inspector.triggered.connect(self.show_inspector)
+        self.actionPeak_Table.triggered.connect(self.show_peak_table)
         # peak table
         self.peak_table.peak_table.cellDoubleClicked.connect(
             self.zoom_in_on_peak
         )
-
-        # mean/std dialog
-        self.mean_diag.browse_btn.clicked.connect(
-            partial(self.choose_dir, self.mean_diag.line_edit_1))
-        self.mean_diag.combo_box.currentIndexChanged.connect(
+        # mean dialog
+        self.mean_diag.browseButton.clicked.connect(
+            partial(self.choose_dir, self.mean_diag.outputDirLine))
+        self.mean_diag.datasetComboBox.currentIndexChanged.connect(
             self.update_mean_diag_nframe)
-        self.mean_diag.apply_btn.clicked.connect(self.calc_mean_std)
-
+        self.mean_diag.applyButton.clicked.connect(self.calc_mean_std)
         # powder dialog
-        self.powder_diag.browse_btn.clicked.connect(
-            partial(self.choose_dir, self.powder_diag.line_edit_1))
-        self.powder_diag.combo_box.currentIndexChanged.connect(
+        self.powder_diag.browseButton.clicked.connect(
+            partial(self.choose_dir, self.powder_diag.outputDirLine))
+        self.powder_diag.datasetComboBox.currentIndexChanged.connect(
             self.update_powder_diag_nframe)
-        self.powder_diag.submit_btn.clicked.connect(self.gen_powder)
-
-        # status
+        self.powder_diag.submitButton.clicked.connect(self.gen_powder)
+        # file list
+        self.fileList.itemDoubleClicked.connect(self.load_file)
+        self.fileList.customContextMenuRequested.connect(
+            self.show_file_list_menu)
+        self.addFileLine.returnPressed.connect(self.add_files)
+        # status panel
         self.status_params.param(
             'current frame'
         ).sigValueChanged.connect(self.change_frame)
-
+        # image viewers
+        self.rawView.scene.sigMouseMoved.connect(
+            partial(self.mouse_moved, flag=1))
+        self.maskView.scene.sigMouseMoved.connect(
+            partial(self.mouse_moved, flag=2))
+        self.debugView.scene.sigMouseMoved.connect(
+            partial(self.mouse_moved, flag=3))
         # calib/mask
         self.calib_mask_params.param(
             'show center'
         ).sigValueChanged.connect(self.change_show_center)
         self.calib_mask_params.param(
             'threshold'
-        ).sigValueChanged.connect(self.change_calib_mask_threshold)
+        ).sigValueChanged.connect(self.change_mask_thres)
         self.calib_mask_params.param(
             'center x'
         ).sigValueChanged.connect(self.change_center_x)
@@ -403,641 +436,288 @@ class GUI(QMainWindow):
         self.calib_mask_params.param(
             'erosion2 size'
         ).sigValueChanged.connect(self.change_erosion2_size)
-        self.calib_mask_params.param(
-            'save mask'
-        ).sigActivated.connect(self.save_mask)
-
-        # file lists, image views
-        self.raw_view.scene.sigMouseMoved.connect(
-            partial(self.mouse_moved, flag=1))
-        self.gradient_view.scene.sigMouseMoved.connect(
-            partial(self.mouse_moved, flag=2))
-        self.calib_mask_view.scene.sigMouseMoved.connect(
-            partial(self.mouse_moved, flag=3))
-        self.file_list.itemDoubleClicked.connect(self.load_file)
-        self.file_list.customContextMenuRequested.connect(
-            self.show_menu)
-        self.line_edit.returnPressed.connect(self.add_file)
-
         # hit finder
         self.hit_finder_params.param(
-            'hit finding on').sigValueChanged.connect(
-            self.change_hit_finding)
+            'mask on'
+        ).sigValueChanged.connect(self.change_mask_on)
         self.hit_finder_params.param(
-            'mask on').sigValueChanged.connect(
-            self.apply_mask)
+            'hit finding on'
+        ).sigValueChanged.connect(self.change_hit_finding_on)
         self.hit_finder_params.param(
-            'show raw peaks').sigValueChanged.connect(
-            self.change_show_raw_peaks)
+            'max peaks'
+        ).sigValueChanged.connect(self.change_max_peaks)
         self.hit_finder_params.param(
-            'show valid peaks').sigValueChanged.connect(
-            self.change_show_valid_peaks)
+            'min pixels'
+        ).sigValueChanged.connect(self.change_min_pixels)
         self.hit_finder_params.param(
-            'show opt peaks').sigValueChanged.connect(
-            self.change_show_opt_peaks)
+            'max pixels'
+        ).sigValueChanged.connect(self.change_max_pixels)
         self.hit_finder_params.param(
-            'show strong peaks').sigValueChanged.connect(
-            self.change_show_strong_peaks)
+            'hit finder'
+        ).sigValueChanged.connect(self.change_hit_finder)
         self.hit_finder_params.param(
-            'gaussian filter sigma').sigValueChanged.connect(
-            self.change_gaussian_sigma)
+            'poisson model', 'adu per photon'
+        ).sigValueChanged.connect(self.change_adu_per_photon)
         self.hit_finder_params.param(
-            'max peak num').sigValueChanged.connect(self.change_max_peak)
+            'poisson model', 'epsilon'
+        ).sigValueChanged.connect(self.change_epsilon)
         self.hit_finder_params.param(
-            'min gradient').sigValueChanged.connect(self.change_min_gradient)
+            'poisson model', 'bin size'
+        ).sigValueChanged.connect(self.change_bin_size)
         self.hit_finder_params.param(
-            'min distance').sigValueChanged.connect(self.change_min_distance)
+            'snr model', 'gaussian filter sigma'
+        ).sigValueChanged.connect(self.change_gaussian_sigma)
         self.hit_finder_params.param(
-            'peak refine mode').sigValueChanged.connect(
-            self.change_peak_refine_mode)
+            'snr model', 'min gradient'
+        ).sigValueChanged.connect(self.change_min_gradient)
         self.hit_finder_params.param(
-            'min snr').sigValueChanged.connect(self.change_min_snr)
+            'snr model', 'min distance'
+        ).sigValueChanged.connect(self.change_min_distance)
         self.hit_finder_params.param(
-            'min pixels').sigValueChanged.connect(self.change_min_pixels)
+            'snr model', 'crop size'
+        ).sigValueChanged.connect(self.change_crop_size)
         self.hit_finder_params.param(
-            'snr mode').sigValueChanged.connect(self.change_snr_mode)
+            'snr model', 'peak refine mode'
+        ).sigValueChanged.connect(self.change_peak_refine_mode)
         self.hit_finder_params.param(
-            'signal radius').sigValueChanged.connect(self.change_signal_radius)
+            'snr model', 'min snr'
+        ).sigValueChanged.connect(self.change_min_snr)
         self.hit_finder_params.param(
-            'background inner radius').sigValueChanged.connect(
-            self.change_bg_inner_radius)
+            'snr model', 'snr mode'
+        ).sigValueChanged.connect(self.change_snr_mode)
         self.hit_finder_params.param(
-            'background outer radius').sigValueChanged.connect(
-            self.change_bg_outer_radius)
+            'display', 'show raw peaks'
+        ).sigValueChanged.connect(self.change_show_raw_peaks)
         self.hit_finder_params.param(
-            'crop size').sigValueChanged.connect(self.change_crop_size)
+            'display', 'show valid peaks'
+        ).sigValueChanged.connect(self.change_show_valid_peaks)
         self.hit_finder_params.param(
-            'background ratio').sigValueChanged.connect(self.change_bg_ratio)
-        self.hit_finder_params.param(
-            'signal ratio').sigValueChanged.connect(self.change_signal_ratio)
-        self.hit_finder_params.param(
-            'signal threshold').sigValueChanged.connect(
-            self.change_signal_thres)
+            'display', 'show opt peaks'
+        ).sigValueChanged.connect(self.change_show_opt_peaks)
 
-# menu slots
+# menu bar related methods
     @pyqtSlot()
     def open_file(self):
-        filepath, _ = QFileDialog.getOpenFileName(
+        path, _ = QFileDialog.getOpenFileName(
             self, "Open Data File",
             self.workdir, "Data (*.h5 *.cxi *.npy *.npz)"
         )
-        if len(filepath) == 0:
+        if len(path) == 0:
             return
-        self.maybe_add_file(filepath)
+        self.maybe_add_file(path)
 
     @pyqtSlot()
-    def save_conf(self):
-        filepath, _ = QFileDialog.getSaveFileName(
-            self, "Save Hit Finding Conf File",
-            self.workdir, "Yaml Files (*.yml)"
-        )
-        if len(filepath) == 0:
-            return
-        conf_dict = {
-            'dataset': self.dataset,
-            'mask file': self.mask_file,
-            'gaussian filter sigma': self.gaussian_sigma,
-            'max peak num': self.max_peak,
-            'min gradient': self.min_gradient,
-            'peak refine mode': self.peak_refine_mode,
-            'min distance': self.min_distance,
-            'min snr': self.min_snr,
-            'min pixels': self.min_pixels,
-            'snr mode': self.snr_mode,
-            'signal radius': self.signal_radius,
-            'background inner radius': self.bg_inner_radius,
-            'background outer radius': self.bg_outer_radius,
-            'crop size': self.crop_size,
-            'background ratio': self.bg_ratio,
-            'signal ratio': self.signal_ratio,
-            'signal threshold': self.signal_thres,
-        }
-        with open(filepath, 'w') as f:
-            yaml.dump(conf_dict, f, default_flow_style=False)
-
-    @pyqtSlot()
-    def load_conf(self):
-        filepath, _ = QFileDialog.getOpenFileName(
+    def load_hit_conf(self):
+        path, _ = QFileDialog.getOpenFileName(
             self, "Open Hit Finding Conf File",
             self.workdir,
             "Yaml Files (*.yml)"
         )
-        if len(filepath) == 0:
+        if len(path) == 0:
             return
-        with open(filepath, 'r') as f:
+        self.add_info('Load hit configuration from %s' % path)
+
+        with open(path, 'r') as f:
             conf_dict = yaml.load(f)
-        if 'dataset' in conf_dict.keys():
-            self.dataset_def = self.dataset = conf_dict['dataset']
-        if 'mask file' in conf_dict.keys():
-            self.mask_file = conf_dict['mask file']
-            self.status_params.param('mask file').setValue(self.mask_file)
+        self.dataset = conf_dict.get('dataset', None)
+        self.mask_on = conf_dict.get('mask on', False)
+        self.mask_file = conf_dict.get('mask file', None)
+        if self.mask_on and self.mask_file is not None:
             self.mask = util.read_image(self.mask_file)
-        if 'gaussian filter sigma' in conf_dict.keys():
-            self.gaussian_sigma = conf_dict['gaussian filter sigma']
-            self.hit_finder_params.param(
-                'gaussian filter sigma'
-            ).setValue(self.gaussian_sigma)
-        if 'max peak num' in conf_dict.keys():
-            self.max_peak = conf_dict['max peak num']
-            self.hit_finder_params.param(
-                'max peak num'
-            ).setValue(self.max_peak)
-        if 'min gradient' in conf_dict.keys():
-            self.min_gradient = conf_dict['min gradient']
-            self.hit_finder_params.param(
-                'min gradient'
-            ).setValue(self.min_gradient)
-        if 'peak refine mode' in conf_dict.keys():
-            self.peak_refine_mode = conf_dict['peak refine mode']
-            self.hit_finder_params.param(
-                'peak refine mode'
-            ).setValue(self.peak_refine_mode)
-        if 'min distance' in conf_dict.keys():
-            self.min_distance = conf_dict['min distance']
-            self.hit_finder_params.param(
-                'min distance'
-            ).setValue(self.min_distance)
-        if 'min snr' in conf_dict.keys():
-            self.min_snr = conf_dict['min snr']
-            self.hit_finder_params.param(
-                'min snr'
-            ).setValue(self.min_snr)
-        if 'min pixels' in conf_dict.keys():
-            self.min_pixels = conf_dict['min pixels']
-            self.hit_finder_params.param(
-                'min pixels'
-            ).setValue(self.min_pixels)
-        if 'snr mode' in conf_dict.keys():
-            self.snr_mode = conf_dict['snr mode']
-            self.hit_finder_params.param(
-                'snr mode'
-            ).setValue(self.snr_mode)
-        if 'signal radius' in conf_dict.keys():
-            self.signal_radius = conf_dict['signal radius']
-            self.hit_finder_params.param(
-                'signal radius'
-            ).setValue(self.signal_radius)
-        if 'background inner radius' in conf_dict.keys():
-            self.bg_inner_radius = conf_dict['background inner radius']
-            self.hit_finder_params.param(
-                'background inner radius'
-            ).setValue(self.bg_inner_radius)
-        if 'background outer radius' in conf_dict.keys():
-            self.bg_outer_radius = conf_dict['background outer radius']
-            self.hit_finder_params.param(
-                'background outer radius'
-            ).setValue(self.bg_outer_radius)
-        if 'crop size' in conf_dict.keys():
-            self.crop_size = conf_dict['crop size']
-            self.hit_finder_params.param(
-                'crop size'
-            ).setValue(self.crop_size)
-        if 'background ratio' in conf_dict.keys():
-            self.bg_ratio = conf_dict['background ratio']
-            self.hit_finder_params.param(
-                'background ratio'
-            ).setValue(self.bg_ratio)
-        if 'signal ratio' in conf_dict.keys():
-            self.signal_ratio = conf_dict['signal ratio']
-            self.hit_finder_params.param(
-                'signal ratio'
-            ).setValue(self.signal_ratio)
-        if 'signal threshold' in conf_dict.keys():
-            self.signal_thres = conf_dict['signal threshold']
-            self.hit_finder_params.param(
-                'signal threshold'
-            ).setValue(self.signal_thres)
+        self.center = np.array(conf_dict.get('center', [0, 0]))
+        self.hit_finder = conf_dict.get('hit finder', 'snr model')
+        self.max_peaks = conf_dict.get('max peaks', 500)
+        self.adu_per_photon = conf_dict.get('adu per photon', 20)
+        self.epsilon = conf_dict.get('epsilon', 1e-5)
+        self.bin_size = conf_dict.get('bin size', 4)
+        self.gaussian_sigma = conf_dict.get('gaussian filter sigma', 1.)
+        self.min_gradient = conf_dict.get('min gradient', 10)
+        self.min_distance = conf_dict.get('min distance', 10)
+        self.crop_size = conf_dict.get('crop size', 7)
+        self.peak_refine_mode = conf_dict.get('peak refine mode', 'gradient')
+        self.min_snr = conf_dict.get('min snr', 6)
+        self.min_pixels = conf_dict.get('min pixels', 2)
+        self.max_pixels = conf_dict.get('max pixels', 10)
+        self.snr_mode = conf_dict.get('snr mode', 'adaptive')
+        self.bg_ratio = conf_dict.get('background ratio', 0.7)
+        self.sig_ratio = conf_dict.get('signal ratio', 0.2)
+        self.bg_inner_radius = conf_dict.get('background inner radius', 2)
+        self.bg_outer_radius = conf_dict.get('background outer radius', 3)
+        self.sig_thres = conf_dict.get('signal threshold', 5.)
+        # update status and parameters for display
+        self.update_file_info()
+        self.calib_mask_params.param('center x').setValue(self.center[0])
+        self.calib_mask_params.param('center y').setValue(self.center[1])
+        self.hit_finder_params.param('mask on').setValue(self.mask_on)
+        self.hit_finder_params.param('hit finder').setValue(self.hit_finder)
+        self.hit_finder_params.param(
+            'max peaks'
+        ).setValue(self.max_peaks)
+        self.hit_finder_params.param(
+            'min pixels'
+        ).setValue(self.min_pixels)
+        self.hit_finder_params.param(
+            'max pixels'
+        ).setValue(self.max_pixels)
+        self.hit_finder_params.param(
+            'poisson model', 'adu per photon'
+        ).setValue(self.adu_per_photon)
+        self.hit_finder_params.param(
+            'poisson model', 'epsilon'
+        ).setValue(self.epsilon)
+        self.hit_finder_params.param(
+            'poisson model', 'bin size'
+        ).setValue(self.bin_size)
+        self.hit_finder_params.param(
+            'snr model', 'gaussian filter sigma'
+        ).setValue(self.gaussian_sigma)
+        self.hit_finder_params.param(
+            'snr model', 'min gradient'
+        ).setValue(self.min_gradient)
+        self.hit_finder_params.param(
+            'snr model', 'min distance'
+        ).setValue(self.min_distance)
+        self.hit_finder_params.param(
+            'snr model', 'crop size'
+        ).setValue(self.crop_size)
+        self.hit_finder_params.param(
+            'snr model', 'peak refine mode'
+        ).setValue(self.peak_refine_mode)
+        self.hit_finder_params.param(
+            'snr model', 'min snr'
+        ).setValue(self.min_snr)
+        self.hit_finder_params.param(
+            'snr model', 'snr mode'
+        ).setValue(self.snr_mode)
+        self.hit_finder_params.param(
+            'snr model', 'rings', 'signal radius'
+        ).setValue(self.sig_radius)
+        self.hit_finder_params.param(
+           'snr model', 'rings', 'background inner radius'
+        ).setValue(self.bg_inner_radius)
+        self.hit_finder_params.param(
+            'snr model', 'rings', 'background outer radius'
+        ).setValue(self.bg_outer_radius)
+        self.hit_finder_params.param(
+            'snr model', 'simple', 'background ratio'
+        ).setValue(self.bg_ratio)
+        self.hit_finder_params.param(
+            'snr model', 'adaptive', 'background ratio'
+        ).setValue(self.bg_ratio)
+        self.hit_finder_params.param(
+            'snr model', 'simple', 'signal ratio'
+        ).setValue(self.sig_ratio)
+        self.hit_finder_params.param(
+            'snr model', 'adaptive', 'signal threshold'
+        ).setValue(self.sig_thres)
 
     @pyqtSlot()
-    def show_or_hide_gradient_view(self):
-        self.show_view2 = not self.show_view2
-        if self.show_view2:
-            self.action_show_gradient_view.setText('Hide gradient view')
-            self.gradient_view.show()
+    def save_hit_conf(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Hit Finding Conf File",
+            self.workdir, "Yaml Files (*.yml)"
+        )
+        if len(path) == 0:
+            return
+        conf_dict = {
+            'dataset': self.dataset,
+            'mask file': self.mask_file,
+            'center': self.center.tolist(),
+            'mask on': self.mask_on,
+            'hit finder': self.hit_finder,
+            'max peaks': self.max_peaks,
+            'adu per photon': self.adu_per_photon,
+            'epsilon': self.epsilon,
+            'bin size': self.bin_size,
+            'gaussian filter sigma': self.gaussian_sigma,
+            'min gradient': self.min_gradient,
+            'min distance': self.min_distance,
+            'crop size': self.crop_size,
+            'peak refine mode': self.peak_refine_mode,
+            'min snr': self.min_snr,
+            'min pixels': self.min_pixels,
+            'max pixels': self.max_pixels,
+            'snr mode': self.snr_mode,
+            'background ratio': self.bg_ratio,
+            'signal ratio': self.sig_ratio,
+            'signal radius': self.sig_radius,
+            'background inner radius': self.bg_inner_radius,
+            'background outer radius': self.bg_outer_radius,
+            'signal threshold': self.sig_thres,
+        }
+        with open(path, 'w') as f:
+            yaml.dump(conf_dict, f, default_flow_style=False)
+        self.add_info('Save hit configuration to %s' % path)
+
+    @pyqtSlot()
+    def show_or_hide_mask_view(self):
+        self.show_mask_view = not self.show_mask_view
+        if self.show_mask_view:
+            self.actionShow_Calib_Mask_View.setText('Hide Calib/Mask View')
+            self.maskView.show()
         else:
-            self.action_show_gradient_view.setText('Show gradient view')
-            self.gradient_view.hide()
+            self.actionShow_Calib_Mask_View.setText('Show Calib/Mask View')
+            self.maskView.hide()
         self.update_display()
 
     @pyqtSlot()
-    def show_or_hide_calib_mask_view(self):
-        self.show_view3 = not self.show_view3
-        if self.show_view3:
-            self.action_show_calib_mask_view.setText('Hide calib/mask view')
-            self.calib_mask_view.show()
+    def show_or_hide_debug_view(self):
+        self.show_debug_view = not self.show_debug_view
+        if self.show_debug_view:
+            self.actionShow_Debug_View.setText('Hide Debug View')
+            self.debugView.show()
         else:
-            self.action_show_calib_mask_view.setText('Show calib/mask view')
-            self.calib_mask_view.hide()
+            self.actionShow_Debug_View.setText('Show Debug View')
+            self.debugView.hide()
         self.update_display()
 
     @pyqtSlot()
-    def show_peak_table(self):
-        self.peak_table.show()
-        self.update_display()
+    def show_or_hide_file_list(self):
+        self.show_file_list = not self.show_file_list
+        if self.show_file_list:
+            self.actionHide_File_List.setText('Hide File List')
+            self.fileListFrame.show()
+        else:
+            self.actionHide_File_List.setText('Show File List')
+            self.fileListFrame.hide()
+
+    @pyqtSlot()
+    def save_mask(self):
+        if self.mask_image is None:
+            self.add_info('No mask image available')
+        else:
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Save mask to", self.workdir, "npy file(*.npy)"
+            )
+            if len(path) == 0:
+                return
+            np.save(path, self.mask_image)
+            self.add_info('Mask saved to %s' % path)
+
+    @pyqtSlot()
+    def show_settings(self):
+        self.add_info("showing settings")
+        self.setting_diag.exec_()
 
     @pyqtSlot()
     def show_inspector(self):
         self.inspector.show()
 
     @pyqtSlot()
-    def show_or_hide_file_list(self):
-        self.show_file_list = not self.show_file_list
-        if self.show_file_list:
-            self.action_test.setText('Hide file list')
-            self.file_list_frame.show()
-        else:
-            self.action_test.setText('Show file list')
-            self.file_list_frame.hide()
+    def show_peak_table(self):
+        self.peak_table.show()
 
-    @pyqtSlot()
-    def show_job_win(self):
-        self.job_win.showMaximized()
-        job_table = self.job_win.job_table
-        width = job_table.width()
-        col_count = job_table.columnCount()
-        header = job_table.horizontalHeader()
-        for i in range(col_count):
-            header.resizeSection(i, width//col_count)
-
-    @pyqtSlot()
-    def show_powder_win(self):
-        self.powder_win.show()
-
-    @pyqtSlot()
-    def show_hit_table(self):
-        self.hit_win.show()
-
-# job table slots
-    @pyqtSlot(str, str)
-    def view_hits(self, job, tag):
-        hit_file = os.path.join(
-            self.workdir, 'cxi_hit', job, tag, '%s.csv' % job)
-        self.hit_win.hit_file_le.setText(hit_file)
-        self.hit_win.load_hits(hit_file)
-        self.hit_win.show()
-
-# peak table slots
-    @pyqtSlot(int, int)
-    def zoom_in_on_peak(self, row, _):
-        table = self.peak_table.peak_table
-        peak_id = int(table.item(row, 0).text())
-        x, y = self.strong_peaks[peak_id]
-        self.raw_view.getView().setRange(
-            xRange=(x-20, x+20), yRange=(y-20, y+20)
-        )
-        if self.peak_info is not None:
-            bg = self.peak_info['background values'][peak_id]
-            noise = self.peak_info['noise values'][peak_id]
-            self.raw_view.setLevels(bg, bg + self.signal_thres * noise)
-
-# mean/std dialog slots
-    @pyqtSlot()
-    def calc_mean_std(self):
-        selected_items = self.file_list.selectedItems()
-        files = []
-        for item in selected_items:
-            files.append(item.data(1))
-        dataset = self.mean_diag.combo_box.currentText()
-        nb_frame = int(self.mean_diag.label_1.text())
-        max_frame = min(int(self.mean_diag.spin_box.text()), nb_frame)
-        output_dir = self.mean_diag.line_edit_1.text()
-        prefix = self.mean_diag.line_edit_2.text()
-        output = os.path.join(output_dir, '%s.npz' % prefix)
-
-        self.calc_mean_thread = MeanCalculatorThread(
-            files=files, dataset=dataset, max_frame=max_frame, output=output
-        )
-        self.calc_mean_thread.update_progress.connect(
-            self.update_progressbar
-        )
-        self.calc_mean_thread.finished.connect(
-            self.calc_mean_finished
-        )
-        self.calc_mean_thread.start()
-
-    @pyqtSlot()
-    def choose_dir(self, line_edit=None):
-        if line_edit is not None:
-            curr_dir = line_edit.text()
-        else:
-            curr_dir = ""
-        dir_ = QFileDialog.getExistingDirectory(
-            self, "Choose directory", curr_dir
-        )
-        if line_edit is not None:
-            line_edit.setText(dir_)
-
-    @pyqtSlot(float)
-    def update_progressbar(self, val):
-        self.mean_diag.progress_bar.setValue(val)
-
-    @pyqtSlot()
-    def calc_mean_finished(self):
-        self.add_info('Mean/sigma calculation done.')
-
-    @pyqtSlot(int)
-    def update_mean_diag_nframe(self, curr_index):
-        if curr_index == -1:
-            return
-        dataset = self.mean_diag.combo_box.itemText(curr_index)
-        selected_items = self.file_list.selectedItems()
-        nb_frame = 0
-        for item in selected_items:
-            filepath = item.data(1)
-            try:
-                data_shape = util.get_data_shape(filepath)
-                nb_frame += data_shape[dataset][0]
-            except IOError:
-                self.add_info('Failed to open %s' % filepath)
-                pass
-        self.mean_diag.label_1.setText(str(nb_frame))
-
-# peak powder dialog slots
-    @pyqtSlot(int)
-    def update_powder_diag_nframe(self, _):
-        tag = self.powder_diag.combo_box.currentText()
-        if tag == '':
-            return
-        conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
-        with open(conf_file, 'r') as f:
-            conf = yaml.load(f)
-        dataset = conf['dataset']
-        selected_items = self.file_list.selectedItems()
-        nb_frame = 0
-        for item in selected_items:
-            filepath = item.data(1)
-            try:
-                data_shape = util.get_data_shape(filepath)
-                nb_frame += data_shape[dataset][0]
-            except IOError:
-                self.add_info('Failed to open %s' % filepath)
-                pass
-        self.powder_diag.label_1.setText(str(nb_frame))
-
-    @pyqtSlot()
-    def gen_powder(self):
-        print('generate peak powder')
-        selected_items = self.file_list.selectedItems()
-        files = []
-        for item in selected_items:
-            files.append(item.data(1))
-        powder_diag = self.powder_diag
-        tag = powder_diag.combo_box.currentText()
-        conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
-        nb_frame = int(powder_diag.label_1.text())
-        max_frame = min(int(powder_diag.spin_box.text()), nb_frame)
-        output_dir = powder_diag.line_edit_1.text()
-        prefix = powder_diag.line_edit_2.text()
-        output = os.path.join(output_dir, '%s.npz' % prefix)
-
-        self.gen_powder_thread = GenPowderThread(
-            files, conf_file, self.settings,
-            max_frame=max_frame,
-            output=output,
-        )
-        self.gen_powder_thread.info.connect(self.add_info)
-        self.gen_powder_thread.start()
-
-# file list / image view slots
-    @pyqtSlot(QPoint)
-    def show_menu(self, pos):
-        menu = QMenu()
-        item = self.file_list.currentItem()
-        if not isinstance(item, QListWidgetItem):
-            return
-        filepath = item.data(1)
-        ext = filepath.split('.')[-1]
-        action_select_and_load_dataset = menu.addAction(
-            'select and load dataset'
-        )
-        menu.addSeparator()
-        action_set_as_mask = menu.addAction('set as mask')
-        action_multiply_masks = menu.addAction('multiply masks')
-        menu.addSeparator()
-        action_calc_mean_std = menu.addAction('calculate mean/sigma')
-        action_gen_powder = menu.addAction('generate peak powder')
-        menu.addSeparator()
-        action_del_file = menu.addAction('delete file(s)')
-        action = menu.exec_(self.file_list.mapToGlobal(pos))
-        if action == action_select_and_load_dataset:
-            if ext == 'npy':
-                self.add_info(
-                    'Unsupported file type for dataset selection: %s' % ext
-                )
-                return  # ignore npy file for dataset selection
-            data_shape = util.get_data_shape(filepath)
-            dataset = self.select_dataset(filepath)
-            self.nb_frame = data_shape[dataset][0]
-            if filepath.split('.')[-1] in ('cxi', 'h5'):
-                self.h5_obj = h5py.File(filepath, 'r')
-            self.file = filepath
-            self.dataset = dataset
-            # update file info and display
-            self.status_params.param('filepath').setValue(filepath)
-            self.status_params.param('dataset').setValue(self.dataset)
-            self.status_params.param('total frame').setValue(self.nb_frame)
-            self.change_image()
-        elif action == action_set_as_mask:
-            self.mask_file = filepath
-            self.mask = util.read_image(filepath)
-            self.status_params.param('mask file').setValue(filepath)
-        elif action == action_multiply_masks:
-            items = self.file_list.selectedItems()
-            mask_files = []
-            for item in items:
-                filepath = item.data(1)
-                if filepath.split('.')[-1] == 'npy':
-                    mask_files.append(filepath)
-            if len(mask_files) == 0:
-                return
-            save_file, _ = QFileDialog.getSaveFileName(
-                self, "Save mask", self.workdir, "npy file(*.npy)"
-            )
-            if len(save_file) == 0:
-                return
-            mask = util.multiply_masks(mask_files)
-            np.save(save_file, mask)
-            self.add_info(
-                'Making mask %s from %s' % (save_file, mask_files)
-            )
-        elif action == action_calc_mean_std:
-            if ext == 'npy':
-                self.add_info(
-                    'Unsupported file type for mean calculation: %s' % ext
-                )
-                return  # ignore npy files
-            combo_box = self.mean_diag.combo_box
-            combo_box.clear()
-            data_shape = util.get_data_shape(filepath)
-            for dataset, shape in data_shape.items():
-                combo_box.addItem(dataset)
-            output_dir = os.path.join(self.workdir, 'mean')
-            self.mean_diag.line_edit_1.setText(output_dir)
-            self.mean_diag.progress_bar.setValue(0)
-            self.mean_diag.exec_()
-
-        elif action == action_gen_powder:
-            conf_dir = os.path.join(self.workdir, 'conf')
-            confs = glob('%s/*.yml' % conf_dir)
-            self.powder_diag.combo_box.clear()
-            for conf in confs:
-                tag = os.path.basename(conf).split('.')[0]
-                self.powder_diag.combo_box.addItem(tag)
-            output_dir = os.path.join(self.workdir, 'powder')
-            self.powder_diag.line_edit_1.setText(output_dir)
-            self.powder_diag.exec_()
-        elif action == action_del_file:
-            items = self.file_list.selectedItems()
-            for item in items:
-                row = self.file_list.row(item)
-                self.file_list.takeItem(row)
-                self.curr_files.remove(item.data(1))
-                self.add_info('Remove %s' % item.data(1))
-
-        self.update_display()
-
-    @pyqtSlot()
-    def add_file(self):
-        files = glob(self.line_edit.text(), recursive=True)
-        for f in files:
-            self.maybe_add_file(f)
-
-    @pyqtSlot('QListWidgetItem*')
-    def load_file(self, file_item):
-        filepath = file_item.data(1)
-        self.add_info('Loading %s' % filepath)
-        self.load_frame(filepath)
-        # update file info and display
-        self.update_file_info()
-        self.change_image()
-        self.update_display()
-
-    def load_frame(self, filepath, dataset=None, frame=None):
-        if frame is not None:
-            self.frame = frame
-        ext = filepath.split('.')[-1]
-        if ext == 'npy':
-            self.file = filepath
-            self.nb_frame = 1
-        elif ext == 'npz':
-            data_shape = util.get_data_shape(filepath)
-            if dataset is None:
-                dataset = self.dataset_def
-            if dataset not in data_shape.keys():
-                dataset = self.select_dataset(filepath)
-                if len(dataset) == 0:
-                    return
-            self.file = filepath
-            self.dataset = dataset
-            if len(data_shape[dataset]) == 3:
-                self.nb_frame = data_shape[dataset][0]
-            else:
-                self.nb_frame = 1
-        elif ext in ('h5', 'cxi'):
-            h5_obj = h5py.File(filepath, 'r')
-            data_shape = util.get_data_shape(filepath)
-            # check default dataset
-            if dataset is None:
-                dataset = self.dataset_def
-            if dataset not in data_shape.keys():
-                dataset = self.select_dataset(filepath)
-                if len(dataset) == 0:
-                    return
-            if dataset in h5_obj:
-                self.file = filepath
-                self.h5_obj = h5_obj
-                self.dataset = dataset
-                if len(data_shape[dataset]) == 3:
-                    self.nb_frame = data_shape[dataset][0]
-                else:
-                    self.nb_frame = 1
-        else:
-            return
-
-    def update_file_info(self):
-        self.status_params.param('filepath').setValue(self.file)
-        self.status_params.param('dataset').setValue(self.dataset)
-        self.status_params.param('total frame').setValue(self.nb_frame)
-
-    @pyqtSlot(object)
-    def mouse_moved(self, pos, flag=None):
-        if self.file is None:
-            return
-        if flag == 1:  # in raw image view
-            mouse_point = self.raw_view.view.mapToView(pos)
-        elif flag == 2:  # in gradient image view
-            mouse_point = self.gradient_view.view.mapToView(pos)
-        elif flag == 3:  # in calib/mask view
-            mouse_point = self.calib_mask_view.view.mapToView(pos)
-        else:
-            return
-        x, y = int(mouse_point.x()), int(mouse_point.y())
-        if 0 <= x < self.img.shape[0] and 0 <= y < self.img.shape[1]:
-            message = 'x:%d y:%d, I(raw): %.2E;' % (x, y, self.img[x, y])
-            if self.show_view2 and self.img2 is not None:
-                message += 'I(gradient): %.2E' % self.img2[x, y]
-            if self.show_view3 and self.img3 is not None:
-                message += 'I(calib/mask): %.2E' % self.img3[x, y]
-            self.statusbar.showMessage(message, 5000)
-        else:
-            return
-        if self.inspector.isVisible():  # show data inspector
-            # out of bound check
-            if x - 3 < 0 or x + 4 > self.img.shape[0]:
-                return
-            elif y - 3 < 0 or y + 4 > self.img.shape[1]:
-                return
-            # calculate snr
-            pos = np.reshape((x, y), (-1, 2))
-            snr_info = util.calc_snr(
-                self.img, pos,
-                mode=self.snr_mode,
-                signal_radius=self.signal_radius,
-                bg_inner_radius=self.bg_inner_radius,
-                bg_outer_radius=self.bg_outer_radius,
-                crop_size=self.crop_size,
-                bg_ratio=self.bg_ratio,
-                signal_ratio=self.signal_ratio,
-                signal_thres=self.signal_thres,
-                label_pixels=True,
-            )
-            self.inspector.snr_label.setText('SNR@(%d, %d):' % (x, y))
-            self.inspector.snr_value.setText(
-                '%.1f(sig %.1f, bg %.1f, noise %.1f)' %
-                (snr_info['snr'][0],
-                 snr_info['signal values'][0],
-                 snr_info['background values'][0],
-                 snr_info['noise values'][0]))
-            # set table values
-            signal_pixels = (snr_info['signal pixels'] - pos + 3).tolist()
-            BG_pixels = (snr_info['background pixels'] - pos + 3).tolist()
-            for i in range(7):
-                for j in range(7):
-                    v1 = self.img[x + i - 3, y + j - 3]
-                    if self.show_view2:
-                        v2 = self.img2[x + i - 3, y + j - 3]
-                        item = QTableWidgetItem('%d\n%d' % (v1, v2))
-                    else:
-                        item = QTableWidgetItem('%d' % v1)
-                    item.setTextAlignment(Qt.AlignCenter)
-                    if [i, j] in signal_pixels:
-                        item.setBackground(QtGui.QColor(178, 247, 143))
-                    elif [i, j] in BG_pixels:
-                        item.setBackground(QtGui.QColor(165, 173, 186))
-                    else:
-                        item.setBackground(QtGui.QColor(255, 255, 255))
-                    self.inspector.data_table.setItem(j, i, item)
-
-# calib/mask slots
+# calib/mask related methods
     @pyqtSlot(object, object)
     def change_show_center(self, _, show_center):
         self.show_center = show_center
         self.update_display()
 
     @pyqtSlot(object, object)
-    def change_calib_mask_threshold(self, _, threshold):
-        self.calib_mask_threshold = threshold
-        self.img3 = (self.img > threshold).astype(np.int)
+    def change_mask_thres(self, _, thres):
+        self.mask_thres = thres
+        self.mask_image = (self.raw_image > thres).astype(np.int)
+        self.change_image()
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -1073,58 +753,40 @@ class GUI(QMainWindow):
         self.change_image()
         self.update_display()
 
-    @pyqtSlot()
-    def save_mask(self):
-        if self.img3 is None:
-            self.add_info('No mask image available')
-        else:
-            filepath, _ = QFileDialog.getSaveFileName(
-                self, "Save mask to", self.workdir, "npy file(*.npy)"
-            )
-            if len(filepath) == 0:
-                return
-            np.save(filepath, self.img3)
-            self.add_info('Mask saved to %s' % filepath)
-
-# hit finder slots
+# hit finder related methods
     @pyqtSlot(object, object)
-    def apply_mask(self, _, mask_on):
+    def change_mask_on(self, _, mask_on):
         self.mask_on = mask_on
+        if self.mask_on and self.mask_file is not None:
+            mask = util.read_image(self.mask_file)
+            self.mask = mask
+        else:
+            self.mask = None
         self.update_display()
 
     @pyqtSlot(object, object)
-    def change_show_raw_peaks(self, _, show_raw_peaks):
-        self.show_raw_peaks = show_raw_peaks
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_show_valid_peaks(self, _, show_valid_peaks):
-        self.show_valid_peaks = show_valid_peaks
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_show_opt_peaks(self, _, show_opt_peaks):
-        self.show_opt_peaks = show_opt_peaks
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_show_strong_peaks(self, _, show_strong_peaks):
-        self.show_strong_peaks = show_strong_peaks
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_hit_finding(self, _, hit_finding_on):
+    def change_hit_finding_on(self, _, hit_finding_on):
         self.hit_finding_on = hit_finding_on
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_max_peaks(self, _, max_peaks):
+        self.max_peaks = max_peaks
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_min_pixels(self, _, min_pixels):
+        self.min_pixels = min_pixels
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_max_pixels(self, _, max_pixels):
+        self.max_pixels = max_pixels
         self.update_display()
 
     @pyqtSlot(object, object)
     def change_gaussian_sigma(self, _, gaussian_sigma):
         self.gaussian_sigma = gaussian_sigma
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_max_peak(self, _, max_peak):
-        self.max_peak = max_peak
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -1138,8 +800,13 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot(object, object)
-    def change_peak_refine_mode(self, _, mode):
-        self.peak_refine_mode = mode
+    def change_crop_size(self, _, crop_size):
+        self.crop_size = crop_size
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_peak_refine_mode(self, _, peak_refine_mode):
+        self.peak_refine_mode = peak_refine_mode
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -1148,186 +815,266 @@ class GUI(QMainWindow):
         self.update_display()
 
     @pyqtSlot(object, object)
-    def change_min_pixels(self, _, min_pixels):
-        self.min_pixels = min_pixels
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_snr_mode(self, _, mode):
-        self.snr_mode = mode
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_signal_radius(self, _, signal_radius):
-        self.signal_radius = signal_radius
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_bg_inner_radius(self, _, bg_inner_radius):
-        self.bg_inner_radius = bg_inner_radius
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_bg_outer_radius(self, _, bg_outer_radius):
-        self.bg_outer_radius = bg_outer_radius
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_crop_size(self, _, crop_size):
-        self.crop_size = crop_size
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_bg_ratio(self, _, bg_ratio):
-        self.bg_ratio = bg_ratio
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_signal_ratio(self, _, signal_ratio):
-        self.signal_ratio = signal_ratio
-        self.update_display()
-
-    @pyqtSlot(object, object)
-    def change_signal_thres(self, _, signal_thres):
-        self.signal_thres = signal_thres
-        self.update_display()
-
-# status slots
-    @pyqtSlot(object, object)
-    def change_frame(self, _, frame):
-        if frame < 0:
-            frame = 0
-        elif frame > self.nb_frame - 1:
-            frame = self.nb_frame - 1
-        self.frame = frame
-        self.status_params.param(
-            'current frame'
-        ).setValue(self.frame)
-        self.change_image()
-        self.update_display()
-
-    def select_dataset(self, filepath):
-        combo_box = self.dataset_diag.combo_box
-        combo_box.clear()
-        data_shape = util.get_data_shape(filepath)
-        for dataset, shape in data_shape.items():
-            combo_box.addItem('%s  %s' % (dataset, shape), userData=dataset)
-        if self.dataset_diag.exec_() == QDialog.Accepted:
-            id_select = combo_box.currentIndex()
-            dataset = combo_box.itemData(id_select)
-            if self.dataset_diag.check_box.isChecked():
-                self.dataset_def = dataset
-            return dataset
-        else:
-            return ''
-
-    def change_image(self):
-        self.img = util.read_image(
-            self.file, frame=self.frame,
-            h5_obj=self.h5_obj, dataset=self.dataset
-        ).astype(np.float32)
-        if self.gaussian_sigma > 0:
-            img2 = gaussian_filter(self.img, self.gaussian_sigma)
-        else:
-            img2 = self.img.copy()
-        grad = np.gradient(img2.astype(np.float32))
-        self.img2 = np.sqrt(grad[0] ** 2. + grad[1] ** 2.)
-        img3 = (self.img > self.calib_mask_threshold).astype(np.int)
-        if self.erosion1_size > 0:
-            selem = disk(self.erosion1_size)
-            img3 = binary_erosion(img3, selem)
-        if self.dilation_size > 0:
-            selem = disk(self.dilation_size)
-            img3 = binary_dilation(img3, selem)
-        if self.erosion2_size > 0:
-            selem = disk(self.erosion2_size)
-            img3 = binary_erosion(img3, selem)
-        self.img3 = img3
-
-    def update_display(self):
-        if self.img is None:
-            return
-        self.raw_view.setImage(
-            self.img, autoRange=False, autoLevels=False,
-            autoHistogramRange=False
+    def change_hit_finder(self, _, hit_finder):
+        self.hit_finder = hit_finder
+        self.add_info('Using %s hit finder' % hit_finder)
+        for hit_finder in self.hit_finders:
+            self.hit_finder_params.param(hit_finder).hide()
+        self.hit_finder_params.param(self.hit_finder).show()
+        self.hitFinderTree.setParameters(
+            self.hit_finder_params, showTop=False
         )
-        self.gradient_view.setImage(
-            self.img2, autoRange=False, autoLevels=False,
-            autoHistogramRange=False)
+        self.update_display()
 
-        # clear all plot items
-        self.center_item.clear()
-        self.ring_item.clear()
-        self.peak_item.clear()
-        self.opt_peak_item.clear()
-        self.strong_peak_item.clear()
+    @pyqtSlot(object, object)
+    def change_adu_per_photon(self, _, adu_per_photon):
+        self.adu_per_photon = adu_per_photon
+        self.update_display()
 
-        if self.hit_finding_on:
-            peaks_dict = util.find_peaks(
-                self.img, self.mask,
-                gaussian_sigma=self.gaussian_sigma,
-                min_gradient=self.min_gradient,
-                min_distance=self.min_distance,
-                max_peaks=self.max_peak,
-                min_snr=self.min_snr,
-                min_pixels=self.min_pixels,
-                refine_mode=self.peak_refine_mode,
-                snr_mode=self.snr_mode,
-                signal_radius=self.signal_radius,
+    @pyqtSlot(object, object)
+    def change_epsilon(self, _, epsilon):
+        self.epsilon = epsilon
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_bin_size(self, _, bin_size):
+        self.bin_size = bin_size
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_snr_mode(self, _, snr_mode):
+        self.add_info('Using %s snr mode' % snr_mode)
+        self.snr_mode = snr_mode
+        for snr_mode in self.snr_mode_list:
+            self.hit_finder_params.param('snr model', snr_mode).hide()
+        self.hit_finder_params.param('snr model', self.snr_mode).show()
+        self.hitFinderTree.setParameters(
+            self.hit_finder_params, showTop=False
+        )
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_show_raw_peaks(self, _, show):
+        self.show_raw_peaks = show
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_show_valid_peaks(self, _, show):
+        self.show_valid_peaks = show
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_show_opt_peaks(self, _, show):
+        self.show_opt_peaks = show
+        self.update_display()
+
+# image viewers
+    @pyqtSlot(object)
+    def mouse_moved(self, pos, flag=None):
+        if self.path is None:
+            return
+        if flag == 1:  # in raw view
+            mouse_point = self.rawView.view.mapToView(pos)
+        elif flag == 2:  # in mask view
+            mouse_point = self.maskView.view.mapToView(pos)
+        elif flag == 3:  # debug view
+            mouse_point = self.debugView.view.mapToView(pos)
+        else:
+            return
+        x, y = int(mouse_point.x()), int(mouse_point.y())
+        if 0 <= x < self.raw_image.shape[0] and 0 <= y < self.raw_image.shape[1]:
+            message = 'x:%d y:%d, I(raw): %.2E;' % (x, y, self.raw_image[x, y])
+            if self.show_mask_view and self.mask_image is not None:
+                message += 'I(calib/mask): %.2E' % self.mask_image[x, y]
+            if self.show_debug_view and self.debug_image is not None:
+                message += 'I(debug): %.2E' % self.debug_image[x, y]
+            self.statusbar.showMessage(message, 5000)
+        else:
+            return
+        if self.inspector.isVisible():  # show data inspector
+            # out of bound check
+            if x - 3 < 0 or x + 4 > self.raw_image.shape[0]:
+                return
+            elif y - 3 < 0 or y + 4 > self.raw_image.shape[1]:
+                return
+            # calculate snr
+            pos = np.reshape((x, y), (-1, 2))
+            if self.hit_finder == 'poisson model':
+                snr_mode = 'threshold'
+            else:
+                snr_mode = self.snr_mode
+            snr_info = util.calc_snr(
+                self.raw_image, pos,
+                mode=snr_mode,
+                signal_radius=self.sig_radius,
                 bg_inner_radius=self.bg_inner_radius,
                 bg_outer_radius=self.bg_outer_radius,
                 crop_size=self.crop_size,
                 bg_ratio=self.bg_ratio,
-                signal_ratio=self.signal_ratio,
-                signal_thres=self.signal_thres,
+                signal_ratio=self.sig_ratio,
+                signal_thres=self.sig_thres,
+                thres_map=self.thres_map,
+                label_pixels=True,
+            )
+            self.inspector.snrLabel.setText('SNR@(%d, %d):' % (x, y))
+            self.inspector.snrValue.setText(
+                '%.1f(sig %.1f, bg %.1f, noise %.1f)' %
+                (snr_info['snr'][0],
+                 snr_info['signal values'][0],
+                 snr_info['background values'][0],
+                 snr_info['noise values'][0]))
+            # set table values
+            if self.maskView.isVisible():
+                self.inspector.maskButton.setEnabled(True)
+            else:
+                self.inspector.maskButton.setEnabled(False)
+            if self.debugView.isVisible():
+                self.inspector.debugButton.setEnabled(True)
+            else:
+                self.inspector.debugButton.setEnabled(False)
+            sig_pixels = (snr_info['signal pixels'] - pos + 3).tolist()
+            bg_pixels = (snr_info['background pixels'] - pos + 3).tolist()
+            if self.inspector.rawButton.isChecked():
+                inspector_image = self.raw_image
+            elif self.inspector.maskButton.isChecked():
+                inspector_image = self.mask_image
+            else:
+                inspector_image = self.debug_image
+            for i in range(7):
+                for j in range(7):
+                    v1 = inspector_image[x + i - 3, y + j - 3]
+                    item = QTableWidgetItem('%d' % v1)
+                    item.setTextAlignment(Qt.AlignCenter)
+                    if [i, j] in sig_pixels:
+                        item.setBackground(QtGui.QColor(178, 247, 143))
+                    elif [i, j] in bg_pixels:
+                        item.setBackground(QtGui.QColor(165, 173, 186))
+                    else:
+                        item.setBackground(QtGui.QColor(255, 255, 255))
+                    self.inspector.data_table.setItem(j, i, item)
+
+    @pyqtSlot(object, object)
+    def change_frame(self, _, frame):
+        if frame < 0:
+            frame = 0
+        elif frame > self.total_frames - 1:
+            frame = self.total_frames - 1
+        self.curr_frame = frame
+        self.status_params.param(
+            'current frame'
+        ).setValue(self.curr_frame)
+        self.change_image()
+        self.update_display()
+
+    def change_image(self):
+        if self.path is None:
+            return
+        self.raw_image = util.read_image(self.path,
+                                         frame=self.curr_frame,
+                                         h5_obj=self.h5_obj,
+                                         dataset=self.dataset).astype(float)
+        self.mask_image = util.gen_simple_mask(
+            self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
+            dilation=self.dilation_size, erosion2=self.erosion2_size)
+
+    def update_display(self):
+        if self.raw_image is None:
+            return
+        if self.mask_on and self.mask is not None:
+            raw_image = self.raw_image * self.mask
+        else:
+            raw_image = self.raw_image
+        self.rawView.setImage(
+            raw_image, autoRange=False, autoLevels=False,
+            autoHistogramRange=False)
+        if self.maskView.isVisible():
+            self.maskView.setImage(
+                self.mask_image, autoRange=False, autoLevels=False,
+                autoHistogramRange=False)
+        # clear all plot items
+        self.raw_peak_item.clear()
+        self.valid_peak_item.clear()
+        self.opt_peak_item.clear()
+        self.strong_peak_item.clear()
+        self.raw_center_item.clear()
+        self.raw_ring_item.clear()
+        self.mask_center_item.clear()
+        self.mask_ring_item.clear()
+
+        if self.hit_finding_on:
+            peaks_dict = util.find_peaks(
+                self.raw_image, self.center,
+                adu_per_photon=self.adu_per_photon,
+                epsilon=self.epsilon,
+                bin_size=self.bin_size,
+                mask=self.mask,
+                hit_finder=self.hit_finder,
+                gaussian_sigma=self.gaussian_sigma,
+                min_gradient=self.min_gradient,
+                min_distance=self.min_distance,
+                max_peaks=self.max_peaks,
+                min_snr=self.min_snr,
+                min_pixels=self.min_pixels,
+                refine_mode=self.peak_refine_mode,
+                snr_mode=self.snr_mode,
+                signal_radius=self.sig_radius,
+                bg_inner_radius=self.bg_inner_radius,
+                bg_outer_radius=self.bg_outer_radius,
+                crop_size=self.crop_size,
+                bg_ratio=self.bg_ratio,
+                signal_ratio=self.sig_ratio,
+                signal_thres=self.sig_thres,
                 label_pixels=False,
             )
-            raw_peaks = peaks_dict['raw']
+            raw_peaks = peaks_dict.get('raw', None)
             if raw_peaks is not None and self.show_raw_peaks:
                 self.add_info('%d raw peaks found' % len(raw_peaks))
-            valid_peaks = peaks_dict['valid']
+                self.raw_peak_item.setData(pos=raw_peaks + 0.5)
+            valid_peaks = peaks_dict.get('valid', None)
             if valid_peaks is not None and self.show_valid_peaks:
                 self.add_info(
                     '%d peaks remaining after mask cleaning'
                     % len(peaks_dict['valid'])
                 )
-                self.peak_item.setData(pos=valid_peaks + 0.5)
+                self.valid_peak_item.setData(pos=valid_peaks + 0.5)
             # refine peak position
-            opt_peaks = peaks_dict['opt']
+            opt_peaks = peaks_dict.get('opt', None)
             if opt_peaks is not None and self.show_opt_peaks:
                 self.opt_peak_item.setData(pos=opt_peaks + 0.5)
             # filtering weak peak
-            self.strong_peaks = peaks_dict['strong']
-            if self.strong_peaks is not None and self.show_strong_peaks:
-                self.add_info('%d strong peaks' % (len(self.strong_peaks)))
-                if len(self.strong_peaks) > 0:
-                    self.strong_peak_item.setData(pos=self.strong_peaks + 0.5)
-        if self.show_view3:
-            self.calib_mask_view.setImage(
-                self.img3, autoRange=False, autoLevels=False,
-                autoHistogramRange=False
-            )
-        # show center or not
+            strong_peaks = peaks_dict.get('strong', None)
+            if strong_peaks is not None and self.show_strong_peaks:
+                self.add_info('%d strong peaks' % (len(strong_peaks)))
+                if len(strong_peaks) > 0:
+                    self.strong_peak_item.setData(pos=strong_peaks + 0.5)
+            self.strong_peaks = strong_peaks
+
+            debug_image = peaks_dict.get('thres_map', None)
+            if debug_image is not None and self.debugView.isVisible():
+                self.debugView.setImage(debug_image)
+                self.debug_image = debug_image
+            self.thres_map = peaks_dict.get('thres_map', None)
+
+            # update peak table if visible
+            self.peak_info = peaks_dict.get('info', None)
+            if self.peak_info is not None:
+                self.update_peak_table(self.peak_info)
+
+        # center item
         if self.show_center:
-            self.center_item.setData(
-                pos=self.center.reshape(1, 2) + 0.5, symbol='+', size=24,
-                pen='g', brush=(255, 255, 255, 0)
-            )
-        # show rings or not
+            self.raw_center_item.setData(pos=self.center.reshape(1, 2) + 0.5)
+            if self.maskView.isVisible():
+                self.mask_center_item.setData(
+                    pos=self.center.reshape(1, 2) + 0.5)
+        # ring item
         if len(self.ring_radii) > 0:
             centers = np.repeat(
                 self.center.reshape(1, 2), len(self.ring_radii), axis=0)
-            self.ring_item.setData(
-                pos=centers + 0.5, size=self.ring_radii * 2., symbol='o',
-                pen=mkPen(width=3, color='y', style=QtCore.Qt.DotLine),
-                brush=(255, 255, 255, 0),
-                pxMode=False,
-            )
-        # update peak table if visible
-        if 'peaks_dict' in locals():
-            self.peak_info = peaks_dict['info']
-            if self.peak_table.isVisible():
-                self.update_peak_table(self.peak_info)
+            self.raw_ring_item.setData(
+                pos=centers + 0.5, size=self.ring_radii * 2.)
+            if self.maskView.isVisible():
+                self.mask_ring_item.setData(
+                    pos=centers + 0.5, size=self.ring_radii * 2.)
 
     def update_peak_table(self, peak_info):
         table = self.peak_table.peak_table
@@ -1343,6 +1090,7 @@ class GUI(QMainWindow):
                 peak_info['noise values'][i],
                 peak_info['signal pixel num'][i],
                 peak_info['background pixel num'][i],
+                peak_info['radius'][i],
             ))
         data = np.array(data, dtype=[
             ('id', int),
@@ -1353,15 +1101,378 @@ class GUI(QMainWindow):
             ('noise', float),
             ('signal pixels', int),
             ('background pixels', int),
+            ('radius', float),
         ])
         table.setData(data)
+        # format cells
+        for i in range(table.rowCount()):
+            for j in range(table.columnCount()):
+                item = table.item(i, j)
+                item.setTextAlignment(Qt.AlignCenter)
 
+# peak table
+    @pyqtSlot(int, int)
+    def zoom_in_on_peak(self, row, _):
+        table = self.peak_table.peak_table
+        peak_id = int(table.item(row, 0).text())
+        x, y = self.strong_peaks[peak_id]
+        # raw view
+        self.rawView.view.setRange(
+            xRange=(x-20, x+20), yRange=(y-20, y+20)
+        )
+        if self.peak_info is not None:
+            bg = self.peak_info['background values'][peak_id]
+            noise = self.peak_info['noise values'][peak_id]
+            self.rawView.setLevels(bg, bg + self.sig_thres * noise)
+        # calib view
+        if self.maskView.isVisible():
+            self.maskView.view.setRange(
+                xRange=(x - 20, x + 20), yRange=(y - 20, y + 20)
+            )
+        # debug view
+        if self.debugView.isVisible():
+            self.debugView.view.setRange(
+                xRange=(x - 20, x + 20), yRange=(y - 20, y + 20)
+            )
+
+# mean dialog
+    @pyqtSlot()
+    def calc_mean_std(self):
+        selected_items = self.fileList.selectedItems()
+        files = []
+        for item in selected_items:
+            files.append(item.data(1))
+        dataset = self.mean_diag.datasetComboBox.currentText()
+        nb_frame = int(self.mean_diag.totalFrameLabel.text())
+        max_frame = min(int(self.mean_diag.usedFrameBox.text()), nb_frame)
+        output_dir = self.mean_diag.outputDirLine.text()
+        prefix = self.mean_diag.prefixLine.text()
+        output = os.path.join(output_dir, '%s.npz' % prefix)
+
+        self.calc_mean_thread = MeanCalculatorThread(
+            files=files, dataset=dataset, max_frame=max_frame, output=output
+        )
+        self.calc_mean_thread.update_progress.connect(
+            self.update_progressbar
+        )
+        self.calc_mean_thread.finished.connect(
+            self.calc_mean_finished
+        )
+        self.calc_mean_thread.start()
+
+    @pyqtSlot()
+    def choose_dir(self, line_edit=None):
+        if line_edit is not None:
+            curr_dir = line_edit.text()
+        else:
+            curr_dir = ""
+        dir_ = QFileDialog.getExistingDirectory(
+            self, "Choose directory", curr_dir
+        )
+        if line_edit is not None:
+            line_edit.setText(dir_)
+
+    @pyqtSlot(float)
+    def update_progressbar(self, val):
+        self.mean_diag.progressBar.setValue(val)
+
+    @pyqtSlot()
+    def calc_mean_finished(self):
+        self.add_info('Mean/sigma calculation done.')
+
+    @pyqtSlot(int)
+    def update_mean_diag_nframe(self, curr_index):
+        if curr_index == -1:
+            return
+        dataset = self.mean_diag.datasetComboBox.itemText(curr_index)
+        selected_items = self.fileList.selectedItems()
+        nb_frame = 0
+        for item in selected_items:
+            filepath = item.data(1)
+            try:
+                data_shape = util.get_data_shape(filepath)
+                nb_frame += data_shape[dataset][0]
+            except IOError:
+                self.add_info('Failed to open %s' % filepath)
+                pass
+        self.mean_diag.totalFrameLabel.setText(str(nb_frame))
+
+# powder dialog
+    @pyqtSlot(int)
+    def update_powder_diag_nframe(self, _):
+        tag = self.powder_diag.datasetComboBox.currentText()
+        if tag == '':
+            return
+        conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
+        with open(conf_file, 'r') as f:
+            conf = yaml.load(f)
+        dataset = conf['dataset']
+        selected_items = self.fileList.selectedItems()
+        nb_frame = 0
+        for item in selected_items:
+            filepath = item.data(1)
+            try:
+                data_shape = util.get_data_shape(filepath)
+                nb_frame += data_shape[dataset][0]
+            except IOError:
+                self.add_info('Failed to open %s' % filepath)
+                pass
+        self.powder_diag.totalFrameLabel.setText(str(nb_frame))
+
+    @pyqtSlot()
+    def gen_powder(self):
+        selected_items = self.fileList.selectedItems()
+        files = []
+        for item in selected_items:
+            files.append(item.data(1))
+        powder_diag = self.powder_diag
+        tag = powder_diag.datasetComboBox.currentText()
+        conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
+        nb_frame = int(powder_diag.totalFrameLabel.text())
+        max_frame = min(int(powder_diag.usedFrameBox.text()), nb_frame)
+        output_dir = powder_diag.outputDirLine.text()
+        prefix = powder_diag.prefixLine.text()
+        output = os.path.join(output_dir, '%s.npz' % prefix)
+        self.gen_powder_thread = GenPowderThread(
+            files, conf_file, self.settings,
+            max_frame=max_frame,
+            output=output,
+        )
+        self.gen_powder_thread.info.connect(self.add_info)
+        self.gen_powder_thread.finished.connect(
+            self.gen_powder_finished
+        )
+        self.gen_powder_thread.start()
+
+    @pyqtSlot()
+    def gen_powder_finished(self):
+        self.add_info('Powder generation submitted.')
+
+# file list related methods
+    @pyqtSlot()
+    def add_files(self):
+        path = self.addFileLine.text()
+        files = glob(path)
+        for f in files:
+            self.maybe_add_file(f)
+
+    @pyqtSlot(QPoint)
+    def show_file_list_menu(self, pos):
+        menu = QMenu()
+        item = self.fileList.currentItem()
+        if item is None:
+            return
+        path = item.data(1)
+        ext = path.split('.')[-1]
+        action_select_and_load_dataset = menu.addAction(
+            'select and load dataset'
+        )
+        menu.addSeparator()
+        action_set_as_mask = menu.addAction('set as mask')
+        action_multiply_masks = menu.addAction('multiply masks')
+        menu.addSeparator()
+        action_calc_mean_std = menu.addAction('calculate mean/sigma')
+        action_gen_powder = menu.addAction('generate peak powder')
+        menu.addSeparator()
+        action_del_file = menu.addAction('delete file(s)')
+        action = menu.exec_(self.fileList.mapToGlobal(pos))
+        if action == action_select_and_load_dataset:
+            if ext == 'npy':
+                self.path = path
+                self.total_frames = 1
+                self.curr_frame = 0
+                self.dataset = 'None'
+                self.add_info("Load %s" % path)
+            elif ext in ('npz', 'h5', 'cxi'):
+                data_shape = util.get_data_shape(path)
+                dataset = self.select_dataset(path)
+                if dataset is None:
+                    return
+                if len(data_shape[dataset]) == 3:
+                    nb_frame = data_shape[dataset][0]
+                else:
+                    nb_frame = 1
+                if ext in ('cxi', 'h5'):
+                    h5_obj = h5py.File(path, 'r')
+                    self.h5_obj = h5_obj
+                self.path = path
+                self.dataset = dataset
+                self.total_frames = nb_frame
+                if self.curr_frame >= self.total_frames:
+                    self.curr_frame = self.total_frames - 1
+                self.add_info("Load frame %d of %s-%s"
+                              % (self.curr_frame, self.path, self.dataset))
+            else:
+                self.add_info('File type not supported: %s' % path)
+            # update file info and display
+            self.update_file_info()
+            self.change_image()
+            self.update_display()
+        elif action == action_set_as_mask:
+            self.mask_file = path
+            if self.mask_on:
+                mask = util.read_image(path)
+                self.mask = mask
+            self.update_file_info()
+            self.change_image()
+            self.update_display()
+        elif action == action_multiply_masks:
+            items = self.fileList.selectedItems()
+            mask_files = []
+            for item in items:
+                path = item.data(1)
+                if path.split('.')[-1] == 'npy':
+                    mask_files.append(path)
+            if len(mask_files) == 0:
+                return
+            save_file, _ = QFileDialog.getSaveFileName(
+                self, "Save mask", self.workdir, "npy file(*.npy)"
+            )
+            if len(save_file) == 0:
+                return
+            mask = util.multiply_masks(mask_files)
+            np.save(save_file, mask)
+            self.add_info(
+                'Making mask %s from %s' % (save_file, mask_files)
+            )
+        elif action == action_calc_mean_std:
+            if ext == 'npy':
+                self.add_info(
+                    'Unsupported file type for mean calculation: %s' % ext
+                )
+                return  # ignore npy files
+            combo_box = self.mean_diag.datasetComboBox
+            combo_box.clear()
+            data_shape = util.get_data_shape(path)
+            for dataset, shape in data_shape.items():
+                combo_box.addItem(dataset)
+            output_dir = os.path.join(self.workdir, 'mean')
+            self.mean_diag.outputDirLine.setText(output_dir)
+            self.mean_diag.progressBar.setValue(0)
+            self.mean_diag.exec_()
+        elif action == action_gen_powder:
+            conf_dir = os.path.join(self.workdir, 'conf')
+            confs = glob('%s/*.yml' % conf_dir)
+            self.powder_diag.datasetComboBox.clear()
+            for conf in confs:
+                tag = os.path.basename(conf).split('.')[0]
+                self.powder_diag.datasetComboBox.addItem(tag)
+            output_dir = os.path.join(self.workdir, 'powder')
+            self.powder_diag.outputDirLine.setText(output_dir)
+            self.powder_diag.exec_()
+        elif action == action_del_file:
+            items = self.fileList.selectedItems()
+            for item in items:
+                row = self.fileList.row(item)
+                self.fileList.takeItem(row)
+                self.curr_files.remove(item.data(1))
+                self.add_info('Remove %s' % item.data(1))
+
+    @pyqtSlot('QListWidgetItem*')
+    def load_file(self, item):
+        path = item.data(1)
+        self.add_info('Loading %s' % path)
+        self.load_data(path)
+        self.update_file_info()
+        # update file info and display
+        self.change_image()
+        self.update_display()
+
+    def update_file_info(self):
+        self.status_params.param('filepath').setValue(self.path)
+        self.status_params.param('dataset').setValue(self.dataset)
+        self.status_params.param('mask file').setValue(self.mask_file)
+        self.status_params.param('total frame').setValue(self.total_frames)
+        self.status_params.param('current frame').setValue(self.curr_frame)
+
+    def load_data(self, path, dataset=None, frame=None):
+        if dataset is None:
+            dataset = self.dataset
+        if frame is not None:
+            self.curr_frame = frame
+        ext = path.split('.')[-1]
+        if ext == 'npy':
+            self.path = path
+            self.dataset = 'None'
+            self.total_frames = 1
+        elif ext == 'npz':
+            data_shape = util.get_data_shape(path)
+            if dataset not in data_shape:
+                dataset = self.select_dataset(path)
+                if dataset is None:
+                    return
+            if len(data_shape[dataset]) == 3:
+                nb_frame = data_shape[dataset][0]
+            else:
+                nb_frame = 1
+            self.path = path
+            self.dataset = dataset
+            self.total_frames = nb_frame
+        elif ext in ('h5', 'cxi'):
+            h5_obj = h5py.File(path, 'r')
+            data_shape = util.get_data_shape(path)
+            # check default dataset
+            if dataset not in data_shape:
+                dataset = self.select_dataset(path)
+                if dataset is None:
+                    return
+            if len(data_shape[dataset]) == 3:
+                nb_frame = data_shape[dataset][0]
+            else:
+                nb_frame = 1
+            self.path = path
+            self.dataset = dataset
+            self.total_frames = nb_frame
+            self.h5_obj = h5_obj
+        else:
+            return
+
+    def select_dataset(self, path):
+        combo_box = self.dataset_diag.comboBox
+        combo_box.clear()
+        data_shape = util.get_data_shape(path)
+        for dataset, shape in data_shape.items():
+            combo_box.addItem('%s %s' % (dataset, shape), userData=dataset)
+        if self.dataset_diag.exec_() == QDialog.Accepted:
+            selected_id = combo_box.currentIndex()
+            dataset = combo_box.itemData(selected_id)
+            return dataset
+        else:
+            return None
+
+    def maybe_add_file(self, path):
+        ext = path.split('.')[-1]
+        if ext not in self.accepted_file_types:
+            self.add_info('Unsupported file type: %s' % path)
+            return
+        if not os.path.exists(path):
+            self.add_info('File not exist %s' % path)
+            return
+        if path in self.all_files:
+            self.add_info('Skip existing file %s' % path)
+        else:
+            self.add_info('Add %s' % path)
+            basename = os.path.basename(path)
+            item = QListWidgetItem()
+            item.setText(basename)
+            item.setData(1, path)
+            item.setToolTip(path)
+            self.fileList.addItem(item)
+            self.all_files.append(path)
+
+# info panel
+    def add_info(self, info, info_type='INFO'):
+        now = datetime.now()
+        self.infoPanel.appendPlainText(
+            '%s: [%s] %s' % (now.strftime('%Y-%m-%d %H:%M:%S'), info_type, info)
+        )
+
+# drag and drop
     def dragEnterEvent(self, event):
         urls = event.mimeData().urls()
         for url in urls:
             drop_file = url.toLocalFile()
-            file_info = QtCore.QFileInfo(drop_file)
-            ext = file_info.suffix()
+            ext = drop_file.split('.')[-1]
             if ext in self.accepted_file_types:
                 event.accept()
                 return
@@ -1373,44 +1484,10 @@ class GUI(QMainWindow):
             drop_file = url.toLocalFile()
             self.maybe_add_file(drop_file)
 
-    def maybe_add_file(self, filepath):
-        ext = filepath.split('.')[-1]
-        if ext in self.accepted_file_types:
-            if os.path.exists(filepath):
-                if filepath in self.curr_files:
-                    self.add_info('Skip existing file %s' % filepath)
-                else:
-                    self.add_info('Add %s' % filepath)
-                    basename = os.path.basename(filepath)
-                    item = QListWidgetItem()
-                    item.setText(basename)
-                    item.setData(1, filepath)
-                    item.setToolTip(filepath)
-                    self.file_list.addItem(item)
-                    self.curr_files.append(filepath)
-            else:
-                self.add_info('File not exist %s' % filepath)
-        else:
-            self.add_info('Unsupported file type: %s' % filepath)
-
-    def add_info(self, info):
-        now = datetime.now()
-        self.info_panel.appendPlainText(
-            '[%s]: %s' % (f'{now:%Y-%m-%d %H:%M:%S}', info)
-        )
-
 
 def main():
-    if len(sys.argv) > 1:
-        print('using setting from %s' % sys.argv[1])
-        with open(sys.argv[1], 'r') as f:
-            settings_dict = yaml.load(f)
-    else:
-        settings_dict = {}
-        print('using default settings')
-    settings = Settings(settings_dict)
     app = QApplication(sys.argv)
-    win = GUI(settings=settings)
+    win = GUI()
     win.setWindowTitle('SFX Suite')
     win.showMaximized()
     sys.exit(app.exec_())
