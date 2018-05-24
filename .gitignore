@@ -1,6 +1,9 @@
 # mac
 *.DS_Store
 
+# hidden files
+.*
+
 # vs code
 .vscode/
 
