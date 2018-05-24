@@ -2,6 +2,7 @@ import os
 import sys
 
 import numpy as np
+from scipy import stats
 from scipy.linalg import eig, inv, det
 from scipy.optimize import minimize
 import math
@@ -11,7 +12,8 @@ from tqdm import tqdm
 
 from skimage.feature import peak_local_max
 from scipy.ndimage.filters import gaussian_filter, convolve1d
-from skimage.morphology import disk
+from skimage.morphology import disk, binary_dilation, binary_erosion
+from skimage.measure import label, regionprops
 
 
 def read_image(filepath, frame=0, h5_obj=None, dataset=None):
@@ -35,14 +37,19 @@ def read_image(filepath, frame=0, h5_obj=None, dataset=None):
     return data
 
 
-def find_peaks(image,
+def find_peaks(image, center,
+               adu_per_photon=1.,
+               epsilon=1E-5,
+               bin_size=1,
                mask=None,
+               hit_finder='poisson model',
                gaussian_sigma=1.,
                min_gradient=0.,
                min_distance=0,
                max_peaks=500,
                min_snr=0.,
                min_pixels=2,
+               max_pixels=10,
                refine_mode='mean',
                snr_mode='rings',
                signal_radius=1,
@@ -53,13 +60,60 @@ def find_peaks(image,
                signal_ratio=0.2,
                signal_thres=5.,
                label_pixels=False):
-    peaks_dict = {
-        'raw': None,  # coordinates of raw peak
-        'valid': None,  # coordinates of valid peak after mask out bad peak
-        'opt': None,  # coordinates of optimized peak
-        'strong': None,  # coordinates of strong peak with high snr
-        'info': None,  # strong peak info, including intensity, snr, pixel num
-    }
+    if hit_finder == 'poisson model':
+        return find_peaks_by_poisson(image, center,
+                                     adu_per_photon=adu_per_photon,
+                                     epsilon=epsilon,
+                                     bin_size=bin_size,
+                                     mask=mask,
+                                     max_peaks=max_peaks,
+                                     min_pixels=min_pixels,
+                                     max_pixels=max_pixels,
+                                     crop_size=crop_size)
+    elif hit_finder == 'snr model':
+        return find_peaks_by_snr(image, center,
+                                 mask=mask,
+                                 gaussian_sigma=gaussian_sigma,
+                                 min_gradient=min_gradient,
+                                 min_distance=min_distance,
+                                 max_peaks=max_peaks,
+                                 min_snr=min_snr,
+                                 min_pixels=min_pixels,
+                                 max_pixels=max_pixels,
+                                 refine_mode=refine_mode,
+                                 snr_mode=snr_mode,
+                                 signal_radius=signal_radius,
+                                 bg_inner_radius=bg_inner_radius,
+                                 bg_outer_radius=bg_outer_radius,
+                                 crop_size=crop_size,
+                                 bg_ratio=bg_ratio,
+                                 signal_ratio=signal_ratio,
+                                 signal_thres=signal_thres,
+                                 label_pixels=label_pixels)
+    else:
+        raise ValueError('Not implemented hit finder: %s' % hit_finder)
+
+
+def find_peaks_by_snr(image, center,
+                      mask=None,
+                      gaussian_sigma=1.,
+                      min_gradient=0.,
+                      min_distance=0,
+                      max_peaks=500,
+                      min_snr=0.,
+                      min_pixels=2,
+                      max_pixels=10,
+                      refine_mode='mean',
+                      snr_mode='rings',
+                      signal_radius=1,
+                      bg_inner_radius=2,
+                      bg_outer_radius=3,
+                      crop_size=7,
+                      bg_ratio=0.7,
+                      signal_ratio=0.2,
+                      signal_thres=5.,
+                      label_pixels=False):
+    peaks_dict = {}
     raw_image = image.copy()
     if gaussian_sigma >= 0:
         image = gaussian_filter(image.astype(np.float32), gaussian_sigma)
@@ -106,10 +160,12 @@ def find_peaks(image,
     )
     strong_ids = np.where(
         (snr_info['snr'] >= min_snr) *
-        (snr_info['signal pixel num'] >= min_pixels)
+        (snr_info['signal pixel num'] >= min_pixels) *
+        (snr_info['signal pixel num'] <= max_pixels)
     )[0]
     strong_peaks = opt_peaks[strong_ids]
     peaks_dict['strong'] = strong_peaks
+    radius = np.linalg.norm(strong_peaks - center, axis=1)
     peaks_dict['info'] = {
         'pos': strong_peaks,
         'snr': snr_info['snr'][strong_ids],
@@ -119,8 +175,116 @@ def find_peaks(image,
         'noise values': snr_info['noise values'][strong_ids],
         'signal pixel num': snr_info['signal pixel num'][strong_ids],
         'background pixel num': snr_info['background pixel num'][strong_ids],
+        'radius': radius,
     }
     return peaks_dict
+
+
+def find_peaks_by_poisson(image, center,
+                          adu_per_photon=1.,
+                          epsilon=1E-5,
+                          bin_size=1,
+                          mask=None,
+                          max_peaks=500,
+                          min_pixels=2,
+                          max_pixels=10,
+                          crop_size=7):
+    peaks_dict = {}
+    thres_map = calc_thres_map(image/adu_per_photon, center,
+                               mask=mask,
+                               epsilon=epsilon,
+                               bin_size=bin_size) * adu_per_photon
+    label_map = label(image - thres_map > 0)
+    peaks_dict['thres_map'] = thres_map
+    peaks_dict['label_map'] = label_map
+    regions = regionprops(label_map)
+    raw_peaks = [region.centroid for region in regions]
+    peaks_dict['raw'] = np.array(raw_peaks)
+
+    valid_regions = []
+    for region in regions:
+        if max_pixels >= region.area >= min_pixels:
+            valid_regions.append(region)
+    valid_peaks = [region.centroid for region in valid_regions]
+    peaks_dict['valid'] = np.array(valid_peaks)
+
+    opt_peaks = []
+    for region in valid_regions:
+        coords = region.coords
+        pixel_vals = image[coords[:, 0], coords[:, 1]].reshape(-1, 1)
+        opt_centroid = (pixel_vals * coords).sum(axis=0) / pixel_vals.sum()
+        opt_peaks.append(opt_centroid.tolist())
+    opt_peaks = np.array(opt_peaks)
+    peaks_dict['opt'] = opt_peaks
+
+    strong_ids = []
+    for i in range(len(opt_peaks)):
+        x, y = np.round(opt_peaks[i]).astype(int)
+        if 0 <= x < image.shape[0] and 0 <= y < image.shape[1]:
+            strong_ids.append(i)
+    strong_peaks = opt_peaks[strong_ids][:max_peaks]
+    peaks_dict['strong'] = strong_peaks
+
+    snr_info = calc_snr(
+        image, strong_peaks,
+        mode='threshold',
+        crop_size=crop_size,
+        thres_map=thres_map,
+        label_pixels=False,
+    )
+
+    radius = np.linalg.norm(strong_peaks - center, axis=1)
+
+    peaks_dict['info'] = {
+        'pos': strong_peaks,
+        'snr': snr_info['snr'],
+        'total intensity': snr_info['total intensity'],
+        'signal values': snr_info['signal values'],
+        'background values': snr_info['background values'],
+        'noise values': snr_info['noise values'],
+        'signal pixel num': snr_info['signal pixel num'],
+        'background pixel num': snr_info['background pixel num'],
+        'radius': radius,
+    }
+    return peaks_dict
+
+
+def calc_thres_map(image, center,
+                   mask=None,
+                   epsilon=1e-5,
+                   sigma=3.,
+                   n_try=5,
+                   bin_size=1):
+    hot_pixel_val = np.max(image)
+    image[image < 0] = 0
+    if mask is None:
+        mask = np.ones_like(image)
+    image *= mask
+    col, row = np.indices(image.shape)
+    radius_map = np.sqrt(
+        (col-center[0])**2 + (row-center[1])**2
+    )
+    radius_map = (radius_map / bin_size).astype(int)
+    thres_map = np.zeros_like(image, dtype=float)
+
+    radii = np.unique(radius_map)
+    for radius in radii:
+        ring_mask = ((radius_map == radius) * mask).astype(bool)
+        ring_vals = image[ring_mask]
+        if ring_vals.size < 100:  # ignore rings with too few pixels
+            thres_map[ring_mask] = hot_pixel_val
+            continue
+        outliers = np.zeros_like(ring_vals).astype(bool)
+        for i in range(n_try):
+            ring_vals = ring_vals[~outliers]
+            ring_std = ring_vals.std()
+            ring_mean = ring_vals.mean()
+            outliers = (np.abs(ring_vals - ring_mean) > sigma * ring_std)
+            if outliers.sum() == 0:
+                break
+        thres = stats.poisson.ppf(1-epsilon, ring_mean)
+        thres_map[ring_mask] = thres
+    return thres_map
 
 
 def refine_peaks(image, peaks, crop_size=7, mode='gradient'):
@@ -186,6 +350,7 @@ def calc_snr(image,
              bg_ratio=0.7,
              signal_ratio=0.2,
              signal_thres=5.,
+             thres_map=None,
              label_pixels=True):
     """
     Calculate snr for given position on image.
@@ -201,6 +366,8 @@ def calc_snr(image,
     :param bg_ratio: background pixel ratio, used in 'simple' mode.
     :param signal_thres: float, pixel with higher value than bg + \
                          signal_thres * noise is considered as signal pixel.
+    :param thres_map: 2d array, pixels with higher value than this map are \
+                         considered as signals.
     :return: snr_info dict (including snr, signal pixels, background pixels)
     """
     image = np.array(image)
@@ -292,6 +459,27 @@ def calc_snr(image,
             else:
                 signal = 0
             region_signal.append(crop > min_signal_val)
+            val_bg.append(bg)
+            val_signal.append(signal)
+            val_noise.append(noise)
+            val_total_intensity.append(signal * crop_signal.size)
+            nb_signal_pixels.append(crop_signal.size)
+            nb_bg_pixels.append(crop_bg.size)
+    elif mode == 'threshold':
+        thres_crops = []
+        for i in range(nb_pos):
+            x, y = pos[i]
+            thres_crops.append(thres_map[x-half_crop:x+half_crop+1,
+                                         y-half_crop:y+half_crop+1])
+        thres_crops = np.array(thres_crops)
+        region_signal = crops > thres_crops
+        region_bg = ~region_signal
+        for i in range(nb_pos):
+            crop = crops[i]
+            crop_bg = crop[region_bg[i]]
+            crop_signal = crop[region_signal[i]]
+            bg, noise = np.mean(crop_bg), np.std(crop_bg)
+            signal = np.mean(crop_signal) - bg
             val_bg.append(bg)
             val_signal.append(signal)
             val_noise.append(noise)
@@ -778,4 +966,18 @@ def build_grid_image(dim0, dim1):
     idx, idy = np.indices((dim0, dim1))
     image = np.zeros((dim0, dim1))
     image[(idx+idy) % 2 == 0] = 1
+    return image
+
+
+def gen_simple_mask(image, thres, erosion1=0, dilation=0, erosion2=0):
+    image = (image > thres).astype(np.int)
+    if erosion1 > 0:
+        selem = disk(erosion1)
+        image = binary_erosion(image, selem)
+    if dilation > 0:
+        selem = disk(dilation)
+        image = binary_dilation(image, selem)
+    if erosion2 > 0:
+        selem = disk(erosion2)
+        image = binary_erosion(image, selem)
     return image
