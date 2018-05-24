@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>154</height>
+    <height>124</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>Choose a dataset below:</string>
+        <string>Choose a dataset:</string>
        </property>
       </widget>
      </item>
@@ -41,24 +41,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="4">
      <item>
-      <widget class="QComboBox" name="combo_box"/>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="4">
-     <item>
-      <widget class="QCheckBox" name="check_box">
-       <property name="layoutDirection">
-        <enum>Qt::LeftToRight</enum>
-       </property>
-       <property name="text">
-        <string>Use as default</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-      </widget>
+      <widget class="QComboBox" name="comboBox"/>
      </item>
     </layout>
    </item>

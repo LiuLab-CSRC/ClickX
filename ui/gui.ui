@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1465</width>
-    <height>1141</height>
+    <width>800</width>
+    <height>600</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -16,70 +16,37 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
-  <property name="styleSheet">
-   <string notr="true"/>
-  </property>
   <widget class="QWidget" name="centralwidget">
-   <property name="acceptDrops">
-    <bool>true</bool>
-   </property>
-   <layout class="QHBoxLayout" name="horizontalLayout_3">
+   <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
-     <widget class="QSplitter" name="splitter_4">
-      <property name="midLineWidth">
-       <number>1</number>
-      </property>
+     <widget class="QSplitter" name="splitter_3">
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
       <property name="handleWidth">
-       <number>3</number>
+       <number>2</number>
       </property>
-      <widget class="QFrame" name="file_list_frame">
+      <widget class="QFrame" name="fileListFrame">
        <property name="frameShape">
         <enum>QFrame::StyledPanel</enum>
        </property>
        <property name="frameShadow">
         <enum>QFrame::Raised</enum>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout">
+       <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
-         <widget class="QLabel" name="label_2">
+         <widget class="QLabel" name="label">
           <property name="text">
            <string>File List</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QListWidget" name="file_list">
+         <widget class="QListWidget" name="fileList">
           <property name="contextMenuPolicy">
            <enum>Qt::CustomContextMenu</enum>
           </property>
           <property name="acceptDrops">
-           <bool>true</bool>
-          </property>
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:600;&quot;&gt;Drag and drop files to load them&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="whatsThis">
-           <string/>
-          </property>
-          <property name="autoFillBackground">
-           <bool>true</bool>
-          </property>
-          <property name="editTriggers">
-           <set>QAbstractItemView::NoEditTriggers</set>
-          </property>
-          <property name="showDropIndicator" stdset="0">
-           <bool>true</bool>
-          </property>
-          <property name="dragEnabled">
-           <bool>true</bool>
-          </property>
-          <property name="dragDropOverwriteMode">
            <bool>true</bool>
           </property>
           <property name="dragDropMode">
@@ -91,36 +58,21 @@
           <property name="selectionMode">
            <enum>QAbstractItemView::ExtendedSelection</enum>
           </property>
-          <property name="flow">
-           <enum>QListView::LeftToRight</enum>
-          </property>
-          <property name="isWrapping" stdset="0">
-           <bool>true</bool>
-          </property>
-          <property name="spacing">
-           <number>1</number>
-          </property>
-          <property name="viewMode">
-           <enum>QListView::ListMode</enum>
-          </property>
-          <property name="selectionRectVisible">
-           <bool>true</bool>
-          </property>
          </widget>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout">
-          <item>
-           <widget class="QLabel" name="label">
+         <layout class="QGridLayout" name="gridLayout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_6">
             <property name="text">
              <string>Add File(s):</string>
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QLineEdit" name="line_edit">
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="addFileLine">
             <property name="placeholderText">
-             <string>eg: /path/to/folder/*</string>
+             <string>/path/to/files</string>
             </property>
            </widget>
           </item>
@@ -128,12 +80,12 @@
         </item>
        </layout>
       </widget>
-      <widget class="QSplitter" name="splitter_2">
+      <widget class="QSplitter" name="splitter">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
        <property name="handleWidth">
-        <number>3</number>
+        <number>2</number>
        </property>
        <widget class="QFrame" name="frame_2">
         <property name="frameShape">
@@ -142,19 +94,25 @@
         <property name="frameShadow">
          <enum>QFrame::Raised</enum>
         </property>
-        <layout class="QVBoxLayout" name="verticalLayout_3">
+        <layout class="QVBoxLayout" name="verticalLayout">
          <item>
-          <widget class="QLabel" name="label_3">
+          <widget class="QLabel" name="label_2">
            <property name="text">
             <string>Info Panel</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QPlainTextEdit" name="info_panel"/>
+          <widget class="QPlainTextEdit" name="infoPanel">
+           <property name="font">
+            <font>
+             <family>Monaco</family>
+            </font>
+           </property>
+           <property name="acceptDrops">
+            <bool>false</bool>
+           </property>
+          </widget>
          </item>
         </layout>
        </widget>
@@ -167,39 +125,27 @@
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_2">
          <item>
-          <widget class="QSplitter" name="splitter">
+          <widget class="QSplitter" name="splitter_4">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
            <property name="handleWidth">
             <number>3</number>
            </property>
-           <widget class="ImageView" name="raw_view">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:600;&quot;&gt;Raw Image&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-           </widget>
-           <widget class="ImageView" name="gradient_view">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:600;&quot;&gt;Gradient Image&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-           </widget>
-           <widget class="ImageView" name="calib_mask_view">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:600;&quot;&gt;Calib/Mask Image&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-           </widget>
+           <widget class="ImageView" name="rawView"/>
+           <widget class="ImageView" name="maskView"/>
+           <widget class="ImageView" name="debugView"/>
           </widget>
          </item>
         </layout>
        </widget>
       </widget>
-      <widget class="QSplitter" name="splitter_3">
+      <widget class="QSplitter" name="splitter_2">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
        <property name="handleWidth">
-        <number>1</number>
+        <number>2</number>
        </property>
        <widget class="QFrame" name="frame_4">
         <property name="frameShape">
@@ -208,19 +154,28 @@
         <property name="frameShadow">
          <enum>QFrame::Raised</enum>
         </property>
-        <layout class="QVBoxLayout" name="verticalLayout_4">
+        <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
           <widget class="QLabel" name="label_4">
            <property name="text">
-            <string>Current Status</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
+            <string>Status</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="ParameterTree" name="status_tree">
+          <widget class="ParameterTree" name="statusTree">
+           <property name="editTriggers">
+            <set>QAbstractItemView::NoEditTriggers</set>
+           </property>
+           <property name="showDropIndicator" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="rootIsDecorated">
+            <bool>false</bool>
+           </property>
+           <property name="itemsExpandable">
+            <bool>false</bool>
+           </property>
            <property name="headerHidden">
             <bool>true</bool>
            </property>
@@ -233,48 +188,66 @@
          </item>
         </layout>
        </widget>
-       <widget class="QTabWidget" name="tab">
-        <property name="currentIndex">
-         <number>0</number>
+       <widget class="QFrame" name="frame_5">
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
         </property>
-        <widget class="QWidget" name="tab_1">
-         <attribute name="title">
-          <string>calib/mask</string>
-         </attribute>
-         <layout class="QVBoxLayout" name="verticalLayout_5">
-          <item>
-           <widget class="ParameterTree" name="calib_mask_tree">
-            <property name="headerHidden">
-             <bool>true</bool>
-            </property>
-            <column>
-             <property name="text">
-              <string notr="true">1</string>
-             </property>
-            </column>
+        <property name="frameShadow">
+         <enum>QFrame::Raised</enum>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_4">
+         <item>
+          <widget class="QTabWidget" name="tabWidget">
+           <property name="currentIndex">
+            <number>0</number>
+           </property>
+           <widget class="QWidget" name="tab">
+            <attribute name="title">
+             <string>calib/mask</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="verticalLayout_2">
+             <item>
+              <widget class="ParameterTree" name="calibTree">
+               <property name="rootIsDecorated">
+                <bool>false</bool>
+               </property>
+               <property name="headerHidden">
+                <bool>true</bool>
+               </property>
+               <column>
+                <property name="text">
+                 <string notr="true">1</string>
+                </property>
+               </column>
+              </widget>
+             </item>
+            </layout>
            </widget>
-          </item>
-         </layout>
-        </widget>
-        <widget class="QWidget" name="tab_2">
-         <attribute name="title">
-          <string>hit finder</string>
-         </attribute>
-         <layout class="QVBoxLayout" name="verticalLayout_2">
-          <item>
-           <widget class="ParameterTree" name="hit_finder_tree">
-            <property name="headerHidden">
-             <bool>true</bool>
-            </property>
-            <column>
-             <property name="text">
-              <string notr="true">1</string>
-             </property>
-            </column>
+           <widget class="QWidget" name="tab_2">
+            <attribute name="title">
+             <string>hit finder</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="verticalLayout_6">
+             <item>
+              <widget class="ParameterTree" name="hitFinderTree">
+               <property name="rootIsDecorated">
+                <bool>false</bool>
+               </property>
+               <property name="headerHidden">
+                <bool>true</bool>
+               </property>
+               <column>
+                <property name="text">
+                 <string notr="true">1</string>
+                </property>
+               </column>
+              </widget>
+             </item>
+            </layout>
            </widget>
-          </item>
-         </layout>
-        </widget>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </widget>
      </widget>
@@ -286,7 +259,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1465</width>
+     <width>800</width>
      <height>22</height>
     </rect>
    </property>
@@ -294,103 +267,128 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="action_open"/>
+    <addaction name="actionOpen_File"/>
     <addaction name="separator"/>
-    <addaction name="action_save_hit_finding_conf"/>
-    <addaction name="action_save_state_conf"/>
+    <addaction name="actionLoad_Hit_Finding_Conf"/>
     <addaction name="separator"/>
-    <addaction name="action_load_hit_finding_conf"/>
-    <addaction name="action_load_state_conf"/>
+    <addaction name="actionSave_Hit_Finding_Conf"/>
+    <addaction name="actionSave_Mask"/>
+    <addaction name="separator"/>
+    <addaction name="actionSettings"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
      <string>View</string>
     </property>
-    <addaction name="action_show_inspector"/>
-    <addaction name="separator"/>
-    <addaction name="action_show_gradient_view"/>
-    <addaction name="action_show_calib_mask_view"/>
-    <addaction name="action_test"/>
-    <addaction name="separator"/>
-    <addaction name="action_show_peak_table"/>
-    <addaction name="separator"/>
+    <addaction name="actionShow_Calib_Mask_View"/>
+    <addaction name="actionShow_Debug_View"/>
+    <addaction name="actionHide_File_List"/>
    </widget>
    <widget class="QMenu" name="menuWindow">
     <property name="title">
      <string>Window</string>
     </property>
-    <addaction name="action_job_table"/>
-    <addaction name="action_powder_fit"/>
-    <addaction name="action_hit_table"/>
+    <addaction name="actionShow_Inspector"/>
+    <addaction name="actionPeak_Table"/>
+    <addaction name="separator"/>
+    <addaction name="actionJob_Table"/>
+    <addaction name="separator"/>
+    <addaction name="actionPowder_Fit"/>
+    <addaction name="separator"/>
+    <addaction name="actionHit_Table"/>
+   </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+    <addaction name="actionXFEL_Calculator"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionDocumentation"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
    <addaction name="menuWindow"/>
+   <addaction name="menuTools"/>
+   <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="action_open">
+  <action name="actionLoad_Hit_Finding_Conf">
    <property name="text">
-    <string>Open...</string>
+    <string>Load Hit Finding Conf</string>
    </property>
   </action>
-  <action name="action_save_hit_finding_conf">
+  <action name="actionSave_Hit_Finding_Conf">
    <property name="text">
-    <string>Save hit finding conf</string>
+    <string>Save Hit Finding Conf</string>
    </property>
   </action>
-  <action name="action_save_state_conf">
+  <action name="actionOpen_File">
    <property name="text">
-    <string>Save state conf</string>
+    <string>Open File...</string>
    </property>
   </action>
-  <action name="action_load_hit_finding_conf">
+  <action name="actionShow_Calib_Mask_View">
    <property name="text">
-    <string>Load hit finding conf</string>
+    <string>Show Calib/Mask View</string>
    </property>
   </action>
-  <action name="action_load_state_conf">
+  <action name="actionHide_File_List">
    <property name="text">
-    <string>Load state conf</string>
+    <string>Hide File List</string>
    </property>
   </action>
-  <action name="action_show_inspector">
+  <action name="actionShow_Inspector">
    <property name="text">
-    <string>Show inspector</string>
+    <string>Pixel Inspector</string>
    </property>
   </action>
-  <action name="action_show_gradient_view">
+  <action name="actionPeak_Table">
    <property name="text">
-    <string>Show gradient view</string>
+    <string>Peak Table</string>
    </property>
   </action>
-  <action name="action_show_calib_mask_view">
-   <property name="text">
-    <string>Show calib/mask view</string>
-   </property>
-  </action>
-  <action name="action_job_table">
+  <action name="actionJob_Table">
    <property name="text">
     <string>Job Table</string>
    </property>
   </action>
-  <action name="action_test">
-   <property name="text">
-    <string>Hide file list</string>
-   </property>
-  </action>
-  <action name="action_powder_fit">
+  <action name="actionPowder_Fit">
    <property name="text">
     <string>Powder Fit</string>
    </property>
   </action>
-  <action name="action_show_peak_table">
-   <property name="text">
-    <string>Show peak table</string>
-   </property>
-  </action>
-  <action name="action_hit_table">
+  <action name="actionHit_Table">
    <property name="text">
     <string>Hit Table</string>
+   </property>
+  </action>
+  <action name="actionXFEL_Calculator">
+   <property name="text">
+    <string>XFEL Calculator</string>
+   </property>
+  </action>
+  <action name="actionDocumentation">
+   <property name="text">
+    <string>Documentation</string>
+   </property>
+  </action>
+  <action name="actionSave_Mask">
+   <property name="text">
+    <string>Save Mask</string>
+   </property>
+  </action>
+  <action name="actionShow_Debug_View">
+   <property name="text">
+    <string>Show Debug View</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings</string>
    </property>
   </action>
  </widget>

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>392</width>
-    <height>452</height>
+    <width>394</width>
+    <height>448</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -33,7 +33,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1,0">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0,0,1">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0">
      <item>
       <spacer name="horizontalSpacer_2">
        <property name="orientation">
@@ -48,7 +48,7 @@
       </spacer>
      </item>
      <item>
-      <widget class="QLabel" name="snr_label">
+      <widget class="QLabel" name="snrLabel">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -64,7 +64,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="snr_value">
+      <widget class="QLabel" name="snrValue">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
@@ -212,36 +212,56 @@
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,1,1">
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <widget class="QRadioButton" name="radioButton">
+      <spacer name="horizontalSpacer_3">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="rawButton">
        <property name="text">
         <string>raw</string>
        </property>
-       <property name="autoExclusive">
-        <bool>false</bool>
+       <property name="checked">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QRadioButton" name="radioButton_2">
-       <property name="text">
-        <string>gradient</string>
-       </property>
-       <property name="autoExclusive">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QRadioButton" name="radioButton_3">
+      <widget class="QRadioButton" name="maskButton">
        <property name="text">
         <string>mask</string>
        </property>
-       <property name="autoExclusive">
-        <bool>false</bool>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="debugButton">
+       <property name="text">
+        <string>debug</string>
        </property>
       </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer_4">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
      </item>
     </layout>
    </item>

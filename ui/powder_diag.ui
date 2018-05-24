@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>527</width>
-    <height>288</height>
+    <width>532</width>
+    <height>255</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>Choose hit finder conf below:</string>
+        <string>Choose hit configuration:</string>
        </property>
       </widget>
      </item>
@@ -39,12 +39,12 @@
     </layout>
    </item>
    <item>
-    <widget class="QComboBox" name="combo_box"/>
+    <widget class="QComboBox" name="datasetComboBox"/>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <widget class="QLabel" name="label_1">
+      <widget class="QLabel" name="totalFrameLabel">
        <property name="lineWidth">
         <number>20</number>
        </property>
@@ -61,7 +61,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QSpinBox" name="spin_box">
+      <widget class="QSpinBox" name="usedFrameBox">
        <property name="maximum">
         <number>999999</number>
        </property>
@@ -100,19 +100,29 @@
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="1,4,1">
-     <item>
+    <layout class="QGridLayout" name="gridLayout">
+     <item row="0" column="0">
       <widget class="QLabel" name="label_4">
        <property name="text">
         <string>Output Directory:</string>
        </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
       </widget>
      </item>
-     <item>
-      <widget class="QLineEdit" name="line_edit_1"/>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="outputDirLine">
+       <property name="minimumSize">
+        <size>
+         <width>300</width>
+         <height>0</height>
+        </size>
+       </property>
+      </widget>
      </item>
-     <item>
-      <widget class="QPushButton" name="browse_btn">
+     <item row="0" column="2">
+      <widget class="QPushButton" name="browseButton">
        <property name="focusPolicy">
         <enum>Qt::NoFocus</enum>
        </property>
@@ -121,36 +131,22 @@
        </property>
       </widget>
      </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="1,4,1">
-     <item>
+     <item row="1" column="0">
       <widget class="QLabel" name="label_5">
        <property name="text">
-        <string>  Filename Prefix: </string>
+        <string>Filename Prefix: </string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
       </widget>
      </item>
-     <item>
-      <widget class="QLineEdit" name="line_edit_2">
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="prefixLine">
        <property name="text">
         <string>powder</string>
        </property>
       </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
      </item>
     </layout>
    </item>
@@ -177,7 +173,7 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="submit_btn">
+      <widget class="QPushButton" name="submitButton">
        <property name="text">
         <string>Submit</string>
        </property>
