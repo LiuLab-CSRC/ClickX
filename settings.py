@@ -1,65 +1,56 @@
-"""
-SFX-suite settings.
-"""
 import os
-import numpy as np
+import yaml
+import types
+from PyQt5.uic import loadUi
+from PyQt5.QtWidgets import QDialog
+
+
+class SettingDialog(QDialog):
+    def __init__(self):
+        super(SettingDialog, self).__init__()
+        dir_ = os.path.abspath(os.path.dirname(__file__))
+        loadUi('%s/ui/settings_diag.ui' % dir_, self)
 
 
 class Settings(object):
-    def __init__(self, settings_dict):
-        # main window
-        self.workdir = settings_dict.get('work dir', os.path.dirname(__file__))
-        self.peak_size = settings_dict.get('peak size', 10)
-        self.dataset_def = settings_dict.get('default dataset', '')
-        self.max_info = settings_dict.get('max info', 1000)
-        self.min_peak = settings_dict.get('min peak', 20)
+    setting_file = '.config.yml'
+    saved_attrs = ('workdir',)
 
-        # compression
-        self.raw_dataset = settings_dict.get('raw dataset', None)
-        self.comp_dtype = settings_dict.get('compressed dtype', 'auto')
-        self.comp_size = settings_dict.get('compressed size', '1000')
-        self.comp_dataset = settings_dict.get('compressed dataset', None)
+    def __init__(self, setting_diag):
+        super(Settings, self).__init__()
+        self.setting_diag = setting_diag
+        self.workdir = None
+        self.job_engine = None
+        self.load_settings()
 
-        # job window
-        self.header_labels = settings_dict.get(
-            'header labels',
-            [
-                'job',
-                'compression',
-                'compression ratio',
-                'raw frames',
-                'tag',
-                'hit finding',
-                'processed frames',
-                'processed hits',
-                'hit rate',
-                'peak2cxi'
-            ]
-        )
+    def load_settings(self):
+        settings = None
+        if os.path.exists(self.setting_file):
+            with open(self.setting_file) as f:
+                settings = yaml.load(f)
+        if settings is None:
+            settings = {}
+        # self.workdir = settings.get('workdir', os.getcwd())
+        self.update(workdir=settings.get('workdir', os.getcwd()))
 
-        # scripts
-        self.script_suffix = settings_dict.get('script suffix', 'local')
+    def save_settings(self):
+        settings = {attr: getattr(self, attr) for attr in self.saved_attrs}
+        with open(self.setting_file, 'w') as f:
+            yaml.dump(settings, f, default_flow_style=False)
 
-        # powder fit
-        self.max_peaks = settings_dict.get('max peaks', 1000)
-        self.width = settings_dict.get('width', 1000)
-        self.height = settings_dict.get('height', 1000)
-        cx = settings_dict.get('center x', 500)
-        cy = settings_dict.get('center y', 500)
-        self.center = np.array([cx, cy])
-        self.eps = settings_dict.get('eps', 5.0)
-        self.min_samples = settings_dict.get('min samples', 10)
-        self.tol = settings_dict.get('outlier tol', 2.)
+    def update(self, **kwargs):
+        dialog = self.setting_diag
+        if 'workdir' in kwargs:
+            self.workdir = kwargs['workdir']
+            dialog.workDirLine.setText(self.workdir)
 
-        # experiment parameters
-        self.photon_energy = settings_dict.get('photon energy', 9000)
-        self.detector_distance = settings_dict.get('detector distance', 100)
-        self.pixel_size = settings_dict.get('pixel size', 100)
 
-    def __str__(self):
-        attrs = dir(self)
-        s = ''
-        for attr in attrs:
-            if attr[:2] != '__':
-                s += '%s: %s\n' % (attr, getattr(self, attr))
-        return s
+# def get_all_attrs(instance):
+#     attrs = []
+#     for attr in dir(instance):
+#         if attr[:2] == '__':  # skip private attributes
+#             continue
+#         if isinstance(getattr(instance, attr), types.MethodType):  # methods
+#             continue
+#         attrs.append(attr)
+#     return attrs
