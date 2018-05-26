@@ -18,6 +18,7 @@ from pyqtgraph.parametertree import Parameter
 from util import util
 from threads import MeanCalculatorThread, GenPowderThread
 from settings import Settings, SettingDialog
+from job_win import JobWindow
 
 
 class GUI(QMainWindow):
@@ -56,17 +57,21 @@ class GUI(QMainWindow):
         self.settings = Settings(self.setting_diag)
         self.settings.save_settings()
 
+        # other windows
+        self.job_win = JobWindow(main_win=self, settings=self.settings)
+
         # fixed attributes
         self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz')
-        self.hit_finders = ['poisson model', 'snr model']
-        self.peak_refine_mode_list = ['gradient', 'mean']
-        self.snr_mode_list = ['simple', 'rings', 'adaptive']
+        self.hit_finders = ('poisson model', 'snr model')
+        self.peak_refine_mode_list = ('gradient', 'mean')
+        self.snr_mode_list = ('simple', 'rings', 'adaptive')
 
         self.workdir = self.settings.workdir
         self.all_files = []  # available files in file list
         self.path = None  # path of current file
         self.mask_file = None
         self.mask = None
+        self.eraser_mask = None
         self.h5_obj = None  # h5 object
         self.dataset = ''  # current dataset
         self.total_frames = 0  # total frames of current dataset
@@ -85,6 +90,9 @@ class GUI(QMainWindow):
         self.erosion1_size = 0
         self.dilation_size = 0
         self.erosion2_size = 0
+        self.show_eraser = False
+        self.eraser_size = 100
+        self.enable_eraser = False
         # hit finding parameters
         self.hit_finding_on = False
         self.mask_on = False
@@ -137,6 +145,9 @@ class GUI(QMainWindow):
             symbol='o',
             pen=pg.mkPen(width=3, color='y', style=QtCore.Qt.DotLine),
             brush=(255, 255, 255, 0), pxMode=False)
+        self.eraser_item = pg.CircleROI(pos=self.center, size=self.eraser_size)
+        if not self.show_eraser:
+            self.eraser_item.hide()
         self.rawView.view.addItem(self.raw_peak_item)
         self.rawView.view.addItem(self.valid_peak_item)
         self.rawView.view.addItem(self.opt_peak_item)
@@ -145,7 +156,8 @@ class GUI(QMainWindow):
         self.rawView.view.addItem(self.raw_ring_item)
         self.maskView.view.addItem(self.mask_center_item)
         self.maskView.view.addItem(self.mask_ring_item)
-        # threads
+        self.rawView.view.addItem(self.eraser_item)
+        # threads and timers
         self.calc_mean_thread = None
         self.gen_powder_thread = None
         # status tree
@@ -197,16 +209,42 @@ class GUI(QMainWindow):
                 'name': 'radii of rings', 'type': 'str', 'value': ''
             },
             {
-                'name': 'erosion1 size', 'type': 'int',
-                'value': self.erosion1_size
+                'name': 'morphology', 'type': 'group', 'children': [
+                    {
+                        'name': 'erosion1 size', 'type': 'int',
+                        'value': self.erosion1_size
+                    },
+                    {
+                        'name': 'dilation size', 'type': 'int',
+                        'value': self.dilation_size
+                    },
+                    {
+                        'name': 'erosion2 size', 'type': 'int',
+                        'value': self.erosion2_size
+                    },
+                ],
+                'expanded': False,
             },
             {
-                'name': 'dilation size', 'type': 'int',
-                'value': self.dilation_size
-            },
-            {
-                'name': 'erosion2 size', 'type': 'int',
-                'value': self.erosion2_size
+                'name': 'eraser', 'type': 'group', 'children': [
+                    {
+                        'name': 'show', 'type': 'bool',
+                        'value': self.show_eraser,
+                    },
+                    {
+                        'name': 'size', 'type': 'int',
+                        'value': self.eraser_size,
+                        'visible': False,
+                    },
+                    {
+                        'name': 'enable', 'type': 'bool',
+                        'value': self.enable_eraser,
+                    },
+                    {
+                        'name': 'reset', 'type': 'action',
+                    },
+                ],
+                'expanded': False,
             },
         ]
         self.calib_mask_params = Parameter.create(
@@ -379,6 +417,7 @@ class GUI(QMainWindow):
             self.show_or_hide_file_list)
         self.actionShow_Inspector.triggered.connect(self.show_inspector)
         self.actionPeak_Table.triggered.connect(self.show_peak_table)
+        self.actionJob_Table.triggered.connect(self.show_job_win)
         # peak table
         self.peak_table.peak_table.cellDoubleClicked.connect(
             self.zoom_in_on_peak
@@ -428,14 +467,24 @@ class GUI(QMainWindow):
             'radii of rings'
         ).sigValueChanged.connect(self.change_ring_radii)
         self.calib_mask_params.param(
-            'erosion1 size'
+            'morphology', 'erosion1 size'
         ).sigValueChanged.connect(self.change_erosion1_size)
         self.calib_mask_params.param(
-            'dilation size'
+            'morphology', 'dilation size'
         ).sigValueChanged.connect(self.change_dilation_size)
         self.calib_mask_params.param(
-            'erosion2 size'
+            'morphology', 'erosion2 size'
         ).sigValueChanged.connect(self.change_erosion2_size)
+        self.calib_mask_params.param(
+            'eraser', 'show'
+        ).sigValueChanged.connect(self.change_show_eraser)
+        self.calib_mask_params.param(
+            'eraser', 'enable'
+        ).sigValueChanged.connect(self.change_enable_eraser)
+        self.calib_mask_params.param(
+            'eraser', 'reset'
+        ).sigActivated.connect(self.reset_eraser)
+        self.eraser_item.sigRegionChanged.connect(self.change_eraser)
         # hit finder
         self.hit_finder_params.param(
             'mask on'
@@ -697,7 +746,8 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def show_settings(self):
         self.add_info("showing settings")
-        self.setting_diag.exec_()
+        if self.setting_diag.exec_() == QDialog.Accepted:
+            self.settings.save_settings()
 
     @pyqtSlot()
     def show_inspector(self):
@@ -706,6 +756,17 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def show_peak_table(self):
         self.peak_table.show()
+
+    @pyqtSlot()
+    def show_job_win(self):
+        self.job_win.update_info(self.settings)
+        self.job_win.show()
+        # job_table = self.job_win.job_table
+        # width = job_table.width()
+        # col_count = job_table.columnCount()
+        # header = job_table.horizontalHeader()
+        # for i in range(col_count):
+        #     header.resizeSection(i, width // col_count)
 
 # calib/mask related methods
     @pyqtSlot(object, object)
@@ -752,6 +813,40 @@ class GUI(QMainWindow):
         self.erosion2_size = size
         self.change_image()
         self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_show_eraser(self, _, show):
+        if show:
+            self.eraser_item.show()
+            self.show_eraser = True
+        else:
+            self.eraser_item.hide()
+            self.show_eraser = False
+
+    @pyqtSlot(object, object)
+    def change_enable_eraser(self, _, enable):
+        if enable:
+            self.enable_eraser = True
+            self.change_eraser(self.eraser_item) # make eraser mask immediately
+        else:
+            self.enable_eraser = False
+
+    @pyqtSlot()
+    def reset_eraser(self):
+        self.eraser_mask = np.ones_like(self.raw_image, dtype=np.int)
+        self.change_image()
+        self.update_display()
+
+    @pyqtSlot(object)
+    def change_eraser(self, eraser):
+        if self.enable_eraser:
+            pos = eraser.pos()
+            radius = eraser.size()[0] / 2
+            center = (pos[0] + radius, pos[1] + radius)
+            mask = util.make_circle_mask(self.raw_image.shape, center, radius)
+            self.eraser_mask *= mask
+            self.change_image()
+            self.update_display()
 
 # hit finder related methods
     @pyqtSlot(object, object)
@@ -973,9 +1068,14 @@ class GUI(QMainWindow):
                                          frame=self.curr_frame,
                                          h5_obj=self.h5_obj,
                                          dataset=self.dataset).astype(float)
-        self.mask_image = util.gen_simple_mask(
+        self.mask_image = util.make_simple_mask(
             self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
             dilation=self.dilation_size, erosion2=self.erosion2_size)
+        if self.eraser_mask is not None:
+            self.mask_image *= self.eraser_mask
+        if self.eraser_mask is None or (
+                self.eraser_mask.shape != self.raw_image.shape):
+            self.eraser_mask = np.ones_like(self.raw_image, dtype=np.int)
 
     def update_display(self):
         if self.raw_image is None:
@@ -984,6 +1084,8 @@ class GUI(QMainWindow):
             raw_image = self.raw_image * self.mask
         else:
             raw_image = self.raw_image
+        # apply current mask
+        raw_image *= self.mask_image
         self.rawView.setImage(
             raw_image, autoRange=False, autoLevels=False,
             autoHistogramRange=False)

@@ -969,7 +969,7 @@ def build_grid_image(dim0, dim1):
     return image
 
 
-def gen_simple_mask(image, thres, erosion1=0, dilation=0, erosion2=0):
+def make_simple_mask(image, thres, erosion1=0, dilation=0, erosion2=0):
     image = (image > thres).astype(np.int)
     if erosion1 > 0:
         selem = disk(erosion1)
@@ -981,3 +981,13 @@ def gen_simple_mask(image, thres, erosion1=0, dilation=0, erosion2=0):
         selem = disk(erosion2)
         image = binary_erosion(image, selem)
     return image
+
+
+def make_circle_mask(shape, center, radius, mode='background'):
+    mask = np.ones(shape, dtype=np.int)
+    row, col = np.indices(shape)
+    radii_square = (row - center[0]) ** 2 + (col - center[1]) ** 2
+    mask[radii_square <= radius ** 2] = 0
+    if mode == 'foreground':
+        mask = 1 - mask
+    return mask
