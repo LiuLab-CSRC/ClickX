@@ -197,3 +197,10 @@ class JobWindow(QWidget):
                 self.jobTable.setItem(row, col, item)
             else:
                 item.setText(str(row_dict[field]))
+
+    def resizeEvent(self, event):
+        width = self.jobTable.width()
+        col_count = self.jobTable.columnCount()
+        header = self.jobTable.horizontalHeader()
+        for i in range(col_count):
+            header.resizeSection(i, width // col_count)

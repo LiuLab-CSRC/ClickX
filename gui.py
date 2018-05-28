@@ -779,12 +779,6 @@ class GUI(QMainWindow):
     def show_job_win(self):
         self.job_win.update_info(self.settings)
         self.job_win.showMaximized()
-        job_table = self.job_win.jobTable
-        width = job_table.width()
-        col_count = job_table.columnCount()
-        header = job_table.horizontalHeader()
-        for i in range(col_count):
-            header.resizeSection(i, width // col_count)
 
 # calib/mask related methods
     @pyqtSlot(object, object)
