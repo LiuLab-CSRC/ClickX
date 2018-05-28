@@ -103,6 +103,10 @@ class SettingDialog(QDialog):
             partial(self.update_attribute, attr='table_columns',
                     widget=self.peak2cxiProgress)
         )
+        self.jobPoolSize.valueChanged.connect(
+            partial(self.update_attribute, attr='job_pool_size',
+                    widget=self.jobPoolSize)
+        )
         self.maxInfo.valueChanged.connect(
             partial(self.update_attribute,
                     attr='max_info', widget=self.maxInfo)
@@ -187,6 +191,8 @@ class SettingDialog(QDialog):
                 self.peak2cxiProgress.setChecked(True)
             else:
                 self.peak2cxiProgress.setChecked(False)
+        if 'job_pool_size' in kwargs:
+            self.jobPoolSize.setValue(kwargs['job_pool_size'])
         if 'min_peaks' in kwargs:
             self.minPeaks.setValue(kwargs['min_peaks'])
         if 'max_info' in kwargs:
@@ -227,7 +233,7 @@ class Settings(object):
                    'pixel_size', 'image_width', 'image_height', 'center_x',
                    'center_y', 'raw_dataset', 'compressed_dataset',
                    'compressed_datatype', 'compressed_batch_size',
-                   'table_columns', 'min_peaks', 'max_info')
+                   'table_columns', 'min_peaks', 'max_info', 'job_pool_size')
 
     def __init__(self, setting_diag):
         super(Settings, self).__init__()
@@ -247,6 +253,7 @@ class Settings(object):
         self.compressed_datatype = None
         self.compressed_batch_size = None
         self.table_columns = None
+        self.job_pool_size = None
         self.min_peaks = None
         self.max_info = None
         self.update(engines=get_all_engines())
@@ -282,6 +289,7 @@ class Settings(object):
         self.update(compressed_batch_size=settings.get(
             'compressed_batch_size', 200))
         self.update(table_columns=settings.get('table_columns', all_columns))
+        self.update(job_pool_size=settings.get('job_pool_size', 4))
         self.update(min_peaks=settings.get('min_peaks', 20))
         self.update(max_info=settings.get('max_info', 1000))
 

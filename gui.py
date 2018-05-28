@@ -779,6 +779,7 @@ class GUI(QMainWindow):
     def show_job_win(self):
         self.job_win.update_info(self.settings)
         self.job_win.showMaximized()
+        self.job_win.start()
 
 # calib/mask related methods
     @pyqtSlot(object, object)

@@ -346,7 +346,25 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_11">
+       <layout class="QHBoxLayout" name="horizontalLayout_5">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QLabel" name="label_15">
+            <property name="text">
+             <string>Job Pool Size:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="jobPoolSize">
+            <property name="value">
+             <number>0</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_10">
           <item>
