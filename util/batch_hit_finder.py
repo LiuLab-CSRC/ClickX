@@ -7,13 +7,16 @@ Usage:
 
 Options:
     -h --help               Show this screen.
-    --min-peak NUM          Specify min peaks for a hit [default: 20].
+    --min-peaks NUM         Specify min peaks for a hit [default: 20].
     --batch-size SIZE       Specify batch size in a job [default: 10].
     --buffer-size SIZE      Specify buffer size in MPI communication
                             [default: 500000].
     --update-freq FREQ      Specify update frequency of progress [default: 10].
     --flush                 Flush output of print.
 """
+from __future__ import print_function
+from six import print_ as print
+
 from mpi4py import MPI
 import numpy as np
 import pandas as pd
@@ -35,7 +38,7 @@ def master_run(args):
     if not os.path.isdir(hit_dir):
         os.makedirs(hit_dir)
     cxi_lst = args['<cxi-lst>']
-    min_peak = int(args['--min-peak'])
+    min_peaks = int(args['--min-peaks'])
     with open(cxi_lst) as f:
         _files = f.readlines()
     # remove trailing '/n'
@@ -97,7 +100,7 @@ def master_run(args):
             # update stat
             progress = float(job_id) / nb_jobs * 100
             df = pd.DataFrame(results)
-            processed_hits = len(df[df['nb_peak'] >= min_peak])
+            processed_hits = len(df[df['nb_peak'] >= min_peaks])
             processed_frames = len(df)
             hit_rate = float(processed_hits) / processed_frames * 100.
             stat_dict = {
@@ -132,7 +135,7 @@ def master_run(args):
     duration = time_end - time_start
     # save stat file
     df = pd.DataFrame(results)
-    processed_hits = len(df[df['nb_peak'] >= min_peak])
+    processed_hits = len(df[df['nb_peak'] >= min_peaks])
     processed_frames = len(df)
     hit_rate = float(processed_hits) / processed_frames * 100.
     stat_dict = {
@@ -169,10 +172,9 @@ def master_run(args):
     np.save(peak_file, results)
 
     print('All Done!', flush=flush)
-    MPI.Finalize()
 
 
-def slave_run(args):
+def worker_run(args):
     stop = False
     filepath = None
     h5_obj = None
@@ -182,27 +184,31 @@ def slave_run(args):
     # hit finding parameters
     with open(args['<conf-file>']) as f:
         conf = yaml.load(f)
-    gaussian_sigma = conf['gaussian filter sigma']
-    mask_file = conf['mask file']
-    if mask_file is not None:
-        mask = util.read_image(mask_file)
+    center = conf['center']
+    adu_per_photon = conf['adu per photon']
+    epsilon = conf['epsilon']
+    bin_size = conf['bin size']
+    if conf['mask on']:
+        mask = util.read_image(conf['mask file'])
     else:
         mask = None
-    max_peak_num = conf['max peak num']
+    hit_finder = conf['hit finder']
+    gaussian_sigma = conf['gaussian filter sigma']
     min_distance = conf['min distance']
     min_gradient = conf['min gradient']
+    max_peaks = conf['max peaks']
     min_snr = conf['min snr']
-    dataset = conf['dataset']
-    peak_refine_mode = conf['peak refine mode']
     min_pixels = conf['min pixels']
+    peak_refine_mode = conf['peak refine mode']
     snr_mode = conf['snr mode']
-    signal_radius = conf['signal radius']
+    sig_radius = conf['signal radius']
     bg_inner_radius = conf['background inner radius']
     bg_outer_radius = conf['background outer radius']
     crop_size = conf['crop size']
     bg_ratio = conf['background ratio']
-    signal_ratio = conf['signal ratio']
-    signal_thres = conf['signal threshold']
+    sig_ratio = conf['signal ratio']
+    sig_thres = conf['signal threshold']
+    dataset = conf['dataset']
 
     # perform hit finding
     while not stop:
@@ -218,24 +224,27 @@ def slave_run(args):
                                     h5_obj=h5_obj,
                                     dataset=dataset)
             peaks_dict = util.find_peaks(
-                image,
+                image, center,
+                adu_per_photon=adu_per_photon,
+                epsilon=epsilon,
+                bin_size=bin_size,
                 mask=mask,
+                hit_finder=hit_finder,
                 gaussian_sigma=gaussian_sigma,
-                min_distance=min_distance,
                 min_gradient=min_gradient,
-                max_peaks=max_peak_num,
+                min_distance=min_distance,
+                max_peaks=max_peaks,
                 min_snr=min_snr,
                 min_pixels=min_pixels,
                 refine_mode=peak_refine_mode,
                 snr_mode=snr_mode,
-                signal_radius=signal_radius,
+                signal_radius=sig_radius,
                 bg_inner_radius=bg_inner_radius,
                 bg_outer_radius=bg_outer_radius,
                 crop_size=crop_size,
                 bg_ratio=bg_ratio,
-                signal_ratio=signal_ratio,
-                signal_thres=signal_thres,
-                label_pixels=False,
+                signal_ratio=sig_ratio,
+                signal_thres=sig_thres,
             )
             if peaks_dict['strong'] is not None:
                 job[i]['nb_peak'] = len(peaks_dict['strong'])
@@ -259,4 +268,4 @@ if __name__ == '__main__':
     if rank == 0:
         master_run(argv)
     else:
-        slave_run(argv)
+        worker_run(argv)

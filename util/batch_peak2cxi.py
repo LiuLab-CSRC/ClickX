@@ -7,7 +7,7 @@ Usage:
 
 Options:
     -h --help                   Show this screen.
-    --min-peak NUM              Specify min peaks for a hit [default: 20].
+    --min-peaks NUM             Specify min peaks for a hit [default: 20].
     --cxi-size SIZE             Specify max frame in one single cxi file
                                 [default: 1000].
     --cxi-dtype DATATYPE        Specify datatype of patterns in compressed cxi
@@ -22,11 +22,14 @@ Options:
     --flush                     Flush output of print.
 
 """
-from mpi4py import MPI
+from __future__ import print_function
+from six import print_ as print
 from docopt import docopt
 import sys
 import os
 import time
+
+from mpi4py import MPI
 import numpy as np
 import yaml
 import util
@@ -59,37 +62,38 @@ def master_run(args):
     # dispatch jobs
     job_id = 0
     reqs = {}
-    slaves = set(range(1, size))
-    finished_slaves = set()
+    workers = set(range(1, size))
+    finished_workers = set()
     time_start = time.time()
-    for slave in slaves:
+    for worker in workers:
         if job_id < nb_jobs:
             job = jobs[job_id]
         else:
             job = []  # dummy job
-        comm.isend(jobs[job_id], dest=slave)
-        reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=flush)
+        comm.isend(jobs[job_id], dest=worker)
+        reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
+        print('job %d/%d --> slave %d'
+              % (job_id, nb_jobs, worker), flush=flush)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
-        slaves -= finished_slaves
+        workers -= finished_workers
         time.sleep(0.1)  # take a break
-        for slave in slaves:
-            finished, result = reqs[slave].test()
+        for worker in workers:
+            finished, result = reqs[worker].test()
             if finished:
                 if job_id < nb_jobs:
                     print('job %d/%d --> slave %d' %
-                          (job_id, nb_jobs, slave), flush=flush)
-                    comm.isend(stop, dest=slave)
-                    comm.isend(jobs[job_id], dest=slave)
-                    reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
+                          (job_id, nb_jobs, worker), flush=flush)
+                    comm.isend(stop, dest=worker)
+                    comm.isend(jobs[job_id], dest=worker)
+                    reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
                     job_id += 1
                 else:
                     stop = True
-                    comm.isend(stop, dest=slave)
-                    print('stop signal --> %d' % slave, flush=flush)
-                    finished_slaves.add(slave)
+                    comm.isend(stop, dest=worker)
+                    print('stop signal --> %d' % worker, flush=flush)
+                    finished_workers.add(worker)
         if job_id % update_freq == 0:
             # update stat
             progress = float(job_id) / nb_jobs * 100
@@ -105,14 +109,14 @@ def master_run(args):
     all_done = False
     while not all_done:
         time.sleep(0.1)
-        slaves -= finished_slaves
+        workers -= finished_workers
         all_done = True
-        for slave in slaves:
-            finished, result = reqs[slave].test()
+        for worker in workers:
+            finished, result = reqs[worker].test()
             if finished:
                 stop = True
-                comm.isend(stop, dest=slave)
-                finished_slaves.add(slave)
+                comm.isend(stop, dest=worker)
+                finished_workers.add(worker)
             else:
                 all_done = False
     time_end = time.time()
@@ -131,11 +135,11 @@ def master_run(args):
     MPI.Finalize()
 
 
-def slave_run(args):
+def worker_run(args):
     stop = False
     peak_file = args['<peak-file>']
     hit_dir = args['<hit-dir>']
-    min_peak = int(args['--min-peak'])
+    min_peaks = int(args['--min-peaks'])
     cxi_size = int(args['--cxi-size'])
     cxi_dtype = args['--cxi-dtype']
     buffer_size = int(args['--buffer-size'])
@@ -151,7 +155,7 @@ def slave_run(args):
     while not stop:
         job = comm.recv(buf=buffer_size, source=0)
         for i in range(len(job)):
-            if job[i]['nb_peak'] >= min_peak:
+            if job[i]['nb_peak'] >= min_peaks:
                 batch.append(job[i])
             if len(batch) == cxi_size:
                 # save full cxi file
@@ -194,4 +198,4 @@ if __name__ == '__main__':
     if rank == 0:
         master_run(args)
     else:
-        slave_run(args)
+        worker_run(args)

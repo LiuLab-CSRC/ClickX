@@ -1,6 +1,6 @@
 from PyQt5.uic import loadUi
 from PyQt5.QtWidgets import QWidget, QFileDialog
-from PyQt5.QtCore import pyqtSlot, QPoint, Qt
+from PyQt5.QtCore import pyqtSlot
 
 import os
 
@@ -16,28 +16,27 @@ class HitWindow(QWidget):
         loadUi('%s/ui/hit_win.ui' % dir_, self)
         # load settings
         self.settings = settings
-        self.workdir = self.settings.workdir
         self.main_win = main_win
 
-        self.browse_btn.clicked.connect(self.choose_and_load_hits)
-        self.table.cellDoubleClicked.connect(self.view_hit)
+        self.browseButton.clicked.connect(self.choose_and_load_hits)
+        self.table.cellDoubleClicked.connect(self.view_hits)
 
     @pyqtSlot()
     def choose_and_load_hits(self):
         hit_file, _ = QFileDialog.getOpenFileName(
-            self, "Open Hit File", self.workdir, "(*.csv)"
+            self, "Open Hit File", self.settings.workdir, "(*.csv)"
         )
         if len(hit_file) == 0:
             return
-        self.hit_file_le.setText(hit_file)
+        self.hitFile.setText(hit_file)
         self.load_hits(hit_file)
 
     @pyqtSlot(int, int)
-    def view_hit(self, row, _):
-        filepath = self.table.item(row, 0).text()
+    def view_hits(self, row, _):
+        path = self.table.item(row, 0).text()
         dataset = self.table.item(row, 1).text()
         frame = int(self.table.item(row, 2).text())
-        self.main_win.load_frame(filepath, dataset=dataset, frame=frame)
+        self.main_win.load_data(path, dataset=dataset, frame=frame)
         self.main_win.update_file_info()
         self.main_win.change_image()
         self.main_win.update_display()

@@ -90,19 +90,17 @@ class GenPowderThread(QThread):
         else:
             output = self.output
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_powder_generator_%s' % (
-            dir_, self.settings.script_suffix)
+        shell_script = '%s/engines/%s/run_powder_generator' % (
+            dir_, self.settings.engine)
         python_script = '%s/util/batch_peak_powder.py' % dir_
 
-        self.info.emit('Submitting powder generation task.')
-        subprocess.run(
+        subprocess.call(
             [
                 shell_script, python_script,
                 file_lst, conf_file,
                 '-o', output,
             ]
         )
-        self.info.emit('Powder generation done!')
 
 
 class CrawlerThread(QThread):
@@ -126,11 +124,10 @@ class CrawlerThread(QThread):
                 time1 = os.path.getmtime(raw_lst)
                 job_name = os.path.basename(raw_lst).split('.')[0]
                 # check compression status
-                cxi_comp_dir = os.path.join(self.workdir, 'cxi_comp', job_name)
                 compression = 'ready'
-                hit_rate = 0
                 comp_ratio = 0
                 raw_frames = 0
+                cxi_comp_dir = os.path.join(self.workdir, 'cxi_comp', job_name)
                 if os.path.isdir(cxi_comp_dir):
                     stat_file = os.path.join(cxi_comp_dir, 'stat.yml')
                     if os.path.exists(stat_file):
@@ -151,27 +148,27 @@ class CrawlerThread(QThread):
                 else:
                     hit_finding = 'not ready'
                 # check hit finding status
+                time2 = np.inf
+                peak2cxi = 'not ready'
+                processed_frames = 0
+                processed_hits = 0
+                hit_rate = 0.
                 cxi_hit_dir = os.path.join(self.workdir, 'cxi_hit', job_name)
                 hit_tags = glob('%s/*' % cxi_hit_dir)
                 tags = [os.path.basename(tag) for tag in hit_tags]
                 if len(hit_tags) == 0:
-                    tag = ''
-                    time2 = math.inf
-                    processed_frames = 0
-                    processed_hits = 0
-                    peak2cxi = 'not ready'
                     job_list.append(
                         {
-                            'job': job_name,
+                            'job id': job_name,
                             'raw frames': raw_frames,
-                            'compression': compression,
+                            'compression progress': compression,
                             'compression ratio': comp_ratio,
-                            'tag': tag,
-                            'hit finding': hit_finding,
+                            'tag id': 'NA',  # dummy tag
+                            'hit finding progress': hit_finding,
                             'processed frames': processed_frames,
                             'processed hits': processed_hits,
                             'hit rate': hit_rate,
-                            'peak2cxi': peak2cxi,
+                            'peak2cxi progress': peak2cxi,
                             'time1': time1,
                             'time2': time2,
                         }
@@ -187,7 +184,7 @@ class CrawlerThread(QThread):
                                 stat = yaml.load(f)
                                 if stat is None:
                                     stat = {}
-                            time2 = stat.get('time start', math.inf)
+                            time2 = stat.get('time start', np.inf)
                             processed_hits = stat.get('processed hits', 0)
                             processed_frames = stat.get('processed frames', 0)
                             hit_finding = stat.get('progress', 0)
@@ -198,37 +195,33 @@ class CrawlerThread(QThread):
                                     peak2cxi = 'done'
                             else:
                                 peak2cxi = 'not ready'
-                            if tag in total_processed_hits.keys():
+                            if tag in total_processed_hits:
                                 total_processed_hits[tag] += processed_hits
                             else:
                                 total_processed_hits[tag] = processed_hits
-                            if tag in total_processed_frames.keys():
+                            if tag in total_processed_frames:
                                 total_processed_frames[tag] += processed_frames
                             else:
                                 total_processed_frames[tag] = processed_frames
                             hit_rate = stat.get('hit rate')
-                        else:
-                            time2 = math.inf
-                            processed_frames = 0
-                            processed_hits = 0
                         job_list.append(
                             {
-                                'job': job_name,
+                                'job id': job_name,
                                 'raw frames': raw_frames,
-                                'compression': compression,
+                                'compression progress': compression,
                                 'compression ratio': comp_ratio,
-                                'tag': tag,
-                                'hit finding': hit_finding,
+                                'tag id': tag,
+                                'hit finding progress': hit_finding,
                                 'processed hits': processed_hits,
                                 'processed frames': processed_frames,
                                 'hit rate': hit_rate,
-                                'peak2cxi': peak2cxi,
+                                'peak2cxi progress': peak2cxi,
                                 'time1': time1,
                                 'time2': time2,
                             }
                         )
                 job_list = sorted(
-                    job_list, key=operator.itemgetter('job', 'time2')
+                    job_list, key=operator.itemgetter('job id', 'time2')
                 )
             self.jobs.emit(job_list)
 
@@ -248,8 +241,6 @@ class CrawlerThread(QThread):
 
 
 class CompressorThread(QThread):
-    progress = pyqtSignal(float)
-
     def __init__(self, job, settings, parent=None):
         super(CompressorThread, self).__init__(parent)
         self.job = job
@@ -260,16 +251,16 @@ class CompressorThread(QThread):
         workdir = self.settings.workdir
         raw_lst = os.path.join(workdir, 'raw_lst', '%s.lst' % job)
         raw_dataset = self.settings.raw_dataset
-        comp_dataset = self.settings.comp_dataset
+        comp_dataset = self.settings.compressed_dataset
         comp_dir = os.path.join(workdir, 'cxi_comp', job)
         comp_lst_dir = os.path.join(workdir, 'cxi_lst')
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_compressor_%s' \
-                       % (dir_, self.settings.script_suffix)
+        shell_script = '%s/engines/%s/run_compressor' \
+                       % (dir_, self.settings.engine)
         python_script = '%s/util/batch_compressor.py' % dir_
-        comp_size = str(self.settings.comp_size)
-        comp_dtype = str(self.settings.comp_dtype)
-        subprocess.run(
+        comp_size = str(self.settings.compressed_batch_size)
+        comp_dtype = str(self.settings.compressed_datatype)
+        subprocess.call(
             [
                 shell_script,  job, python_script,
                 raw_lst, raw_dataset, comp_dir, comp_lst_dir,
@@ -283,46 +274,48 @@ class CompressorThread(QThread):
 class HitFinderThread(QThread):
     def __init__(self, settings,
                  parent=None,
-                 workdir=None,
                  job=None,
                  conf=None,
                  tag=None):
         super(HitFinderThread, self).__init__(parent)
         self.settings = settings
-        self.workdir = workdir
         self.job = job
         self.conf = conf
         self.tag = tag
 
     def run(self):
-        cxi_lst = os.path.join(self.workdir, 'cxi_lst', '%s.lst' % self.job)
+        cxi_lst = os.path.join(
+            self.settings.workdir, 'cxi_lst', '%s.lst' % self.job)
         conf = self.conf
         job = self.job
-        hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
-        min_peak = str(self.settings.min_peak)
+        min_peaks = str(self.settings.min_peaks)
+        hit_dir = os.path.join(
+            self.settings.workdir, 'cxi_hit', self.job, self.tag)
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_hit_finder_%s' % \
-                       (dir_, self.settings.script_suffix)
+        shell_script = '%s/engines/%s/run_hit_finder' % \
+                       (dir_, self.settings.engine)
         python_script = '%s/util/batch_hit_finder.py' % dir_
-        subprocess.run([shell_script, job, python_script, cxi_lst, conf,
-                        hit_dir, '--min-peak', min_peak])
+        subprocess.call(
+            [shell_script, job, python_script, cxi_lst, conf,
+             hit_dir, '--min-peaks', min_peaks])
 
 
 class Peak2CxiThread(QThread):
-    def __init__(self, settings, workdir, job, tag):
+    def __init__(self, settings, job, tag):
         super(Peak2CxiThread, self).__init__()
         self.settings = settings
-        self.workdir = workdir
         self.job = job
         self.tag = tag
 
     def run(self):
-        hit_dir = os.path.join(self.workdir, 'cxi_hit', self.job, self.tag)
+        hit_dir = os.path.join(
+            self.settings.workdir, 'cxi_hit', self.job, self.tag)
         peak_file = os.path.join(hit_dir, '%s.npy' % self.job)
-        min_peak = str(self.settings.min_peak)
+        min_peaks = str(self.settings.min_peaks)
         dir_ = os.path.dirname(__file__)
-        shell_script = '%s/scripts/run_peak2cxi_%s' % \
-                       (dir_, self.settings.script_suffix)
+        shell_script = '%s/engines/%s/run_peak2cxi' % \
+                       (dir_, self.settings.engine)
         python_script = '%s/util/batch_peak2cxi.py' % dir_
-        subprocess.run([shell_script, self.job, python_script, peak_file, hit_dir,
-                        '--min-peak', min_peak])
+        subprocess.call(
+            [shell_script, self.job, python_script, peak_file, hit_dir,
+             '--min-peaks', min_peaks])

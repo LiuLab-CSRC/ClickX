@@ -54,50 +54,50 @@ def master_run(args):
     job_id = 0
     reqs = {}
     peaks = []
-    slaves = set(range(1, size))
-    finished_slaves = set()
-    for slave in slaves:
+    workers = set(range(1, size))
+    finished_workers = set()
+    for worker in workers:
         if job_id < nb_jobs:
             job = jobs[job_id]
         else:
             job = []  # dummy job
-        comm.isend(job, dest=slave)
-        reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d  --> %d' % (job_id, nb_jobs, slave), flush=flush)
+        comm.isend(job, dest=worker)
+        reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
+        print('job %d/%d  --> %d' % (job_id, nb_jobs, worker), flush=flush)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
         time.sleep(0.1)  # take a break
-        slaves -= finished_slaves
-        for slave in slaves:
-            finished, result = reqs[slave].test()
+        workers -= finished_workers
+        for worker in workers:
+            finished, result = reqs[worker].test()
             if finished:
                 peaks += result
                 if job_id < nb_jobs:
                     print('job %d/%d --> %d' %
-                          (job_id, nb_jobs, slave), flush=flush)
-                    comm.isend(stop, dest=slave)
-                    comm.isend(jobs[job_id], dest=slave)
-                    reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
+                          (job_id, nb_jobs, worker), flush=flush)
+                    comm.isend(stop, dest=worker)
+                    comm.isend(jobs[job_id], dest=worker)
+                    reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
                     job_id += 1
                 else:
                     stop = True
-                    comm.isend(stop, dest=slave)
-                    print('stop signal --> %d' % slave, flush=flush)
-                    finished_slaves.add(slave)
+                    comm.isend(stop, dest=worker)
+                    print('stop signal --> %d' % worker, flush=flush)
+                    finished_workers.add(worker)
 
     all_done = False
     while not all_done:
         all_done = True
-        slaves -= finished_slaves
-        for slave in slaves:
-            finished, result = reqs[slave].test()
+        workers -= finished_workers
+        for worker in workers:
+            finished, result = reqs[worker].test()
             if finished:
                 peaks += result
                 stop = True
-                print('stop signal --> %d' % slave, flush=flush)
-                comm.isend(stop, dest=slave)
-                finished_slaves.add(slave)
+                print('stop signal --> %d' % worker, flush=flush)
+                comm.isend(stop, dest=worker)
+                finished_workers.add(worker)
             else:
                 all_done = False
 
@@ -129,16 +129,30 @@ def slave_run(args):
     # hit finding parameters
     with open(args['<conf-file>']) as f:
         conf = yaml.load(f)
-    gaussian_sigma = conf['gaussian filter sigma']
-    mask_file = conf['mask file']
-    if mask_file is not None:
-        mask = util.read_image(mask_file)
+    center = conf['center']
+    adu_per_photon = conf['adu per photon']
+    epsilon = conf['epsilon']
+    bin_size = conf['bin size']
+    if conf['mask on']:
+        mask = util.read_image(conf['mask file'])
     else:
         mask = None
-    max_peak_num = conf['max peak num']
+    hit_finder = conf['hit finder']
+    gaussian_sigma = conf['gaussian filter sigma']
     min_distance = conf['min distance']
     min_gradient = conf['min gradient']
+    max_peaks = conf['max peaks']
     min_snr = conf['min snr']
+    min_pixels = conf['min pixels']
+    peak_refine_mode = conf['peak refine mode']
+    snr_mode = conf['snr mode']
+    sig_radius = conf['signal radius']
+    bg_inner_radius = conf['background inner radius']
+    bg_outer_radius = conf['background outer radius']
+    crop_size = conf['crop size']
+    bg_ratio = conf['background ratio']
+    sig_ratio = conf['signal ratio']
+    sig_thres = conf['signal threshold']
     dataset = conf['dataset']
 
     # perform hit finding
@@ -152,14 +166,29 @@ def slave_run(args):
                 filepath = _filepath
                 h5_obj = h5py.File(filepath, 'r')
             image = util.read_image(filepath, frame=frame,
-                               h5_obj=h5_obj, dataset=dataset)
+                                    h5_obj=h5_obj, dataset=dataset)
             peaks_dict = util.find_peaks(
-                image, mask=mask,
+                image, center,
+                adu_per_photon=adu_per_photon,
+                epsilon=epsilon,
+                bin_size=bin_size,
+                mask=mask,
+                hit_finder=hit_finder,
                 gaussian_sigma=gaussian_sigma,
-                min_distance=min_distance,
                 min_gradient=min_gradient,
-                max_peaks=max_peak_num,
-                min_snr=min_snr
+                min_distance=min_distance,
+                max_peaks=max_peaks,
+                min_snr=min_snr,
+                min_pixels=min_pixels,
+                refine_mode=peak_refine_mode,
+                snr_mode=snr_mode,
+                signal_radius=sig_radius,
+                bg_inner_radius=bg_inner_radius,
+                bg_outer_radius=bg_outer_radius,
+                crop_size=crop_size,
+                bg_ratio=bg_ratio,
+                signal_ratio=sig_ratio,
+                signal_thres=sig_thres,
             )
             if peaks_dict['strong'] is not None:
                 peaks += peaks_dict['strong'].tolist()

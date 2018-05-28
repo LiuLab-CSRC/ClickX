@@ -25,8 +25,9 @@ Options:
                                 [default: 10].
     --flush                     Flush output of print.
 """
-from mpi4py import MPI
 
+from __future__ import print_function
+from six import print_ as print
 import sys
 import os
 import time
@@ -34,6 +35,7 @@ from glob import glob
 from docopt import docopt
 import yaml
 
+from mpi4py import MPI
 import util
 
 
@@ -72,36 +74,36 @@ def master_run(args):
     job_id = 0
     reqs = {}
     results = []
-    slaves = set(range(1, size))
-    finished_slaves = set()
-    for slave in slaves:
+    workers = set(range(1, size))
+    finished_workers = set()
+    for worker in workers:
         if job_id < nb_jobs:
             job = jobs[job_id]
         else:
             job = []  # dummy job
-        comm.isend(job, dest=slave)
-        reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d --> %d' % (job_id, nb_jobs, slave), flush=flush)
+        comm.isend(job, dest=worker)
+        reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
+        print('job %d/%d --> %d' % (job_id, nb_jobs, worker), flush=flush)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
         time.sleep(0.1)  # take a break
-        slaves -= finished_slaves
-        for slave in slaves:
-            finished, result = reqs[slave].test()
+        workers -= finished_workers
+        for worker in workers:
+            finished, result = reqs[worker].test()
             if finished:
                 results += result
                 if job_id < nb_jobs:
                     print('job %d/%d --> %d' %
-                          (job_id, nb_jobs, slave), flush=flush)
-                    comm.isend(stop, dest=slave)
-                    comm.isend(jobs[job_id], dest=slave)
-                    reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
+                          (job_id, nb_jobs, worker), flush=flush)
+                    comm.isend(stop, dest=worker)
+                    comm.isend(jobs[job_id], dest=worker)
+                    reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
                     job_id += 1
                 else:
                     stop = True
-                    comm.isend(stop, dest=slave)
-                    finished_slaves.add(slave)
+                    comm.isend(stop, dest=worker)
+                    finished_workers.add(worker)
         if job_id % update_freq == 0:
             progress = float(job_id) / nb_jobs * 100
             stat_dict = {
@@ -123,32 +125,32 @@ def master_run(args):
     while not all_accepted:
         all_accepted = True
         time.sleep(0.1)  # take a break
-        slaves -= finished_slaves
-        for slave in slaves:
-            finished, result = reqs[slave].test()
+        workers -= finished_workers
+        for worker in workers:
+            finished, result = reqs[worker].test()
             if finished:
                 stop = True
-                comm.isend(stop, dest=slave)
-                finished_slaves.add(slave)
+                comm.isend(stop, dest=worker)
+                finished_workers.add(worker)
             else:
                 all_accepted = False
     print('all jobs accepted', flush=flush)
 
     # check status of last job batch
     all_done = False
-    slaves = set(range(1, size))
-    finished_slaves = set()
-    for slave in slaves:
-        reqs[slave] = comm.irecv(source=slave)
+    workers = set(range(1, size))
+    finished_workers = set()
+    for worker in workers:
+        reqs[worker] = comm.irecv(source=worker)
     while not all_done:
         all_done = True
         time.sleep(0.1)
-        slaves -= finished_slaves
-        for slave in slaves:
-            done, _ = reqs[slave].test()
+        workers -= finished_workers
+        for worker in workers:
+            done, _ = reqs[worker].test()
             if done:
-                print('slave %d done' % slave, flush=flush)
-                finished_slaves.add(slave)
+                print('worker %d done' % worker, flush=flush)
+                finished_workers.add(worker)
             else:
                 all_done = False
     # save results
@@ -182,11 +184,11 @@ def master_run(args):
         yaml.dump(stat_dict, f, default_flow_style=False)
 
     print('All Done!', flush=flush)
-    MPI.Finalize()
 
 
-def slave_run(args):
+def worker_run(args):
     stop = False
+    flush = args['--flush']
     in_lst = args['<raw-lst>']
     comp_dir = args['<comp-dir>']
     comp_dataset = args['--comp-dataset']
@@ -214,7 +216,7 @@ def slave_run(args):
                     batch, comp_file, comp_dataset,
                     out_dtype=comp_dtype, shuffle=shuffle
                 )
-                batch.clear()
+                batch = []
                 count += 1
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
@@ -243,4 +245,4 @@ if __name__ == '__main__':
     if rank == 0:
         master_run(args)
     else:
-        slave_run(args)
+        worker_run(args)

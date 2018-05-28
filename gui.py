@@ -19,6 +19,7 @@ from util import util
 from threads import MeanCalculatorThread, GenPowderThread
 from settings import Settings, SettingDialog
 from job_win import JobWindow
+from hit_win import HitWindow
 
 
 class GUI(QMainWindow):
@@ -59,6 +60,7 @@ class GUI(QMainWindow):
 
         # other windows
         self.job_win = JobWindow(main_win=self, settings=self.settings)
+        self.hit_win = HitWindow(main_win=self, settings=self.settings)
 
         # fixed attributes
         self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz')
@@ -98,6 +100,7 @@ class GUI(QMainWindow):
         self.mask_on = False
         self.hit_finder = self.hit_finders[0]
         self.max_peaks = 500
+        self.min_peaks = 20
         self.adu_per_photon = 20  # dummy number
         self.epsilon = 1E-5
         self.bin_size = 4
@@ -268,6 +271,10 @@ class GUI(QMainWindow):
                 'value': self.max_peaks,
             },
             {
+                'name': 'min peaks', 'type': 'int',
+                'value': self.min_peaks,
+            },
+            {
                 'name': 'min pixels', 'type': 'int',
                 'value': self.min_pixels
             },
@@ -418,6 +425,10 @@ class GUI(QMainWindow):
         self.actionShow_Inspector.triggered.connect(self.show_inspector)
         self.actionPeak_Table.triggered.connect(self.show_peak_table)
         self.actionJob_Table.triggered.connect(self.show_job_win)
+        self.actionHit_Table.triggered.connect(
+            partial(self.show_hit_win, job=None, tag=None))
+        # job table
+        self.job_win.view_hits.connect(self.show_hit_win)
         # peak table
         self.peak_table.peak_table.cellDoubleClicked.connect(
             self.zoom_in_on_peak
@@ -495,6 +506,9 @@ class GUI(QMainWindow):
         self.hit_finder_params.param(
             'max peaks'
         ).sigValueChanged.connect(self.change_max_peaks)
+        self.hit_finder_params.param(
+            'min pixels'
+        ).sigValueChanged.connect(self.change_min_peaks)
         self.hit_finder_params.param(
             'min pixels'
         ).sigValueChanged.connect(self.change_min_pixels)
@@ -576,6 +590,7 @@ class GUI(QMainWindow):
         self.center = np.array(conf_dict.get('center', [0, 0]))
         self.hit_finder = conf_dict.get('hit finder', 'snr model')
         self.max_peaks = conf_dict.get('max peaks', 500)
+        self.min_peaks = conf_dict.get('min peaks', 20)
         self.adu_per_photon = conf_dict.get('adu per photon', 20)
         self.epsilon = conf_dict.get('epsilon', 1e-5)
         self.bin_size = conf_dict.get('bin size', 4)
@@ -602,6 +617,9 @@ class GUI(QMainWindow):
         self.hit_finder_params.param(
             'max peaks'
         ).setValue(self.max_peaks)
+        self.hit_finder_params.param(
+            'min peaks'
+        ).setValue(self.min_peaks)
         self.hit_finder_params.param(
             'min pixels'
         ).setValue(self.min_pixels)
@@ -675,6 +693,7 @@ class GUI(QMainWindow):
             'mask on': self.mask_on,
             'hit finder': self.hit_finder,
             'max peaks': self.max_peaks,
+            'min peaks': self.min_peaks,
             'adu per photon': self.adu_per_photon,
             'epsilon': self.epsilon,
             'bin size': self.bin_size,
@@ -745,7 +764,6 @@ class GUI(QMainWindow):
 
     @pyqtSlot()
     def show_settings(self):
-        self.add_info("showing settings")
         if self.setting_diag.exec_() == QDialog.Accepted:
             self.settings.save_settings()
 
@@ -760,13 +778,13 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def show_job_win(self):
         self.job_win.update_info(self.settings)
-        self.job_win.show()
-        # job_table = self.job_win.job_table
-        # width = job_table.width()
-        # col_count = job_table.columnCount()
-        # header = job_table.horizontalHeader()
-        # for i in range(col_count):
-        #     header.resizeSection(i, width // col_count)
+        self.job_win.showMaximized()
+        job_table = self.job_win.jobTable
+        width = job_table.width()
+        col_count = job_table.columnCount()
+        header = job_table.horizontalHeader()
+        for i in range(col_count):
+            header.resizeSection(i, width // col_count)
 
 # calib/mask related methods
     @pyqtSlot(object, object)
@@ -867,6 +885,11 @@ class GUI(QMainWindow):
     @pyqtSlot(object, object)
     def change_max_peaks(self, _, max_peaks):
         self.max_peaks = max_peaks
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_min_peaks(self, _, min_peaks):
+        self.min_peaks = min_peaks
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -1071,11 +1094,10 @@ class GUI(QMainWindow):
         self.mask_image = util.make_simple_mask(
             self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
             dilation=self.dilation_size, erosion2=self.erosion2_size)
-        if self.eraser_mask is not None:
-            self.mask_image *= self.eraser_mask
         if self.eraser_mask is None or (
                 self.eraser_mask.shape != self.raw_image.shape):
             self.eraser_mask = np.ones_like(self.raw_image, dtype=np.int)
+        self.mask_image *= self.eraser_mask
 
     def update_display(self):
         if self.raw_image is None:
@@ -1117,6 +1139,7 @@ class GUI(QMainWindow):
                 max_peaks=self.max_peaks,
                 min_snr=self.min_snr,
                 min_pixels=self.min_pixels,
+                max_pixels=self.max_pixels,
                 refine_mode=self.peak_refine_mode,
                 snr_mode=self.snr_mode,
                 signal_radius=self.sig_radius,
@@ -1212,6 +1235,16 @@ class GUI(QMainWindow):
                 item = table.item(i, j)
                 item.setTextAlignment(Qt.AlignCenter)
 
+# job table
+    @pyqtSlot(str, str)
+    def show_hit_win(self, job, tag):
+        if job is not None and tag is not None:
+            hit_file = os.path.join(
+                self.workdir, 'cxi_hit', job, tag, '%s.csv' % job)
+            self.hit_win.hitFile.setText(hit_file)
+            self.hit_win.load_hits(hit_file)
+        self.hit_win.show()
+
 # peak table
     @pyqtSlot(int, int)
     def zoom_in_on_peak(self, row, _):
@@ -1269,8 +1302,10 @@ class GUI(QMainWindow):
         else:
             curr_dir = ""
         dir_ = QFileDialog.getExistingDirectory(
-            self, "Choose directory", curr_dir
+            self, "Choose directory", self.workdir
         )
+        if len(dir_) == 0:
+            return
         if line_edit is not None:
             line_edit.setText(dir_)
 
@@ -1335,6 +1370,7 @@ class GUI(QMainWindow):
         output_dir = powder_diag.outputDirLine.text()
         prefix = powder_diag.prefixLine.text()
         output = os.path.join(output_dir, '%s.npz' % prefix)
+        self.add_info('Submit powder generation job.')
         self.gen_powder_thread = GenPowderThread(
             files, conf_file, self.settings,
             max_frame=max_frame,
@@ -1467,7 +1503,7 @@ class GUI(QMainWindow):
             for item in items:
                 row = self.fileList.row(item)
                 self.fileList.takeItem(row)
-                self.curr_files.remove(item.data(1))
+                self.all_files.remove(item.data(1))
                 self.add_info('Remove %s' % item.data(1))
 
     @pyqtSlot('QListWidgetItem*')

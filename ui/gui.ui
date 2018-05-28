@@ -275,6 +275,7 @@
     <addaction name="actionSave_Mask"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
+    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -291,9 +292,9 @@
     <addaction name="actionShow_Inspector"/>
     <addaction name="actionPeak_Table"/>
     <addaction name="separator"/>
-    <addaction name="actionJob_Table"/>
-    <addaction name="separator"/>
     <addaction name="actionPowder_Fit"/>
+    <addaction name="separator"/>
+    <addaction name="actionJob_Table"/>
     <addaction name="separator"/>
     <addaction name="actionHit_Table"/>
    </widget>
@@ -307,6 +308,7 @@
     <property name="title">
      <string>Help</string>
     </property>
+    <addaction name="actionAbout_SFX_Suite"/>
     <addaction name="actionDocumentation"/>
    </widget>
    <addaction name="menuFile"/>
@@ -389,6 +391,11 @@
   <action name="actionSettings">
    <property name="text">
     <string>Settings</string>
+   </property>
+  </action>
+  <action name="actionAbout_SFX_Suite">
+   <property name="text">
+    <string>About SFX Suite</string>
    </property>
   </action>
  </widget>

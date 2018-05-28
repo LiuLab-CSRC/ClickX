@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Dialog</class>
- <widget class="QDialog" name="Dialog">
+ <class>Settings</class>
+ <widget class="QDialog" name="Settings">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>831</width>
-    <height>641</height>
+    <height>604</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Settings</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,0,0,0,0">
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,0,0,0">
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
@@ -28,10 +28,10 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QLineEdit" name="workDirLine"/>
+       <widget class="QLineEdit" name="workDir"/>
       </item>
       <item row="0" column="2">
-       <widget class="QPushButton" name="pushButton">
+       <widget class="QPushButton" name="browseButton">
         <property name="text">
          <string>browse</string>
         </property>
@@ -45,7 +45,7 @@
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="QComboBox" name="jobEngineComboBox"/>
+       <widget class="QComboBox" name="jobEngine"/>
       </item>
      </layout>
     </widget>
@@ -58,65 +58,12 @@
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_3">
-          <property name="text">
-           <string>Photon Energy/eV:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QDoubleSpinBox" name="doubleSpinBox_2"/>
-        </item>
-        <item row="0" column="2">
-         <widget class="QLabel" name="label_4">
-          <property name="text">
-           <string>Detector Distance/mm:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="3">
-         <widget class="QDoubleSpinBox" name="doubleSpinBox"/>
-        </item>
-        <item row="0" column="4">
-         <widget class="QLabel" name="label_5">
-          <property name="text">
-           <string>Pixel Size/μm:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="5">
-         <widget class="QDoubleSpinBox" name="doubleSpinBox_3"/>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="label_6">
-          <property name="text">
-           <string>Image Width/pixel:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QSpinBox" name="spinBox"/>
-        </item>
-        <item row="1" column="2">
-         <widget class="QLabel" name="label_7">
-          <property name="text">
-           <string>Image Height/pixel:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="3">
-         <widget class="QSpinBox" name="spinBox_2"/>
-        </item>
         <item row="2" column="0">
          <widget class="QLabel" name="label_8">
           <property name="text">
            <string>Center X/pixel:</string>
           </property>
          </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QSpinBox" name="spinBox_3"/>
         </item>
         <item row="2" column="2">
          <widget class="QLabel" name="label_9">
@@ -126,7 +73,88 @@
          </widget>
         </item>
         <item row="2" column="3">
-         <widget class="QSpinBox" name="spinBox_4"/>
+         <widget class="QDoubleSpinBox" name="centerY">
+          <property name="maximum">
+           <double>9999.000000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>Pixel Size/μm:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="4">
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Detector Distance/mm:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QDoubleSpinBox" name="pixelSize">
+          <property name="maximum">
+           <double>9999.000000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QDoubleSpinBox" name="centerX">
+          <property name="maximum">
+           <double>9999.000000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QSpinBox" name="imageWidth">
+          <property name="maximum">
+           <number>9999</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QSpinBox" name="imageHeight">
+          <property name="maximum">
+           <number>9999</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_6">
+          <property name="text">
+           <string>Image Width/pixel:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QDoubleSpinBox" name="photonEnergy">
+          <property name="maximum">
+           <double>99999.000000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>Photon Energy/eV:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="label_7">
+          <property name="text">
+           <string>Image Height/pixel:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="5">
+         <widget class="QDoubleSpinBox" name="detectorDistance">
+          <property name="maximum">
+           <double>9999.000000000000000</double>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -156,7 +184,7 @@
          </widget>
         </item>
         <item row="0" column="3">
-         <widget class="QLineEdit" name="lineEdit_3"/>
+         <widget class="QLineEdit" name="compressedDataset"/>
         </item>
         <item row="1" column="0">
          <widget class="QLabel" name="label_11">
@@ -173,13 +201,17 @@
          </widget>
         </item>
         <item row="0" column="1">
-         <widget class="QLineEdit" name="lineEdit_2"/>
+         <widget class="QLineEdit" name="rawDataset"/>
         </item>
         <item row="1" column="1">
-         <widget class="QComboBox" name="comboBox_2"/>
+         <widget class="QComboBox" name="compressedDatatype"/>
         </item>
         <item row="1" column="3">
-         <widget class="QSpinBox" name="spinBox_5"/>
+         <widget class="QSpinBox" name="compressedBatchSize">
+          <property name="maximum">
+           <number>9999</number>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -202,14 +234,14 @@
          </widget>
         </item>
         <item>
-         <layout class="QGridLayout" name="gridLayout_4">
+         <layout class="QGridLayout" name="tableColumns">
           <item row="0" column="0">
-           <widget class="QCheckBox" name="checkBox">
+           <widget class="QCheckBox" name="jobId">
             <property name="enabled">
              <bool>false</bool>
             </property>
             <property name="text">
-             <string>job</string>
+             <string>job id</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -217,7 +249,7 @@
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QCheckBox" name="checkBox_2">
+           <widget class="QCheckBox" name="compressionProgress">
             <property name="text">
              <string>compression progress</string>
             </property>
@@ -227,7 +259,7 @@
            </widget>
           </item>
           <item row="0" column="2">
-           <widget class="QCheckBox" name="checkBox_3">
+           <widget class="QCheckBox" name="compressionRatio">
             <property name="text">
              <string>compression ratio</string>
             </property>
@@ -237,7 +269,7 @@
            </widget>
           </item>
           <item row="0" column="3">
-           <widget class="QCheckBox" name="checkBox_4">
+           <widget class="QCheckBox" name="rawFrames">
             <property name="text">
              <string>raw frames</string>
             </property>
@@ -247,12 +279,12 @@
            </widget>
           </item>
           <item row="0" column="4">
-           <widget class="QCheckBox" name="checkBox_5">
+           <widget class="QCheckBox" name="tagId">
             <property name="enabled">
              <bool>false</bool>
             </property>
             <property name="text">
-             <string>tag</string>
+             <string>tag id</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -260,7 +292,7 @@
            </widget>
           </item>
           <item row="1" column="0">
-           <widget class="QCheckBox" name="checkBox_6">
+           <widget class="QCheckBox" name="hitFindingProgress">
             <property name="text">
              <string>hit finding progress</string>
             </property>
@@ -270,7 +302,7 @@
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QCheckBox" name="checkBox_7">
+           <widget class="QCheckBox" name="processedFrames">
             <property name="text">
              <string>processed frames</string>
             </property>
@@ -280,7 +312,7 @@
            </widget>
           </item>
           <item row="1" column="2">
-           <widget class="QCheckBox" name="checkBox_8">
+           <widget class="QCheckBox" name="processedHits">
             <property name="text">
              <string>processed hits</string>
             </property>
@@ -290,7 +322,7 @@
            </widget>
           </item>
           <item row="1" column="3">
-           <widget class="QCheckBox" name="checkBox_9">
+           <widget class="QCheckBox" name="hitRate">
             <property name="text">
              <string>hit rate</string>
             </property>
@@ -300,7 +332,7 @@
            </widget>
           </item>
           <item row="1" column="4">
-           <widget class="QCheckBox" name="checkBox_10">
+           <widget class="QCheckBox" name="peak2cxiProgress">
             <property name="text">
              <string>peak2cxi progress</string>
             </property>
@@ -313,120 +345,36 @@
         </item>
        </layout>
       </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox_4">
-     <property name="title">
-      <string>Powder Fit</string>
-     </property>
-     <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="0,0,0,0,1">
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,1">
+       <layout class="QHBoxLayout" name="horizontalLayout_11">
         <item>
-         <widget class="QLabel" name="label_15">
-          <property name="layoutDirection">
-           <enum>Qt::LeftToRight</enum>
-          </property>
-          <property name="text">
-           <string>Max Peaks:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="horizontalLayout_10">
+          <item>
+           <widget class="QLabel" name="label_20">
+            <property name="text">
+             <string>Min Peaks for a Hit:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="minPeaks"/>
+          </item>
+         </layout>
         </item>
         <item>
-         <widget class="QSpinBox" name="spinBox_6">
-          <property name="maximum">
-           <number>9999999</number>
+         <spacer name="horizontalSpacer_3">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
           </property>
-         </widget>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
         </item>
        </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_5" stretch="0,1">
-        <item>
-         <widget class="QLabel" name="label_16">
-          <property name="toolTip">
-           <string>DBSCAN parameter: maximum distance between two samples for them to be considered as in the same neighborhood</string>
-          </property>
-          <property name="text">
-           <string>eps:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QDoubleSpinBox" name="doubleSpinBox_4">
-          <property name="maximum">
-           <double>999.990000000000009</double>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="0,1">
-        <item>
-         <widget class="QLabel" name="label_17">
-          <property name="toolTip">
-           <string>DBSCAN parameter: number of samples (or total weight) in a neighborhood for a point to be considered as a core point. This includes the point itself.</string>
-          </property>
-          <property name="text">
-           <string>Min Samples:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSpinBox" name="spinBox_7">
-          <property name="maximum">
-           <number>9999</number>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,1">
-        <item>
-         <widget class="QLabel" name="label_18">
-          <property name="text">
-           <string>tol:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QDoubleSpinBox" name="doubleSpinBox_5">
-          <property name="maximum">
-           <double>999.990000000000009</double>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
       </item>
      </layout>
     </widget>
@@ -448,7 +396,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QSpinBox" name="spinBox_8">
+       <widget class="QSpinBox" name="maxInfo">
         <property name="maximum">
          <number>999999</number>
         </property>
@@ -490,7 +438,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>Dialog</receiver>
+   <receiver>Settings</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -506,7 +454,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>Dialog</receiver>
+   <receiver>Settings</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

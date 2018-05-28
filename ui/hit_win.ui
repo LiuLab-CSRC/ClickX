@@ -19,19 +19,19 @@
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>hit file</string>
+        <string>Hit File:</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="hit_file_le">
+      <widget class="QLineEdit" name="hitFile">
        <property name="enabled">
         <bool>false</bool>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="browse_btn">
+      <widget class="QPushButton" name="browseButton">
        <property name="text">
         <string>Browse</string>
        </property>
