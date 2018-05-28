@@ -187,7 +187,7 @@ class SettingDialog(QDialog):
                 self.peak2cxiProgress.setChecked(True)
             else:
                 self.peak2cxiProgress.setChecked(False)
-        if 'min peaks' in kwargs:
+        if 'min_peaks' in kwargs:
             self.minPeaks.setValue(kwargs['min_peaks'])
         if 'max_info' in kwargs:
             self.maxInfo.setValue(kwargs['max_info'])
@@ -247,7 +247,7 @@ class Settings(object):
         self.compressed_datatype = None
         self.compressed_batch_size = None
         self.table_columns = None
-        self.min_peaks = 20
+        self.min_peaks = None
         self.max_info = None
         self.update(engines=get_all_engines())
         self.load_settings()
@@ -282,6 +282,7 @@ class Settings(object):
         self.update(compressed_batch_size=settings.get(
             'compressed_batch_size', 200))
         self.update(table_columns=settings.get('table_columns', all_columns))
+        self.update(min_peaks=settings.get('min_peaks', 20))
         self.update(max_info=settings.get('max_info', 1000))
 
     def save_settings(self):
