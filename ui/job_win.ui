@@ -70,6 +70,9 @@
               <property name="text">
                <string>Min Peaks for a Hit:</string>
               </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
              </widget>
             </item>
             <item>
