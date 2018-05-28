@@ -25,7 +25,7 @@ def read_image(filepath, frame=0, h5_obj=None, dataset=None):
         if len(data.shape) == 3:
             data = data[frame]
     elif ext in ('h5', 'cxi'):
-        if 'header/frame_num' in h5_obj.keys():  # PAL specific h5 file
+        if 'header/frame_num' in h5_obj:  # PAL specific h5 file
             data = h5_obj['ts-%07d/data' % frame].value
         elif len(h5_obj[dataset].shape) == 3:
             data = h5_obj[dataset][frame]
@@ -571,7 +571,7 @@ def get_data_shape(filepath):
         def _get_all_dataset(key):
             if isinstance(f[key], h5py._hl.dataset.Dataset):
                 keys.append(key)
-        if 'header/frame_num' in f.keys():  # PAL specific h5 file
+        if 'header/frame_num' in f:  # PAL specific h5 file
             nb_frame = f['header/frame_num'].value
             data_shape = {}
             x, y = f['ts-0000000/data'].shape
@@ -980,7 +980,7 @@ def make_simple_mask(image, thres, erosion1=0, dilation=0, erosion2=0):
     if erosion2 > 0:
         selem = disk(erosion2)
         image = binary_erosion(image, selem)
-    return image
+    return image.astype(np.int)
 
 
 def make_circle_mask(shape, center, radius, mode='background'):
