@@ -2,8 +2,8 @@
 
 #----hit finding script on local machine.-----#
 
-mpiexec=/opt/local/bin/mpiexec-mpich-mp
-python_exec=/opt/local/bin/python
-nb_process=3
+mpiexec=mpiexec
+python_exec=python
+nb_process=2
 
 $mpiexec -n $nb_process $python_exec "${@:2}"
