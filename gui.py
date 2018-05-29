@@ -22,10 +22,6 @@ from settings import Settings, SettingDialog
 from job_win import JobWindow
 from hit_win import HitWindow
 
-if os.getenv('facility', 'general') == 'lcls':
-    sys.path.append('/reg/g/psdm/sw/conda/inst/miniconda2-prod-rhel7/envs/'
-                    'ana-1.3.52/lib/python2.7/site-packages')
-
 
 class GUI(QMainWindow):
     def __init__(self):

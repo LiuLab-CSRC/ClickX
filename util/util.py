@@ -17,6 +17,8 @@ from skimage.morphology import disk, binary_dilation, binary_erosion
 from skimage.measure import label, regionprops
 
 if os.getenv('facility', 'general') == 'lcls':
+    sys.path.append('/reg/g/psdm/sw/conda/inst/miniconda2-prod-rhel7/envs/'
+                    'ana-1.3.52/lib/python2.7/site-packages')
     import psana
 
 
