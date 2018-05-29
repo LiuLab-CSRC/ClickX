@@ -447,7 +447,9 @@ class Job(object):
         self.job_thread.start()
 
     def __eq__(self, other):
-        if self.job_id == other.job_id and self.tag_id == other.tag_id:
+        if self.job_id == other.job_id \
+                and self.tag_id == other.tag_id\
+                and self.job_type == other.job_type:
             return True
         else:
             return False
