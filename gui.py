@@ -1617,6 +1617,9 @@ class GUI(QMainWindow):
             drop_file = url.toLocalFile()
             self.maybe_add_file(drop_file)
 
+    def closeEvent(self, _):
+        pass
+
 
 def main():
     app = QApplication(sys.argv)
