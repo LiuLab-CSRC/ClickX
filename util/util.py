@@ -9,6 +9,7 @@ import math
 import h5py
 import pandas as pd
 from tqdm import tqdm
+import yaml
 
 from skimage.feature import peak_local_max
 from scipy.ndimage.filters import gaussian_filter, convolve1d
@@ -16,12 +17,15 @@ from skimage.morphology import disk, binary_dilation, binary_erosion
 from skimage.measure import label, regionprops
 
 
-def read_image(filepath, frame=0, h5_obj=None, dataset=None):
-    ext = filepath.split('.')[-1]
+def read_image(path, frame=0,
+               h5_obj=None, dataset=None,
+               lcls_detector=None, lcls_datasource=None,
+               lcls_events=None, lcls_event=None):
+    ext = path.split('.')[-1]
     if ext == 'npy':
-        data = np.load(filepath)
+        data = np.load(path)
     elif ext == 'npz':
-        data = np.load(filepath)[dataset]
+        data = np.load(path)[dataset]
         if len(data.shape) == 3:
             data = data[frame]
     elif ext in ('h5', 'cxi'):
@@ -31,6 +35,16 @@ def read_image(filepath, frame=0, h5_obj=None, dataset=None):
             data = h5_obj[dataset][frame]
         else:
             data = h5_obj[dataset].value
+    elif ext == 'lcls':
+        if lcls_event is None:
+            while True:
+                if frame < len(lcls_events):
+                    lcls_event = lcls_events[frame]
+                    break
+                else:
+                    for i in range(10):  # load 10 more events
+                        lcls_events.append(lcls_datasource.events().next())
+        data = lcls_detector.image(lcls_event)
     else:
         print('Unsupported format: %s' % ext)
         return None
@@ -561,11 +575,11 @@ def calc_snr(image,
     return snr_info
 
 
-def get_data_shape(filepath):
+def get_data_shape(path):
     data_shape = {}
-    ext = filepath.split('.')[-1]
+    ext = path.split('.')[-1]
     if ext in ('h5', 'cxi'):
-        f = h5py.File(filepath, 'r')
+        f = h5py.File(path, 'r')
         keys = []
 
         def _get_all_dataset(key):
@@ -583,7 +597,7 @@ def get_data_shape(filepath):
                 data_shape[key] = f[key].shape
         f.close()
     elif ext == 'npz':
-        data = np.load(filepath)
+        data = np.load(path)
         keys = data.keys()
         for key in keys:
             if len(data[key].shape) == 2:
@@ -591,8 +605,19 @@ def get_data_shape(filepath):
                 data_shape[key] = (1, x, y)
             elif len(data[key].shape) == 3:
                 data_shape[key] = data[key].shape
+    elif ext == 'lcls':
+        with open(path) as f:
+            data = yaml.load(f)
+        detector = psana.Detector['det']
+        datasource = psana.DataSource('exp=%s:run=%d'
+                                      % data['exp'], data['run'])
+        image = read_image(path, frame=0,
+                           lcls_datasource=datasource,
+                           lcls_detector==detector)
+        x, y = image.shape
+        data_shape['lcls-data'] = (9999, x, y)
     else:
-        print('Unsupported file type: %s' % filepath)
+        print('Unsupported file type: %s' % path)
         return
     return data_shape
 
@@ -991,3 +1016,12 @@ def make_circle_mask(shape, center, radius, mode='background'):
     if mode == 'foreground':
         mask = 1 - mask
     return mask
+
+
+def get_lcls_events(path):
+    with open(path) as f:
+        data = yaml.load(f)
+    datasource = psana.DataSource('exp=%s:run=%d'
+                          % (data['exp'], data['run']))
+    detector = psana.Detector(data['det'])
+    return datasource, detector

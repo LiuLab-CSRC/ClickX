@@ -63,7 +63,7 @@ class GUI(QMainWindow):
         self.hit_win = HitWindow(main_win=self, settings=self.settings)
 
         # fixed attributes
-        self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz')
+        self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz', 'lcls')
         self.hit_finders = ('poisson model', 'snr model')
         self.peak_refine_mode_list = ('gradient', 'mean')
         self.snr_mode_list = ('simple', 'rings', 'adaptive')
@@ -73,6 +73,10 @@ class GUI(QMainWindow):
         self.path = None  # path of current file
         self.mask_file = None
         self.mask = None
+        self.lcls_datasource = None
+        self.lcls_detector = None
+        self.lcls_events = []
+        self.lcls_event = None
         self.eraser_mask = None
         self.h5_obj = None  # h5 object
         self.dataset = ''  # current dataset
@@ -1082,10 +1086,14 @@ class GUI(QMainWindow):
     def change_image(self):
         if self.path is None:
             return
-        self.raw_image = util.read_image(self.path,
-                                         frame=self.curr_frame,
-                                         h5_obj=self.h5_obj,
-                                         dataset=self.dataset).astype(float)
+        self.raw_image = util.read_image(
+            self.path, frame=self.curr_frame,
+            h5_obj=self.h5_obj, dataset=self.dataset,
+            lcls_datasource=self.lcls_datasource,
+            lcls_detector=self.lcls_detector,
+            lcls_events=self.lcls_events,
+            lcls_event=self.lcls_event,
+        ).astype(float)
         self.mask_image = util.make_simple_mask(
             self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
             dilation=self.dilation_size, erosion2=self.erosion2_size)
@@ -1557,6 +1565,15 @@ class GUI(QMainWindow):
             self.dataset = dataset
             self.total_frames = nb_frame
             self.h5_obj = h5_obj
+        elif ext == 'lcls':  # self-defined format
+            datasource, detector = util.get_lcls_data(path)
+            data_shape = util.get_data_shape(path)
+            nb_frame = data_shape[dataset][0]
+            self.path = path
+            self.dataset = 'lcls-data'
+            self.total_frames = nb_frame
+            self.lcls_datasource = datasource
+            self.lcls_detector = detector
         else:
             return
 
