@@ -414,7 +414,7 @@ class JobWindow(QWidget):
         for i in range(col_count):
             header.resizeSection(i, width // col_count)
 
-    def closeEvent(self, a0: QtGui.QCloseEvent):
+    def closeEvent(self):
         self.timer.stop()
 
 
