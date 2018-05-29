@@ -613,7 +613,7 @@ def get_data_shape(path):
                                       % data['exp'], data['run'])
         image = read_image(path, frame=0,
                            lcls_datasource=datasource,
-                           lcls_detector==detector)
+                           lcls_detector=detector)
         x, y = image.shape
         data_shape['lcls-data'] = (9999, x, y)
     else:
