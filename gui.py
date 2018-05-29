@@ -7,6 +7,7 @@ from glob import glob
 
 import h5py
 import numpy as np
+import PyQt5
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import pyqtSlot, QPoint, Qt
@@ -20,6 +21,10 @@ from threads import MeanCalculatorThread, GenPowderThread
 from settings import Settings, SettingDialog
 from job_win import JobWindow
 from hit_win import HitWindow
+
+if os.getenv('facility', 'general') == 'lcls':
+    sys.path.append('/reg/g/psdm/sw/conda/inst/miniconda2-prod-rhel7/envs/'
+                    'ana-1.3.52/lib/python2.7/site-packages')
 
 
 class GUI(QMainWindow):
@@ -567,7 +572,7 @@ class GUI(QMainWindow):
     def open_file(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Open Data File",
-            self.workdir, "Data (*.h5 *.cxi *.npy *.npz)"
+            self.workdir, "Data (*.h5 *.cxi *.npy *.npz *.lcls)"
         )
         if len(path) == 0:
             return
@@ -1566,11 +1571,12 @@ class GUI(QMainWindow):
             self.total_frames = nb_frame
             self.h5_obj = h5_obj
         elif ext == 'lcls':  # self-defined format
+            dataset = 'lcls-data'
             datasource, detector = util.get_lcls_data(path)
             data_shape = util.get_data_shape(path)
             nb_frame = data_shape[dataset][0]
             self.path = path
-            self.dataset = 'lcls-data'
+            self.dataset = dataset
             self.total_frames = nb_frame
             self.lcls_datasource = datasource
             self.lcls_detector = detector

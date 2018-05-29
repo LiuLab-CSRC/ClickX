@@ -16,6 +16,9 @@ from scipy.ndimage.filters import gaussian_filter, convolve1d
 from skimage.morphology import disk, binary_dilation, binary_erosion
 from skimage.measure import label, regionprops
 
+if os.getenv('facility', 'general') == 'lcls':
+    import psana
+
 
 def read_image(path, frame=0,
                h5_obj=None, dataset=None,
@@ -608,12 +611,13 @@ def get_data_shape(path):
     elif ext == 'lcls':
         with open(path) as f:
             data = yaml.load(f)
-        detector = psana.Detector['det']
+        detector = psana.Detector(data['det'])
         datasource = psana.DataSource('exp=%s:run=%d'
-                                      % data['exp'], data['run'])
+                                      % (data['exp'], data['run']))
         image = read_image(path, frame=0,
                            lcls_datasource=datasource,
-                           lcls_detector=detector)
+                           lcls_detector=detector,
+                           lcls_events=[])
         x, y = image.shape
         data_shape['lcls-data'] = (9999, x, y)
     else:
@@ -1018,7 +1022,7 @@ def make_circle_mask(shape, center, radius, mode='background'):
     return mask
 
 
-def get_lcls_events(path):
+def get_lcls_data(path):
     with open(path) as f:
         data = yaml.load(f)
     datasource = psana.DataSource('exp=%s:run=%d'
