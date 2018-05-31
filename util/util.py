@@ -49,7 +49,13 @@ def read_image(path, frame=0,
                 else:
                     for i in range(10):  # load 10 more events
                         lcls_events.append(lcls_datasource.events().next())
-        data = lcls_detector.image(lcls_event)
+        raw_data = lcls_detector.calib(lcls_event)
+        data = np.zeros((1480, 1552))  # for CSPad Detector
+        for i in range(4):
+            for j in range(8):
+                x1, x2 = j * 185, (j + 1) * 185
+                y1, y2 = i * 388, (i + 1) * 388
+                data[x1:x2, y1:y2] = raw_data[i * 8 + j]
     else:
         print('Unsupported format: %s' % ext)
         return None
