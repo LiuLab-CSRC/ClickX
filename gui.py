@@ -44,7 +44,9 @@ class GUI(QMainWindow):
         loadUi('%s/ui/powder_diag.ui' % dir_, self.powder_diag)
         self.splitter.setSizes([0.2 * self.height(),
                                 0.8 * self.height()])
-        self.splitter_2.setSizes([0.2 * self.height(), 0.8 * self.height()])
+        self.splitter_2.setSizes([0.3 * self.height(),
+                                  0.2 * self.height(),
+                                  0.5 * self.height()])
         self.splitter_3.setSizes([0.2 * self.width(),
                                   0.5 * self.width(),
                                   0.3 * self.width()])
@@ -65,9 +67,9 @@ class GUI(QMainWindow):
 
         # fixed attributes
         self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz', 'lcls')
-        self.hit_finders = ('poisson model', 'snr model')
+        self.hit_finders = ('snr model', 'poisson model')
         self.peak_refine_mode_list = ('gradient', 'mean')
-        self.snr_mode_list = ('simple', 'rings', 'adaptive')
+        self.snr_mode_list = ('adaptive', 'simple', 'rings')
 
         self.workdir = self.settings.workdir
         self.all_files = []  # available files in file list
@@ -82,15 +84,20 @@ class GUI(QMainWindow):
         self.h5_obj = None  # h5 object
         self.dataset = ''  # current dataset
         self.total_frames = 0  # total frames of current dataset
-        self.curr_frame = 0  # current frame
         self.raw_image = None  # current raw image for display
+        self.shape = None
         self.mask_image = None
         self.debug_image = None
         self.peak_info = None
         self.strong_peaks = None
         self.thres_map = None
-        # calib/mask parameters
+        # viewer parameters
+        self.curr_frame = 0  # current frame
         self.show_center = True
+        self.auto_range = False
+        self.auto_level = False
+        self.auto_histogram_range = False
+        # calib/mask parameters
         self.center = np.array([720, 720])
         self.mask_thres = 0.
         self.ring_radii = np.array([])
@@ -183,13 +190,13 @@ class GUI(QMainWindow):
                 'value': self.mask_file,
             },
             {
+                'name': 'shape', 'type': 'str', 'readonly': True,
+                'value': self.shape,
+            },
+            {
                 'name': 'total frame', 'type': 'str', 'readonly': True,
                 'value': self.total_frames,
             },
-            {
-                'name': 'current frame', 'type': 'int',
-                'value': self.curr_frame,
-            }
         ]
         self.status_params = Parameter.create(
             name='status parameters',
@@ -197,12 +204,42 @@ class GUI(QMainWindow):
             children=status_params,
         )
         self.statusTree.setParameters(self.status_params, showTop=False)
-        # calib/mask parameter tree
-        calib_mask_params = [
+        # viewer tree
+        viewer_params = [
+            {
+                'name': 'current frame', 'type': 'int',
+                'value': self.curr_frame,
+            },
             {
                 'name': 'show center', 'type': 'bool',
                 'value': self.show_center,
             },
+            {
+                'name': 'display', 'type': 'group', 'children': [
+                    {
+                        'name': 'auto range', 'type': 'bool',
+                        'value': self.auto_range,
+                    },
+                    {
+                        'name': 'auto level', 'type': 'bool',
+                        'value': self.auto_level,
+                    },
+                    {
+                        'name': 'auto hist range', 'type': 'bool',
+                        'value': self.auto_histogram_range,
+                    }
+                ],
+                'expanded': False,
+            }
+        ]
+        self.viewer_params = Parameter.create(
+            name='viewer parameters',
+            type='group',
+            children=viewer_params,
+        )
+        self.viewerTree.setParameters(self.viewer_params, showTop=False)
+        # calib/mask parameter tree
+        calib_mask_params = [
             {
                 'name': 'threshold', 'type': 'float',
                 'value': self.mask_thres,
@@ -304,8 +341,10 @@ class GUI(QMainWindow):
                     {
                         'name': 'bin size', 'type': 'int',
                         'value': self.bin_size,
-                    }
-                ]
+                    },
+                ],
+                'visible': False,
+                'expanded': False,
             },
             {
                 'name': 'snr model', 'type': 'group', 'children': [
@@ -386,7 +425,7 @@ class GUI(QMainWindow):
                     },
                     
                 ],
-                'visible': False
+                'expanded': False
             },
             {
                 'name': 'display', 'type': 'group', 'children': [
@@ -416,7 +455,7 @@ class GUI(QMainWindow):
         )
         # signal/slots
         # menu bar action
-        self.actionOpen_File.triggered.connect(self.open_file)
+        self.actionAdd_File.triggered.connect(self.add_file)
         self.actionLoad_Hit_Finding_Conf.triggered.connect(self.load_hit_conf)
         self.actionSave_Hit_Finding_Conf.triggered.connect(self.save_hit_conf)
         self.actionSave_Mask.triggered.connect(self.save_mask)
@@ -455,10 +494,6 @@ class GUI(QMainWindow):
         self.fileList.customContextMenuRequested.connect(
             self.show_file_list_menu)
         self.addFileLine.returnPressed.connect(self.add_files)
-        # status panel
-        self.status_params.param(
-            'current frame'
-        ).sigValueChanged.connect(self.change_frame)
         # image viewers
         self.rawView.scene.sigMouseMoved.connect(
             partial(self.mouse_moved, flag=1))
@@ -466,10 +501,23 @@ class GUI(QMainWindow):
             partial(self.mouse_moved, flag=2))
         self.debugView.scene.sigMouseMoved.connect(
             partial(self.mouse_moved, flag=3))
-        # calib/mask
-        self.calib_mask_params.param(
+        # viewer tree
+        self.viewer_params.param(
+            'current frame'
+        ).sigValueChanged.connect(self.change_frame)
+        self.viewer_params.param(
             'show center'
         ).sigValueChanged.connect(self.change_show_center)
+        self.viewer_params.param(
+            'display', 'auto range'
+        ).sigValueChanged.connect(self.change_auto_range)
+        self.viewer_params.param(
+            'display', 'auto level'
+        ).sigValueChanged.connect(self.change_auto_level)
+        self.viewer_params.param(
+            'display', 'auto hist range'
+        ).sigValueChanged.connect(self.change_auto_histogram_range)
+        # calib/mask
         self.calib_mask_params.param(
             'threshold'
         ).sigValueChanged.connect(self.change_mask_thres)
@@ -565,7 +613,7 @@ class GUI(QMainWindow):
 
 # menu bar related methods
     @pyqtSlot()
-    def open_file(self):
+    def add_file(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Open Data File",
             self.workdir, "Data (*.h5 *.cxi *.npy *.npz *.lcls)"
@@ -1078,10 +1126,25 @@ class GUI(QMainWindow):
         elif frame > self.total_frames - 1:
             frame = self.total_frames - 1
         self.curr_frame = frame
-        self.status_params.param(
+        self.viewer_params.param(
             'current frame'
         ).setValue(self.curr_frame)
         self.change_image()
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_auto_range(self, _, auto_range):
+        self.auto_range = auto_range
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_auto_level(self, _, auto_level):
+        self.auto_level = auto_level
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_auto_histogram_range(self, _, auto_histogram_range):
+        self.auto_histogram_range = auto_histogram_range
         self.update_display()
 
     def change_image(self):
@@ -1113,12 +1176,14 @@ class GUI(QMainWindow):
         # apply current mask
         raw_image *= self.mask_image
         self.rawView.setImage(
-            raw_image, autoRange=False, autoLevels=False,
-            autoHistogramRange=False)
+            raw_image, autoRange=self.auto_range,
+            autoLevels=self.auto_level,
+            autoHistogramRange=self.auto_histogram_range)
         if self.maskView.isVisible():
             self.maskView.setImage(
-                self.mask_image, autoRange=False, autoLevels=False,
-                autoHistogramRange=False)
+                self.mask_image, autoRange=self.auto_range,
+                autoLevels=self.auto_level,
+                autoHistogramRange=self.auto_histogram_range)
         # clear all plot items
         self.raw_peak_item.clear()
         self.valid_peak_item.clear()
@@ -1432,13 +1497,16 @@ class GUI(QMainWindow):
                     return
                 if len(data_shape[dataset]) == 3:
                     nb_frame = data_shape[dataset][0]
+                    shape = data_shape[dataset][1:]
                 else:
                     nb_frame = 1
+                    shape = data_shape[dataset]
                 if ext in ('cxi', 'h5'):
                     h5_obj = h5py.File(path, 'r')
                     self.h5_obj = h5_obj
                 self.path = path
                 self.dataset = dataset
+                self.shape = shape
                 self.total_frames = nb_frame
                 if self.curr_frame >= self.total_frames:
                     self.curr_frame = self.total_frames - 1
@@ -1513,10 +1581,9 @@ class GUI(QMainWindow):
     @pyqtSlot('QListWidgetItem*')
     def load_file(self, item):
         path = item.data(1)
-        self.add_info('Loading %s' % path)
+        self.add_info('Load %s' % path)
         self.load_data(path)
         self.update_file_info()
-        # update file info and display
         self.change_image()
         self.update_display()
 
@@ -1524,8 +1591,9 @@ class GUI(QMainWindow):
         self.status_params.param('filepath').setValue(self.path)
         self.status_params.param('dataset').setValue(self.dataset)
         self.status_params.param('mask file').setValue(self.mask_file)
+        self.status_params.param('shape').setValue(self.shape)
         self.status_params.param('total frame').setValue(self.total_frames)
-        self.status_params.param('current frame').setValue(self.curr_frame)
+        self.viewer_params.param('current frame').setValue(self.curr_frame)
 
     def load_data(self, path, dataset=None, frame=None):
         if dataset is None:
@@ -1537,6 +1605,7 @@ class GUI(QMainWindow):
             self.path = path
             self.dataset = 'None'
             self.total_frames = 1
+            self.shape = np.load(path).shape
         elif ext == 'npz':
             data_shape = util.get_data_shape(path)
             if dataset not in data_shape:
@@ -1550,6 +1619,7 @@ class GUI(QMainWindow):
             self.path = path
             self.dataset = dataset
             self.total_frames = nb_frame
+            self.shape = np.load(path)[dataset].shape
         elif ext in ('h5', 'cxi'):
             h5_obj = h5py.File(path, 'r')
             data_shape = util.get_data_shape(path)
@@ -1560,12 +1630,15 @@ class GUI(QMainWindow):
                     return
             if len(data_shape[dataset]) == 3:
                 nb_frame = data_shape[dataset][0]
+                shape = data_shape[dataset][1:]
             else:
                 nb_frame = 1
+                shape = data_shape[dataset]
             self.path = path
             self.dataset = dataset
             self.total_frames = nb_frame
             self.h5_obj = h5_obj
+            self.shape = shape
         elif ext == 'lcls':  # self-defined format
             dataset = 'lcls-data'
             datasource, detector = util.get_lcls_data(path)
@@ -1576,6 +1649,7 @@ class GUI(QMainWindow):
             self.total_frames = nb_frame
             self.lcls_datasource = datasource
             self.lcls_detector = detector
+            self.shape = data_shape[dataset][1:]
         else:
             return
 

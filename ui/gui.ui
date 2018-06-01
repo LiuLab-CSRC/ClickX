@@ -6,9 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>930</width>
+    <height>677</height>
    </rect>
+  </property>
+  <property name="contextMenuPolicy">
+   <enum>Qt::DefaultContextMenu</enum>
   </property>
   <property name="acceptDrops">
    <bool>true</bool>
@@ -23,9 +26,6 @@
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
-      <property name="handleWidth">
-       <number>2</number>
-      </property>
       <widget class="QFrame" name="fileListFrame">
        <property name="frameShape">
         <enum>QFrame::StyledPanel</enum>
@@ -36,8 +36,16 @@
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
          <widget class="QLabel" name="label">
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
           <property name="text">
            <string>File List</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
@@ -97,8 +105,16 @@
         <layout class="QVBoxLayout" name="verticalLayout">
          <item>
           <widget class="QLabel" name="label_2">
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
            <property name="text">
-            <string>Info Panel</string>
+            <string>Info</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
            </property>
           </widget>
          </item>
@@ -145,7 +161,7 @@
         <enum>Qt::Vertical</enum>
        </property>
        <property name="handleWidth">
-        <number>2</number>
+        <number>3</number>
        </property>
        <widget class="QFrame" name="frame_4">
         <property name="frameShape">
@@ -157,8 +173,16 @@
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
           <widget class="QLabel" name="label_4">
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
            <property name="text">
             <string>Status</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
            </property>
           </widget>
          </item>
@@ -188,6 +212,38 @@
          </item>
         </layout>
        </widget>
+       <widget class="QFrame" name="frame">
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Raised</enum>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_7">
+         <item>
+          <widget class="QLabel" name="label_3">
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
+           <property name="text">
+            <string>Viewer</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="ParameterTree" name="viewerTree">
+           <attribute name="headerVisible">
+            <bool>false</bool>
+           </attribute>
+          </widget>
+         </item>
+        </layout>
+       </widget>
        <widget class="QFrame" name="frame_5">
         <property name="frameShape">
          <enum>QFrame::StyledPanel</enum>
@@ -198,6 +254,11 @@
         <layout class="QVBoxLayout" name="verticalLayout_4">
          <item>
           <widget class="QTabWidget" name="tabWidget">
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
            <property name="currentIndex">
             <number>0</number>
            </property>
@@ -259,7 +320,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>930</width>
      <height>22</height>
     </rect>
    </property>
@@ -267,7 +328,7 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionOpen_File"/>
+    <addaction name="actionAdd_File"/>
     <addaction name="separator"/>
     <addaction name="actionLoad_Hit_Finding_Conf"/>
     <addaction name="separator"/>
@@ -328,9 +389,9 @@
     <string>Save Hit Finding Conf</string>
    </property>
   </action>
-  <action name="actionOpen_File">
+  <action name="actionAdd_File">
    <property name="text">
-    <string>Open File...</string>
+    <string>Add File...</string>
    </property>
   </action>
   <action name="actionShow_Calib_Mask_View">
