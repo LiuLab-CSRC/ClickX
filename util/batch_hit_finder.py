@@ -110,6 +110,7 @@ def master_run(args):
                 'duration/sec': 'not finished',
                 'processed frames': processed_frames,
                 'total jobs': nb_jobs,
+                'total frames': nb_frames,
                 'time start': time_start,
             }
             stat_file = os.path.join(hit_dir, 'stat.yml')
@@ -145,6 +146,7 @@ def master_run(args):
         'duration/sec': duration,
         'processed frames': processed_frames,
         'total jobs': nb_jobs,
+        'total frames': nb_frames,
         'time start': time_start,
     }
 

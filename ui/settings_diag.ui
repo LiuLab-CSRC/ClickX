@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>831</width>
-    <height>604</height>
+    <width>840</width>
+    <height>536</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Settings</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,0,0,0">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
@@ -162,235 +162,107 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="groupBox_2">
+    <widget class="QGroupBox" name="groupBox_3">
      <property name="title">
-      <string>Compression</string>
+      <string>Batch Job</string>
      </property>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout">
       <item>
        <layout class="QGridLayout" name="gridLayout_3">
         <item row="0" column="0">
+         <widget class="QLabel" name="label_14">
+          <property name="text">
+           <string>Compress Raw Data:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QCheckBox" name="compressRawData">
+          <property name="text">
+           <string/>
+          </property>
+          <property name="tristate">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
          <widget class="QLabel" name="label_10">
           <property name="text">
            <string>Raw Dataset:</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="2">
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="rawDataset"/>
+        </item>
+        <item row="1" column="2">
          <widget class="QLabel" name="label_13">
           <property name="text">
            <string>Compressed Dataset:</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="3">
+        <item row="1" column="3">
          <widget class="QLineEdit" name="compressedDataset"/>
         </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="label_11">
-          <property name="text">
-           <string>Compressed Datatype:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="2">
+        <item row="1" column="4">
          <widget class="QLabel" name="label_12">
           <property name="text">
            <string>Compressed Batch Size:</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="1">
-         <widget class="QLineEdit" name="rawDataset"/>
-        </item>
-        <item row="1" column="1">
-         <widget class="QComboBox" name="compressedDatatype"/>
-        </item>
-        <item row="1" column="3">
+        <item row="1" column="5">
          <widget class="QSpinBox" name="compressedBatchSize">
           <property name="maximum">
            <number>9999</number>
           </property>
          </widget>
         </item>
-       </layout>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox_3">
-     <property name="title">
-      <string>Batch Job</string>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_3">
-        <item>
-         <widget class="QLabel" name="label_14">
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_20">
           <property name="text">
-           <string>Table Columns:</string>
+           <string>Min Peaks for a Hit:</string>
           </property>
          </widget>
         </item>
-        <item>
-         <layout class="QGridLayout" name="tableColumns">
-          <item row="0" column="0">
-           <widget class="QCheckBox" name="jobId">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>job id</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QCheckBox" name="compressionProgress">
-            <property name="text">
-             <string>compression progress</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QCheckBox" name="compressionRatio">
-            <property name="text">
-             <string>compression ratio</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="3">
-           <widget class="QCheckBox" name="rawFrames">
-            <property name="text">
-             <string>raw frames</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="4">
-           <widget class="QCheckBox" name="tagId">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>tag id</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="hitFindingProgress">
-            <property name="text">
-             <string>hit finding progress</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="processedFrames">
-            <property name="text">
-             <string>processed frames</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QCheckBox" name="processedHits">
-            <property name="text">
-             <string>processed hits</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="3">
-           <widget class="QCheckBox" name="hitRate">
-            <property name="text">
-             <string>hit rate</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="4">
-           <widget class="QCheckBox" name="peak2cxiProgress">
-            <property name="text">
-             <string>peak2cxi progress</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-         </layout>
+        <item row="2" column="1">
+         <widget class="QSpinBox" name="minPeaks"/>
         </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_5">
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_4">
-          <item>
-           <widget class="QLabel" name="label_15">
-            <property name="text">
-             <string>Job Pool Size:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QSpinBox" name="jobPoolSize">
-            <property name="value">
-             <number>0</number>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_10">
-          <item>
-           <widget class="QLabel" name="label_20">
-            <property name="text">
-             <string>Min Peaks for a Hit:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QSpinBox" name="minPeaks"/>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_3">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+        <item row="2" column="2">
+         <widget class="QLabel" name="label_11">
+          <property name="text">
+           <string>CXI Raw Data Path:</string>
           </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
+         </widget>
+        </item>
+        <item row="2" column="3">
+         <widget class="QLineEdit" name="cxiRawDataPath"/>
+        </item>
+        <item row="2" column="4">
+         <widget class="QLabel" name="label_16">
+          <property name="text">
+           <string>CXI Peak Info Path:</string>
           </property>
-         </spacer>
+         </widget>
+        </item>
+        <item row="2" column="5">
+         <widget class="QLineEdit" name="cxiPeakInfoPath"/>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="label_15">
+          <property name="text">
+           <string>Job Pool Size:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QSpinBox" name="jobPoolSize">
+          <property name="value">
+           <number>0</number>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>

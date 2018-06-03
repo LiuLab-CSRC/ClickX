@@ -10,8 +10,6 @@ from PyQt5.QtCore import pyqtSignal
 
 class SettingDialog(QDialog):
     attribute_changed = pyqtSignal(tuple)
-    compressed_datatypes = ('auto', 'int16', 'int32', 'int64',
-                            'float32', 'float64')
 
     def __init__(self):
         super(SettingDialog, self).__init__()
@@ -54,6 +52,10 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='center_y', widget=self.centerY)
         )
+        self.compressRawData.stateChanged.connect(
+            partial(self.update_attribute,
+                    attr='compress_raw_data', widget=self.compressRawData)
+        )
         self.rawDataset.editingFinished.connect(
             partial(self.update_attribute,
                     attr='raw_dataset', widget=self.rawDataset)
@@ -62,46 +64,20 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='compressed_dataset', widget=self.compressedDataset)
         )
-        self.compressedDatatype.currentIndexChanged.connect(
-            partial(self.update_attribute,
-                    attr='compressed_datatype', widget=self.compressedDatatype)
-        )
         self.compressedBatchSize.valueChanged.connect(
             partial(self.update_attribute,
                     attr='compressed_batch_size',
                     widget=self.compressedBatchSize)
         )
-        self.compressionProgress.stateChanged.connect(
-            partial(self.update_attribute, attr='table_columns',
-                    widget=self.compressionProgress)
+        self.cxiRawDataPath.editingFinished.connect(
+            partial(self.update_attribute,
+                    attr='cxi_raw_data_path',
+                    widget=self.cxiRawDataPath)
         )
-        self.compressionRatio.stateChanged.connect(
-            partial(self.update_attribute, attr='table_columns',
-                    widget=self.compressionRatio)
-        )
-        self.rawFrames.stateChanged.connect(
-            partial(self.update_attribute, attr='table_columns',
-                    widget=self.rawFrames)
-        )
-        self.hitFindingProgress.stateChanged.connect(
-            partial(self.update_attribute, attr='table_columns',
-                    widget=self.hitFindingProgress)
-        )
-        self.processedFrames.stateChanged.connect(
-            partial(self.update_attribute, attr='table_columns',
-                    widget=self.processedFrames)
-        )
-        self.processedHits.stateChanged.connect(
-            partial(self.update_attribute, attr='table_columns',
-                    widget=self.processedHits)
-        )
-        self.hitRate.stateChanged.connect(
-            partial(self.update_attribute, attr='table_columns',
-                    widget=self.hitRate)
-        )
-        self.peak2cxiProgress.stateChanged.connect(
-            partial(self.update_attribute, attr='table_columns',
-                    widget=self.peak2cxiProgress)
+        self.cxiPeakInfoPath.editingFinished.connect(
+            partial(self.update_attribute,
+                    attr='cxi_peak_info_path',
+                    widget=self.cxiPeakInfoPath)
         )
         self.jobPoolSize.valueChanged.connect(
             partial(self.update_attribute, attr='job_pool_size',
@@ -111,8 +87,6 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='max_info', widget=self.maxInfo)
         )
-        for datatype in self.compressed_datatypes:
-            self.compressedDatatype.addItem(datatype)
 
     def update(self, **kwargs):
         if 'workdir' in kwargs:
@@ -140,61 +114,22 @@ class SettingDialog(QDialog):
             self.centerX.setValue(kwargs['center_x'])
         if 'center_y' in kwargs:
             self.centerY.setValue(kwargs['center_y'])
+        if 'compress_raw_data' in kwargs:
+            self.compressRawData.setChecked(kwargs['compress_raw_data'])
         if 'raw_dataset' in kwargs:
             self.rawDataset.setText(kwargs['raw_dataset'])
         if 'compressed_dataset' in kwargs:
             self.compressedDataset.setText(kwargs['compressed_dataset'])
-        if 'compressed_datatype' in kwargs:
-            datatype_id = self.compressed_datatypes.index(
-                kwargs['compressed_datatype'])
-            self.compressedDatatype.setCurrentIndex(datatype_id)
         if 'compressed_batch_size' in kwargs:
             self.compressedBatchSize.setValue(kwargs['compressed_batch_size'])
-        if 'table_columns' in kwargs:
-            if 'job id' in kwargs['table_columns']:
-                self.jobId.setChecked(True)
-            else:
-                self.jobId.setChecked(False)
-            if 'compression progress' in kwargs['table_columns']:
-                self.compressionProgress.setChecked(True)
-            else:
-                self.compressionProgress.setChecked(False)
-            if 'compression ratio' in kwargs['table_columns']:
-                self.compressionRatio.setChecked(True)
-            else:
-                self.compressionRatio.setChecked(False)
-            if 'raw frames' in kwargs['table_columns']:
-                self.rawFrames.setChecked(True)
-            else:
-                self.rawFrames.setChecked(False)
-            if 'tag id' in kwargs['table_columns']:
-                self.tagId.setChecked(True)
-            else:
-                self.tagId.setChecked(False)
-            if 'hit finding progress' in kwargs['table_columns']:
-                self.hitFindingProgress.setChecked(True)
-            else:
-                self.hitFindingProgress.setChecked(False)
-            if 'processed frames' in kwargs['table_columns']:
-                self.processedFrames.setChecked(True)
-            else:
-                self.processedFrames.setChecked(False)
-            if 'processed hits' in kwargs['table_columns']:
-                self.processedHits.setChecked(True)
-            else:
-                self.processedHits.setChecked(False)
-            if 'hit rate' in kwargs['table_columns']:
-                self.hitRate.setChecked(True)
-            else:
-                self.hitRate.setChecked(False)
-            if 'peak2cxi progress' in kwargs['table_columns']:
-                self.peak2cxiProgress.setChecked(True)
-            else:
-                self.peak2cxiProgress.setChecked(False)
-        if 'job_pool_size' in kwargs:
-            self.jobPoolSize.setValue(kwargs['job_pool_size'])
         if 'min_peaks' in kwargs:
             self.minPeaks.setValue(kwargs['min_peaks'])
+        if 'cxi_raw_data_path' in kwargs:
+            self.cxiRawDataPath.setText(kwargs['cxi_raw_data_path'])
+        if 'cxi_peak_info_path' in kwargs:
+            self.cxiPeakInfoPath.setText(kwargs['cxi_peak_info_path'])
+        if 'job_pool_size' in kwargs:
+            self.jobPoolSize.setValue(kwargs['job_pool_size'])
         if 'max_info' in kwargs:
             self.maxInfo.setValue(kwargs['max_info'])
 
@@ -208,7 +143,7 @@ class SettingDialog(QDialog):
         elif isinstance(widget, QDoubleSpinBox):
             value = widget.value()
         elif isinstance(widget, QCheckBox):
-            value = self.get_checked_table_columns()
+            value = widget.isChecked()
         self.attribute_changed.emit((attr, value))
 
     def get_checked_table_columns(self):
@@ -231,9 +166,10 @@ class Settings(object):
     setting_file = '.config.yml'
     saved_attrs = ('workdir', 'engine', 'photon_energy', 'detector_distance',
                    'pixel_size', 'image_width', 'image_height', 'center_x',
-                   'center_y', 'raw_dataset', 'compressed_dataset',
-                   'compressed_datatype', 'compressed_batch_size',
-                   'table_columns', 'min_peaks', 'max_info', 'job_pool_size')
+                   'center_y', 'compress_raw_data', 'raw_dataset',
+                   'compressed_dataset', 'compressed_batch_size',
+                   'cxi_raw_data_path', 'cxi_peak_info_path',
+                   'min_peaks', 'max_info', 'job_pool_size')
 
     def __init__(self, setting_diag):
         super(Settings, self).__init__()
@@ -248,11 +184,12 @@ class Settings(object):
         self.image_height = None
         self.center_x = None
         self.center_y = None
+        self.compress_raw_data = None
         self.raw_dataset = None
         self.compressed_dataset = None
-        self.compressed_datatype = None
         self.compressed_batch_size = None
-        self.table_columns = None
+        self.cxi_raw_data_path = None
+        self.cxi_peak_info_path = None
         self.job_pool_size = None
         self.min_peaks = None
         self.max_info = None
@@ -263,10 +200,6 @@ class Settings(object):
 
     def load_settings(self):
         settings = None
-        all_columns = ('job id', 'compression progress', 'compression ratio',
-                       'raw frames', 'tag id', 'hit finding progress',
-                       'processed frames', 'processed hits', 'hit rate',
-                       'peak2cxi progress')
         if os.path.exists(self.setting_file):
             with open(self.setting_file) as f:
                 settings = yaml.load(f)
@@ -281,14 +214,16 @@ class Settings(object):
         self.update(image_height=settings.get('image_height', 1000))
         self.update(center_x=settings.get('center_x', 500))
         self.update(center_y=settings.get('center_y', 500))
+        self.update(compress_raw_data=settings.get('compress_raw_data', True))
         self.update(raw_dataset=settings.get('raw_dataset', 'data'))
         self.update(compressed_dataset=settings.get(
             'compressed_dataset', 'data'))
-        self.update(compressed_datatype=settings.get(
-            'compressed_datatype', 'auto'))
         self.update(compressed_batch_size=settings.get(
             'compressed_batch_size', 200))
-        self.update(table_columns=settings.get('table_columns', all_columns))
+        self.update(cxi_raw_data_path=settings.get(
+            'cxi_raw_data_path', 'data'))
+        self.update(cxi_peak_info_path=settings.get(
+            'cxi_peak_info_path', 'peak_info'))
         self.update(job_pool_size=settings.get('job_pool_size', 4))
         self.update(min_peaks=settings.get('min_peaks', 20))
         self.update(max_info=settings.get('max_info', 1000))

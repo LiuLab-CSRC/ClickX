@@ -21,16 +21,29 @@ class JobWindow(QWidget):
         self.rawDataset.setText(self.raw_dataset)
         self.compressedDataset.setText(self.compressed_dataset)
 
-        self.header_labels = settings.table_columns
+        if settings.compress_raw_data:
+            self.header_labels = (
+                'job id', 'compression', 'compression ratio',
+                'raw frames', 'tag id', 'hit finding',
+                'processed frames', 'processed hits', 'hit rate',
+                'peak2cxi'
+            )
+        else:
+            self.header_labels = (
+                'job id', 'raw frames', 'tag id', 'hit finding',
+                'processed frames', 'processed hits', 'hit rate',
+                'peak2cxi'
+            )
         self.jobTable.setColumnCount(len(self.header_labels))
         self.jobTable.setHorizontalHeaderLabels(self.header_labels)
         self.compressed_batch_size = settings.compressed_batch_size
-        self.compressed_datatype = settings.compressed_datatype
 
         self.jobs_info = None
         self.conf_files = None
         self.jobs_stat = None
         self.auto_submit = False
+        self.hit_conf = None
+        self.hit_tag = None
         self.curr_conf = []
         self.jobs = []
 
@@ -39,10 +52,18 @@ class JobWindow(QWidget):
         # slots
         self.jobTable.customContextMenuRequested.connect(self.show_job_menu)
         self.autoSubmit.toggled.connect(self.change_auto_submit)
+        self.hitFindingConf.currentIndexChanged.connect(self.change_hit_conf)
         self.timer.timeout.connect(self.check_and_submit_jobs)
 
     def start(self):
-        self.timer.start(5000)
+        self.timer.start(1000)
+
+    @pyqtSlot(int)
+    def change_hit_conf(self, conf_id):
+        if conf_id < 0:
+            return
+        self.hit_conf = self.hitFindingConf.itemData(conf_id)
+        self.hit_tag = self.hitFindingConf.itemText(conf_id)
 
     def update_info(self, settings):
         self.settings = settings
@@ -51,139 +72,129 @@ class JobWindow(QWidget):
         self.compressed_dataset = settings.compressed_dataset
         self.rawDataset.setText(self.raw_dataset)
         self.compressedDataset.setText(self.compressed_dataset)
-        self.header_labels = settings.table_columns
+        if settings.compress_raw_data:
+            self.header_labels = (
+                'job id', 'compression', 'compression ratio',
+                'raw frames', 'tag id', 'hit finding',
+                'processed frames', 'processed hits', 'hit rate',
+                'peak2cxi'
+            )
+        else:
+            self.header_labels = (
+                'job id', 'raw frames', 'tag id', 'hit finding',
+                'processed frames', 'processed hits', 'hit rate',
+                'peak2cxi'
+            )
+
         self.compressed_batch_size = settings.compressed_batch_size
-        self.compressed_datatype = settings.compressed_datatype
-        self.rawDataset.setText(self.raw_dataset)
-        self.compressedDataset.setText(self.compressed_dataset)
         self.jobTable.setColumnCount(len(self.header_labels))
         self.jobTable.setHorizontalHeaderLabels(self.header_labels)
 
     def crawler_run(self):
-        # check data from h5 lst
         jobs_info = []
-        raw_lst_files = glob('%s/raw_lst/*.lst' % self.workdir)
         total_raw_frames = 0
-        total_processed_frames = {}
-        total_processed_hits = {}
+        total_processed_frames = 0
+        total_processed_hits = 0
+        raw_lst_files = glob('%s/raw_lst/*.lst' % self.workdir)
         for raw_lst in raw_lst_files:
-            time1 = os.path.getmtime(raw_lst)
-            job_name = os.path.basename(raw_lst).split('.')[0]
-            # check compression status
-            compression = 'ready'
-            comp_ratio = 0
-            raw_frames = 0
-            cxi_comp_dir = os.path.join(self.workdir, 'cxi_comp', job_name)
-            if os.path.isdir(cxi_comp_dir):
-                stat_file = os.path.join(cxi_comp_dir, 'stat.yml')
-                if os.path.exists(stat_file):
-                    with open(stat_file, 'r') as f:
-                        stat = yaml.load(f)
-                        if stat is None:
-                            stat = {}
-                        compression = stat.get('progress', '0')
-                        raw_frames = stat.get('total frames', 0)
-                        comp_ratio = stat.get('compression ratio', 0)
-                        if raw_frames is not None:
-                            total_raw_frames += raw_frames
-            # check cxi lst status
-            cxi_lst = os.path.join(
-                self.workdir, 'cxi_lst', '%s.lst' % job_name)
-            if os.path.exists(cxi_lst):
-                hit_finding = 'ready'
+            job_id = os.path.basename(raw_lst).split('.')[0]
+            if self.settings.compress_raw_data:
+                cxi_comp_dir = os.path.join(self.workdir, 'cxi_comp', job_id)
+                cxi_comp_stat = check_cxi_comp(cxi_comp_dir)
+                compression = cxi_comp_stat.get('progress', 0)
+                compression_ratio = cxi_comp_stat.get('compression ratio', 0)
+                raw_frames = cxi_comp_stat.get('total frames', 0)
+
+                cxi_lst = os.path.join(
+                    self.workdir, 'cxi_lst', '%s.lst' % job_id)
+                if os.path.exists(cxi_lst):
+                    hit_finding = 'ready'
+                else:
+                    hit_finding = 'not ready'
             else:
-                hit_finding = 'not ready'
-            # check hit finding status
-            time2 = np.inf
-            peak2cxi = 'not ready'
-            processed_frames = 0
-            processed_hits = 0
-            hit_rate = 0.
-            cxi_hit_dir = os.path.join(self.workdir, 'cxi_hit', job_name)
+                hit_finding = 'ready'
+                compression = 'NA'
+                compression_ratio = 'NA'
+                raw_frames = 0
+            cxi_hit_dir = os.path.join(self.workdir, 'cxi_hit', job_id)
             hit_tags = glob('%s/*' % cxi_hit_dir)
-            tags = [os.path.basename(tag) for tag in hit_tags]
             if len(hit_tags) == 0:
+                tag_id = 'NA'
                 jobs_info.append(
                     {
-                        'job id': job_name,
+                        'job id': job_id,
+                        'compression': compression,
+                        'compression ratio': compression_ratio,
                         'raw frames': raw_frames,
-                        'compression progress': compression,
-                        'compression ratio': comp_ratio,
-                        'tag id': 'NA',  # dummy tag
-                        'hit finding progress': hit_finding,
-                        'processed frames': processed_frames,
-                        'processed hits': processed_hits,
-                        'hit rate': hit_rate,
-                        'peak2cxi progress': peak2cxi,
-                        'time1': time1,
-                        'time2': time2,
+                        'tag id': tag_id,
+                        'hit finding': hit_finding,
+                        'processed frames': 0,
+                        'processed hits': 0,
+                        'hit rate': 0,
+                        'peak2cxi': 'not ready'
                     }
                 )
+                total_raw_frames += raw_frames
             else:
-                for tag in tags:
+                tag_ids = [os.path.basename(tag_id) for tag_id in hit_tags]
+                for tag_id in tag_ids:
                     tag_dir = os.path.join(
-                        self.workdir, 'cxi_hit', job_name, tag
+                        self.workdir, 'cxi_hit', job_id, tag_id
                     )
-                    stat_file = os.path.join(tag_dir, 'stat.yml')
-                    if os.path.exists(stat_file):
-                        with open(stat_file, 'r') as f:
-                            stat = yaml.load(f)
-                            if stat is None:
-                                stat = {}
-                        time2 = stat.get('time start', np.inf)
-                        processed_hits = stat.get('processed hits', 0)
-                        processed_frames = stat.get('processed frames', 0)
-                        hit_finding = stat.get('progress', 0)
-                        if str(hit_finding) == 'done':
-                            peak2cxi = 'ready'
-                            cxi_files = glob('%s/*.cxi' % tag_dir)
-                            if len(cxi_files) > 0:
-                                peak2cxi = 'done'
-                        else:
-                            peak2cxi = 'not ready'
-                        if tag in total_processed_hits:
-                            total_processed_hits[tag] += processed_hits
-                        else:
-                            total_processed_hits[tag] = processed_hits
-                        if tag in total_processed_frames:
-                            total_processed_frames[tag] += processed_frames
-                        else:
-                            total_processed_frames[tag] = processed_frames
-                        hit_rate = stat.get('hit rate')
+                    cxi_hit_stat = check_cxi_hit(tag_dir)
+                    hit_finding = cxi_hit_stat.get('progress', 0)
+                    processed_frames = cxi_hit_stat.get('processed frames', 0)
+                    processed_hits = cxi_hit_stat.get('processed hits', 0)
+                    hit_rate = cxi_hit_stat.get('hit rate', 0)
+                    raw_frames = cxi_hit_stat.get('total frames', 0)
+                    if hit_finding == 'done':
+                        peak2cxi = 'ready'
+                        cxi_files = glob('%s/*.cxi' % tag_dir)
+                        if len(cxi_files) > 0:
+                            peak2cxi = 'done'
+                    else:
+                        peak2cxi = 'not ready'
                     jobs_info.append(
                         {
-                            'job id': job_name,
+                            'job id': job_id,
+                            'compression': compression,
+                            'compression ratio': compression_ratio,
                             'raw frames': raw_frames,
-                            'compression progress': compression,
-                            'compression ratio': comp_ratio,
-                            'tag id': tag,
-                            'hit finding progress': hit_finding,
-                            'processed hits': processed_hits,
+                            'tag id': tag_id,
+                            'hit finding': hit_finding,
                             'processed frames': processed_frames,
+                            'processed hits': processed_hits,
                             'hit rate': hit_rate,
-                            'peak2cxi progress': peak2cxi,
-                            'time1': time1,
-                            'time2': time2,
+                            'peak2cxi': peak2cxi,
                         }
                     )
+                    if tag_id == self.hit_tag:
+                        total_raw_frames += raw_frames
+                        total_processed_frames += processed_frames
+                        total_processed_hits += processed_hits
+
         self.jobs_info = sorted(
-            jobs_info, key=operator.itemgetter('job id', 'time2')
+            jobs_info, key=operator.itemgetter('job id')
         )
 
-        # check hit finding conf files
-        conf_dir = os.path.join(self.workdir, 'conf')
-        self.conf_files = glob('%s/*.yml' % conf_dir)
+        hit_conf_dir = os.path.join(self.workdir, 'conf')
+        self.conf_files = glob('%s/*.yml' % hit_conf_dir)
 
-        # check stat
+        if total_processed_frames > 0:
+            total_hit_rate = float(total_processed_hits) / \
+                             total_processed_frames
+        else:
+            total_hit_rate = 0
         self.jobs_stat = {
             'total raw frames': total_raw_frames,
             'total processed frames': total_processed_frames,
             'total processed hits': total_processed_hits,
+            'total hit rate': total_hit_rate,
         }
 
     @pyqtSlot(list)
     def update_jobs_info(self):
-        for i,job_info in enumerate(self.jobs_info):
+        for i, job_info in enumerate(self.jobs_info):
             self.fill_table_row(job_info, i)
 
     @pyqtSlot(list)
@@ -199,23 +210,12 @@ class JobWindow(QWidget):
     def update_stat(self):
         self.rawFrames.setText(
             str(self.jobs_stat.get('total raw frames', 0)))
-        curr_id = self.hitFindingConf.currentIndex()
-        tag = self.hitFindingConf.itemText(curr_id)
-        total_processed_frame_dict = self.jobs_stat.get(
-            'total processed frames', {})
-        total_processed_hits_dict = self.jobs_stat.get(
-            'total processed hits', {})
-        if tag in self.jobs_stat['total processed frames']:
-            total_processed_hits = total_processed_hits_dict.get(tag, 0)
-            total_processed_frames = total_processed_frame_dict.get(tag, 0)
-            if total_processed_frames != 0:
-                total_hit_rate = float(total_processed_hits) /\
-                                 total_processed_frames * 100.
-            else:
-                total_hit_rate = 0.
-            self.processedHits.setText(str(total_processed_hits))
-            self.processedFrames.setText(str(total_processed_frames))
-            self.hitRate.setText('%.2f%%' % total_hit_rate)
+        self.processedHits.setText(
+            str(self.jobs_stat.get('total processed hits', 0)))
+        self.processedFrames.setText(
+            str(self.jobs_stat.get('total processed frames', 0)))
+        self.hitRate.setText(
+            '%.2f%%' % (self.jobs_stat.get('total hit rate', 0) * 100))
 
     @pyqtSlot(QPoint)
     def show_job_menu(self, pos):
@@ -245,12 +245,6 @@ class JobWindow(QWidget):
                 self.jobs.append(job)
                 job.submit()
         elif action == action_hit_finding:
-            curr_id = self.hitFindingConf.currentIndex()
-            if curr_id == -1:
-                print('No valid conf available!')
-                return
-            hit_conf = self.hitFindingConf.itemData(curr_id)
-            hit_tag = self.hitFindingConf.itemText(curr_id)
             for row in rows:
                 job_id = self.jobTable.item(
                     row, self.header_labels.index('job id')
@@ -258,8 +252,9 @@ class JobWindow(QWidget):
                 job = Job(job_type='hit finding',
                           settings=self.settings,
                           job_id=job_id,
-                          tag_id=hit_tag,
-                          hit_conf=hit_conf)
+                          tag_id=self.hit_tag,
+                          hit_conf=self.hit_conf,
+                          compressed=self.settings.compress_raw_data)
                 self.jobs.append(job)
                 job.submit()
         elif action == action_peak2cxi:
@@ -365,7 +360,8 @@ class JobWindow(QWidget):
                                 settings=self.settings,
                                 job_id=job_id,
                                 tag_id=hit_tag,
-                                hit_conf=hit_conf)
+                                hit_conf=hit_conf,
+                                compressed=self.settings.compress_raw_data)
                 ready_jobs.append(ready_job)
             elif hit_finding == 'not ready':
                 nb_not_ready_jobs += 1
@@ -427,6 +423,7 @@ class Job(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
         self.job_thread = None
+        print(dir(self))
 
     def submit(self):
         if self.job_type == 'compression':
@@ -437,6 +434,7 @@ class Job(object):
                 job=self.job_id,
                 conf=self.hit_conf,
                 tag=self.tag_id,
+                compressed=self.compressed,
             )
         elif self.job_type == 'peak2cxi':
             self.job_thread = Peak2CxiThread(
@@ -456,3 +454,24 @@ class Job(object):
 
     def __str__(self):
         return '%s:%s-%s' % (self.job_type, self.job_id, self.tag_id)
+
+
+def check_cxi_comp(cxi_comp_dir):
+    if os.path.isdir(cxi_comp_dir):
+        stat_file = os.path.join(cxi_comp_dir, 'stat.yml')
+        if os.path.exists(stat_file):
+            with open(stat_file, 'r') as f:
+                stat = yaml.load(f)
+    else:
+        stat = {}
+    return stat
+
+
+def check_cxi_hit(hit_dir):
+    stat_file = os.path.join(hit_dir, 'stat.yml')
+    if os.path.exists(stat_file):
+        with open(stat_file, 'r') as f:
+            stat = yaml.load(f)
+    else:
+        stat = {}
+    return stat

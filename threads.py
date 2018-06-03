@@ -122,14 +122,12 @@ class CompressorThread(QThread):
                        % (dir_, self.settings.engine)
         python_script = '%s/util/batch_compressor.py' % dir_
         comp_size = str(self.settings.compressed_batch_size)
-        comp_dtype = str(self.settings.compressed_datatype)
         subprocess.call(
             [
                 shell_script,  job, python_script,
                 raw_lst, raw_dataset, comp_dir, comp_lst_dir,
                 '--comp-dataset', comp_dataset,
                 '--comp-size', comp_size,
-                '--comp-dtype', comp_dtype,
              ]
         )
 
@@ -139,16 +137,24 @@ class HitFinderThread(QThread):
                  parent=None,
                  job=None,
                  conf=None,
-                 tag=None):
+                 tag=None,
+                 compressed=True):
         super(HitFinderThread, self).__init__(parent)
         self.settings = settings
         self.job = job
         self.conf = conf
         self.tag = tag
+        self.compressed = compressed
 
     def run(self):
-        cxi_lst = os.path.join(
-            self.settings.workdir, 'cxi_lst', '%s.lst' % self.job)
+        if self.compressed:
+            cxi_lst = os.path.join(
+                self.settings.workdir, 'cxi_lst', '%s.lst' % self.job
+            )
+        else:
+            cxi_lst = os.path.join(
+                self.settings.workdir, 'raw_lst', '%s.lst' % self.job
+            )
         conf = self.conf
         job = self.job
         min_peaks = str(self.settings.min_peaks)
@@ -171,6 +177,8 @@ class Peak2CxiThread(QThread):
         self.tag = tag
 
     def run(self):
+        print('perform peak2cxi job')
+        return
         hit_dir = os.path.join(
             self.settings.workdir, 'cxi_hit', self.job, self.tag)
         peak_file = os.path.join(hit_dir, '%s.npy' % self.job)
