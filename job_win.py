@@ -452,21 +452,23 @@ class Job(object):
 
 
 def check_cxi_comp(cxi_comp_dir):
+    stat = None
     if os.path.isdir(cxi_comp_dir):
         stat_file = os.path.join(cxi_comp_dir, 'stat.yml')
         if os.path.exists(stat_file):
             with open(stat_file, 'r') as f:
                 stat = yaml.load(f)
-    else:
+    if stat is None:
         stat = {}
     return stat
 
 
 def check_cxi_hit(hit_dir):
     stat_file = os.path.join(hit_dir, 'stat.yml')
+    stat = None
     if os.path.exists(stat_file):
         with open(stat_file, 'r') as f:
             stat = yaml.load(f)
-    else:
+    if stat is None:
         stat = {}
     return stat
