@@ -177,8 +177,6 @@ class Peak2CxiThread(QThread):
         self.tag = tag
 
     def run(self):
-        print('perform peak2cxi job')
-        return
         hit_dir = os.path.join(
             self.settings.workdir, 'cxi_hit', self.job, self.tag)
         peak_file = os.path.join(hit_dir, '%s.npy' % self.job)

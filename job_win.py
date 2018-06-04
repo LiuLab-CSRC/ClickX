@@ -322,35 +322,31 @@ class JobWindow(QWidget):
         row_count = self.jobTable.rowCount()
         job_id_col = self.header_labels.index('job id')
         tag_id_col = self.header_labels.index('tag id')
-        compression_col = self.header_labels.index('compression progress')
-        hit_finding_col = self.header_labels.index('hit finding progress')
-        peak2cxi_col = self.header_labels.index('peak2cxi progress')
+        if self.settings.compress_raw_data:
+            compression_col = self.header_labels.index('compression')
+        hit_finding_col = self.header_labels.index('hit finding')
+        peak2cxi_col = self.header_labels.index('peak2cxi')
         for i in range(row_count):
             # compression jobs
-            compression = self.jobTable.item(i, compression_col).text()
-            if compression == 'done':
-                nb_finished_jobs += 1
-            elif compression == 'ready':
-                nb_ready_jobs += 1
-                job_id = self.jobTable.item(i, job_id_col).text()
-                ready_job = Job(job_type='compression',
-                                settings=self.settings,
-                                job_id=job_id,
-                                tag_id='NA')
-                ready_jobs.append(ready_job)
-            elif compression == 'not ready':
-                nb_not_ready_jobs += 1
-            else:
-                nb_running_jobs += 1
-            nb_total_jobs += 1
+            if self.settings.compress_raw_data:
+                compression = self.jobTable.item(i, compression_col).text()
+                if compression == 'done':
+                    nb_finished_jobs += 1
+                elif compression == 'ready':
+                    nb_ready_jobs += 1
+                    job_id = self.jobTable.item(i, job_id_col).text()
+                    ready_job = Job(job_type='compression',
+                                    settings=self.settings,
+                                    job_id=job_id,
+                                    tag_id='NA')
+                    ready_jobs.append(ready_job)
+                elif compression == 'not ready':
+                    nb_not_ready_jobs += 1
+                else:
+                    nb_running_jobs += 1
+                nb_total_jobs += 1
             # hit finding jobs
             hit_finding = self.jobTable.item(i, hit_finding_col).text()
-            curr_id = self.hitFindingConf.currentIndex()
-            if curr_id == -1:
-                print('No valid conf available!')
-                return
-            hit_conf = self.hitFindingConf.itemData(curr_id)
-            hit_tag = self.hitFindingConf.itemText(curr_id)
             if hit_finding == 'done':
                 nb_finished_jobs += 1
             elif hit_finding == 'ready':
@@ -359,8 +355,8 @@ class JobWindow(QWidget):
                 ready_job = Job(job_type='hit finding',
                                 settings=self.settings,
                                 job_id=job_id,
-                                tag_id=hit_tag,
-                                hit_conf=hit_conf,
+                                tag_id=self.hit_tag,
+                                hit_conf=self.hit_conf,
                                 compressed=self.settings.compress_raw_data)
                 ready_jobs.append(ready_job)
             elif hit_finding == 'not ready':
@@ -423,7 +419,6 @@ class Job(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
         self.job_thread = None
-        print(dir(self))
 
     def submit(self):
         if self.job_type == 'compression':
