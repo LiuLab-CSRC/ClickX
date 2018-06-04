@@ -201,6 +201,7 @@ def worker_run(args):
     max_peaks = conf['max peaks']
     min_snr = conf['min snr']
     min_pixels = conf['min pixels']
+    max_pixels = conf['max pixels']
     peak_refine_mode = conf['peak refine mode']
     snr_mode = conf['snr mode']
     sig_radius = conf['signal radius']
@@ -238,6 +239,7 @@ def worker_run(args):
                 max_peaks=max_peaks,
                 min_snr=min_snr,
                 min_pixels=min_pixels,
+                max_pixels=max_pixels,
                 refine_mode=peak_refine_mode,
                 snr_mode=snr_mode,
                 signal_radius=sig_radius,
