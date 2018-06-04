@@ -64,38 +64,38 @@ def master_run(args):
     job_id = 0
     reqs = {}
     results = []
-    slaves = set(range(1, size))
-    finished_slaves = set()
+    workers = set(range(1, size))
+    finished_workers = set()
     time_start = time.time()
-    for slave in slaves:
+    for worker in workers:
         if job_id < nb_jobs:
             job = jobs[job_id]
         else:
             job = []  # dummy job
-        comm.isend(job, dest=slave)
-        reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
-        print('job %d/%d --> slave %d' % (job_id, nb_jobs, slave), flush=flush)
+        comm.isend(job, dest=worker)
+        reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
+        print('job %d/%d --> worker %d' % (job_id, nb_jobs, worker), flush=flush)
         job_id += 1
     while job_id < nb_jobs:
         stop = False
         time.sleep(0.1)  # take a break
-        slaves -= finished_slaves
-        for slave in slaves:
-            finished, result = reqs[slave].test()
+        workers -= finished_workers
+        for worker in workers:
+            finished, result = reqs[worker].test()
             if finished:
                 results += result
                 if job_id < nb_jobs:
-                    print('job %d/%d --> slave %d' %
-                          (job_id, nb_jobs, slave), flush=flush)
-                    comm.isend(stop, dest=slave)
-                    comm.isend(jobs[job_id], dest=slave)
-                    reqs[slave] = comm.irecv(buf=buffer_size, source=slave)
+                    print('job %d/%d --> worker %d' %
+                          (job_id, nb_jobs, worker), flush=flush)
+                    comm.isend(stop, dest=worker)
+                    comm.isend(jobs[job_id], dest=worker)
+                    reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
                     job_id += 1
                 else:
                     stop = True
-                    comm.isend(stop, dest=slave)
-                    print('stop signal --> slave %d' % slave, flush=flush)
-                    finished_slaves.add(slave)
+                    comm.isend(stop, dest=worker)
+                    print('stop signal --> worker %d' % worker, flush=flush)
+                    finished_workers.add(worker)
         if job_id % update_freq == 0:
             # update stat
             progress = float(job_id) / nb_jobs * 100
@@ -121,15 +121,15 @@ def master_run(args):
     while not all_done:
         time.sleep(0.1)
         all_done = True
-        slaves -= finished_slaves
-        for slave in slaves:
-            finished, result = reqs[slave].test()
+        workers -= finished_workers
+        for worker in workers:
+            finished, result = reqs[worker].test()
             if finished:
                 results += result
                 stop = True
-                print('stop signal --> slave %d' % slave, flush=flush)
-                comm.isend(stop, dest=slave)
-                finished_slaves.add(slave)
+                print('stop signal --> worker %d' % worker, flush=flush)
+                comm.isend(stop, dest=worker)
+                finished_workers.add(worker)
             else:
                 all_done = False
     time_end = time.time()
