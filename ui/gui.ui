@@ -26,6 +26,9 @@
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
+      <property name="handleWidth">
+       <number>3</number>
+      </property>
       <widget class="QFrame" name="fileListFrame">
        <property name="frameShape">
         <enum>QFrame::StyledPanel</enum>
@@ -240,6 +243,11 @@
            <attribute name="headerVisible">
             <bool>false</bool>
            </attribute>
+           <column>
+            <property name="text">
+             <string notr="true">1</string>
+            </property>
+           </column>
           </widget>
          </item>
         </layout>
@@ -256,8 +264,13 @@
           <widget class="QTabWidget" name="tabWidget">
            <property name="font">
             <font>
-             <pointsize>14</pointsize>
+             <pointsize>13</pointsize>
             </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QTabBar::tab {
+    font-size: 14pt;
+}</string>
            </property>
            <property name="currentIndex">
             <number>0</number>
