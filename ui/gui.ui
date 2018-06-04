@@ -270,10 +270,16 @@
            <property name="styleSheet">
             <string notr="true">QTabBar::tab {
     font-size: 14pt;
+}
+
+QTabBar::tab:top, QTabBar::tab:bottom {
+    min-width: 12ex;
+    margin-right: 1px;
+    padding: 5px;
 }</string>
            </property>
            <property name="currentIndex">
-            <number>0</number>
+            <number>1</number>
            </property>
            <widget class="QWidget" name="tab">
             <attribute name="title">
