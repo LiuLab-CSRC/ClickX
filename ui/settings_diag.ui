@@ -18,7 +18,8 @@
     <widget class="QTabWidget" name="tabWidget">
      <property name="styleSheet">
       <string notr="true">QTabWidget::pane { 
- padding: 2px;
+ padding: 20px;
+ margin: -10px -10px -10px -10px;
 }</string>
      </property>
      <property name="currentIndex">
