@@ -475,7 +475,7 @@ def check_cxi_hit(hit_dir):
 def check_peak2cxi(tag_dir):
     stat_file = os.path.join(tag_dir, 'peak2cxi.yml')
     stat = None
-    if os.path.exists(stat_file)
+    if os.path.exists(stat_file):
         with open(stat_file) as f:
             stat = yaml.load(f)
     if stat is None:
