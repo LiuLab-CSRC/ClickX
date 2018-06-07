@@ -808,15 +808,17 @@ def collect_jobs(files, dataset, batch_size):
 
 
 def save_full_cxi(batch, cxi_file,
+                  mask_file=mask_file,
                   extra_datasets=None,
                   cxi_dtype='auto',
-                  compression=None,
+                  compression='gzip',
                   shuffle=True
                   ):
     """
     Save crystfel-compatible cxi file.
     :param batch: a list contains frame and peak info.
     :param cxi_file: output cxi filepath.
+    :param mask_file: mask filepath.
     :param extra_datasets: save extra datasets from cheetah cxi file.
     :param cxi_dtype: datatype of cxi file.
     :param compression: compression filter used for raw data.
@@ -827,6 +829,8 @@ def save_full_cxi(batch, cxi_file,
     if os.path.exists(cxi_file):
         print('rename existing %s to %s.bk' % (cxi_file, cxi_file))
         os.rename(cxi_file, '%s.bk' % cxi_file)
+    if extra_datasets == '':
+        extra_datasets = None
     if extra_datasets is not None:
         extra_datasets = extra_datasets.split(',')
         extra_data = {
@@ -890,7 +894,19 @@ def save_full_cxi(batch, cxi_file,
         shuffle=shuffle,
     )
     # save masks
-    # TODO..
+    if mask_file is not None:
+        n, x, y = images.shape
+        mask = np.load(mask_file)
+        mask = np.expand_dims(mask, axis=0)
+        mask = np.repeat(mask, n, axis=0)
+        f.create_dataset(
+            'mask',
+            shape=(n, x, y),
+            data=mask,
+            compression=compression,
+            chunks=(1, x, y),
+            shuffle=shuffle,
+        )
     # save peak info
     f.create_dataset('peak_info/nPeaks', data=nb_peaks)
     f.create_dataset('peak_info/peakXPosRaw', data=peaks_y)  # fs

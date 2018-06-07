@@ -25,6 +25,7 @@ import time
 
 import sys
 import os
+from shutil import copyfile
 from docopt import docopt
 import yaml
 
@@ -37,6 +38,7 @@ def master_run(args):
     hit_dir = args['<hit-dir>']
     if not os.path.isdir(hit_dir):
         os.makedirs(hit_dir)
+
     cxi_lst = args['<cxi-lst>']
     min_peaks = int(args['--min-peaks'])
     with open(cxi_lst) as f:
@@ -46,10 +48,16 @@ def master_run(args):
     for f in _files:
         files.append(f[:-1])
     # load hit finding configuration file
-    with open(args['<conf-file>']) as f:
+    conf_file = args['<conf-file>']
+    with open(conf_file) as f:
         conf = yaml.load(f)
     # collect jobs
     dataset = conf['dataset']
+    # save hit conf and mask in hit dir
+    mask_file = conf['mask file']
+    copyfile(mask_file, '%s/mask.npy' % hit_dir)
+    copyfile(conf_file, '%s/hit_conf.yml' % hit_dir)
+
     batch_size = int(args['--batch-size'])
     buffer_size = int(args['--buffer-size'])
     jobs, nb_frames = util.collect_jobs(files, dataset, batch_size)
@@ -191,7 +199,7 @@ def worker_run(args):
     epsilon = conf['epsilon']
     bin_size = conf['bin size']
     if conf['mask on']:
-        mask = util.read_image(conf['mask file'])
+        mask = util.read_image(conf['mask file'])['image']
     else:
         mask = None
     hit_finder = conf['hit finder']
@@ -225,7 +233,7 @@ def worker_run(args):
             image = util.read_image(filepath,
                                     frame=frame,
                                     h5_obj=h5_obj,
-                                    dataset=dataset)
+                                    dataset=dataset)['image']
             peaks_dict = util.find_peaks(
                 image, center,
                 adu_per_photon=adu_per_photon,

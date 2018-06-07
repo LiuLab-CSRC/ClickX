@@ -12,6 +12,7 @@ Options:
                                 [default: 1000].
     --cxi-dtype DATATYPE        Specify datatype of patterns in compressed cxi
                                 file [default: auto].
+    --mask-file FILE            Specify mask file for cxi.
     --extra-datasets DATASETS   Specify extra datasets of cheetah.
     --shuffle SHUFFLE           Whether to use shuffle filter in compression
                                 [default: True].
@@ -144,6 +145,7 @@ def worker_run(args):
     cxi_size = int(args['--cxi-size'])
     cxi_dtype = args['--cxi-dtype']
     extra_datasets = args['--extra-datasets']
+    mask_file = args['--mask-file']
     buffer_size = int(args['--buffer-size'])
     prefix = os.path.basename(peak_file).split('.')[0]
     if args['--shuffle'] == 'True':
@@ -166,6 +168,7 @@ def worker_run(args):
                 )
                 util.save_full_cxi(
                     batch, cxi_file,
+                    mask_file=mask_file,
                     extra_datasets=extra_datasets,
                     cxi_dtype=cxi_dtype,
                     shuffle=shuffle,
