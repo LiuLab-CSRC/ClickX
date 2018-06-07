@@ -828,9 +828,9 @@ def save_full_cxi(batch, cxi_file,
         print('rename existing %s to %s.bk' % (cxi_file, cxi_file))
         os.rename(cxi_file, '%s.bk' % cxi_file)
     if extra_datasets is not None:
-        extra_cheetah_datasets = extra_datasets.split(',')
+        extra_datasets = extra_datasets.split(',')
         extra_data = {
-            dataset: [] for dataset in extra_cheetah_datasets
+            dataset: [] for dataset in extra_datasets
         }
     nb_frame = len(batch)
     filepath_curr = None
@@ -859,8 +859,7 @@ def save_full_cxi(batch, cxi_file,
         image = data['image']
         if extra_datasets is not None:
             for dataset in extra_datasets:
-                extra_data[dataset] = \
-                    data['extra_datasets'][dataset][frame]
+                extra_data[dataset].append(data['extra_datasets'][dataset])
         peak_info = record['peak_info']
         nb_peak = min(len(peak_info['snr']), 1024)
         nb_peaks[i] = nb_peak
@@ -899,7 +898,7 @@ def save_full_cxi(batch, cxi_file,
     f.create_dataset('peak_info/peakTotalIntensity', data=peaks_intensity)
     f.create_dataset('peak_info/peakSNR', data=peaks_snr)
     # save extra data
-    if extra_cheetah_datasets is not None:
+    if extra_datasets is not None:
         for name, data in extra_data.items():
             data = np.array(data)
             f.create_dataset(name, data=data)
