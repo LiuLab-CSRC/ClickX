@@ -148,10 +148,8 @@ class JobWindow(QWidget):
                     hit_rate = cxi_hit_stat.get('hit rate', 0)
                     raw_frames = cxi_hit_stat.get('total frames', 0)
                     if hit_finding == 'done':
-                        peak2cxi = 'ready'
-                        cxi_files = glob('%s/*.cxi' % tag_dir)
-                        if len(cxi_files) > 0:
-                            peak2cxi = 'done'
+                        peak2cxi_stat = check_peak2cxi(tag_dir)
+                        peak2cxi = peak2cxi_stat.get('progress', 0)
                     else:
                         peak2cxi = 'not ready'
                     jobs_info.append(
@@ -227,7 +225,7 @@ class JobWindow(QWidget):
         rows = set(rows)  # remove duplicates
         action_compression = menu.addAction('run compressor')
         action_hit_finding = menu.addAction('run hit finder')
-        action_peak2cxi = menu.addAction('convert peaks to cxi')
+        action_peak2cxi = menu.addAction('save data to cxi')
         menu.addSeparator()
         action_view_hits = menu.addAction('view hits')
         menu.addSeparator()
@@ -468,6 +466,17 @@ def check_cxi_hit(hit_dir):
     stat = None
     if os.path.exists(stat_file):
         with open(stat_file, 'r') as f:
+            stat = yaml.load(f)
+    if stat is None:
+        stat = {}
+    return stat
+
+
+def check_peak2cxi(tag_dir):
+    stat_file = os.path.join(tag_dir, 'peak2cxi.yml')
+    stat = None
+    if os.path.exists(stat_file)
+        with open(stat_file) as f:
             stat = yaml.load(f)
     if stat is None:
         stat = {}
