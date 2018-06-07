@@ -24,7 +24,7 @@ if os.getenv('facility', 'general') == 'lcls':
 
 def read_image(path, frame=0,
                h5_obj=None, dataset=None,
-               extra_cheetah_datasets=None,
+               extra_datasets=None,
                lcls_detector=None, lcls_datasource=None,
                lcls_events=None, lcls_event=None):
     ext = path.split('.')[-1]
@@ -43,12 +43,12 @@ def read_image(path, frame=0,
         else:
             image = h5_obj[dataset].value
         # extra cheetah datasets
-        if extra_cheetah_datasets is not None:
-            extra_datasets = {
+        if extra_datasets is not None:
+            extra_data = {
                 extra_dataset: h5_obj[extra_dataset][frame]
-                for extra_dataset in extra_cheetah_datasets
+                for extra_dataset in extra_datasets
             }
-            data_dict['extra_cheetah_datasets'] = extra_datasets
+            data_dict['extra_datasets'] = extra_data
     elif ext == 'lcls':
         if lcls_event is None:
             while True:
@@ -808,7 +808,7 @@ def collect_jobs(files, dataset, batch_size):
 
 
 def save_full_cxi(batch, cxi_file,
-                  extra_cheetah_datasets=None,
+                  extra_datasets=None,
                   cxi_dtype='auto',
                   compression=None,
                   shuffle=True
@@ -817,6 +817,7 @@ def save_full_cxi(batch, cxi_file,
     Save crystfel-compatible cxi file.
     :param batch: a list contains frame and peak info.
     :param cxi_file: output cxi filepath.
+    :param extra_datasets: save extra datasets from cheetah cxi file.
     :param cxi_dtype: datatype of cxi file.
     :param compression: compression filter used for raw data.
     :param shuffle: whether shuffle used for compression.
@@ -826,8 +827,8 @@ def save_full_cxi(batch, cxi_file,
     if os.path.exists(cxi_file):
         print('rename existing %s to %s.bk' % (cxi_file, cxi_file))
         os.rename(cxi_file, '%s.bk' % cxi_file)
-    if extra_cheetah_datasets is not None:
-        extra_cheetah_datasets = extra_cheetah_datasets.split(',')
+    if extra_datasets is not None:
+        extra_cheetah_datasets = extra_datasets.split(',')
         extra_data = {
             dataset: [] for dataset in extra_cheetah_datasets
         }
@@ -853,13 +854,13 @@ def save_full_cxi(batch, cxi_file,
         data = read_image(
             filepath, frame,
             h5_obj=h5_obj, dataset=image_dataset,
-            extra_cheetah_datasets=extra_cheetah_datasets,
+            extra_datasets=extra_datasets,
         )
         image = data['image']
-        if extra_cheetah_datasets is not None:
-            for dataset in extra_cheetah_datasets:
+        if extra_datasets is not None:
+            for dataset in extra_datasets:
                 extra_data[dataset] = \
-                    data['extra_cheetah_datasets'][dataset][frame]
+                    data['extra_datasets'][dataset][frame]
         peak_info = record['peak_info']
         nb_peak = min(len(peak_info['snr']), 1024)
         nb_peaks[i] = nb_peak
