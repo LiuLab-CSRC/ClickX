@@ -24,22 +24,31 @@ if os.getenv('facility', 'general') == 'lcls':
 
 def read_image(path, frame=0,
                h5_obj=None, dataset=None,
+               extra_cheetah_datasets=None,
                lcls_detector=None, lcls_datasource=None,
                lcls_events=None, lcls_event=None):
     ext = path.split('.')[-1]
+    data_dict = {}
     if ext == 'npy':
-        data = np.load(path)
+        image = np.load(path)
     elif ext == 'npz':
         data = np.load(path)[dataset]
         if len(data.shape) == 3:
-            data = data[frame]
+            image = data[frame]
     elif ext in ('h5', 'cxi'):
         if 'header/frame_num' in h5_obj:  # PAL specific h5 file
             data = h5_obj['ts-%07d/data' % frame].value
         elif len(h5_obj[dataset].shape) == 3:
-            data = h5_obj[dataset][frame]
+            image = h5_obj[dataset][frame]
         else:
-            data = h5_obj[dataset].value
+            image = h5_obj[dataset].value
+        # extra cheetah datasets
+        if extra_cheetah_datasets is not None:
+            extra_datasets = {
+                extra_dataset: h5_obj[extra_dataset][frame]
+                for extra_dataset in extra_cheetah_datasets
+            }
+            data_dict['extra_cheetah_datasets'] = extra_datasets
     elif ext == 'lcls':
         if lcls_event is None:
             while True:
@@ -50,16 +59,17 @@ def read_image(path, frame=0,
                     for i in range(10):  # load 10 more events
                         lcls_events.append(lcls_datasource.events().next())
         raw_data = lcls_detector.calib(lcls_event)
-        data = np.zeros((1480, 1552))  # for CSPad Detector
+        image = np.zeros((1480, 1552))  # for CSPad Detector
         for i in range(4):
             for j in range(8):
                 x1, x2 = j * 185, (j + 1) * 185
                 y1, y2 = i * 388, (i + 1) * 388
-                data[x1:x2, y1:y2] = raw_data[i * 8 + j]
+                image[x1:x2, y1:y2] = raw_data[i * 8 + j]
     else:
         print('Unsupported format: %s' % ext)
         return None
-    return data
+    data_dict['image'] = image
+    return data_dict
 
 
 def find_peaks(image, center,
@@ -798,6 +808,7 @@ def collect_jobs(files, dataset, batch_size):
 
 
 def save_full_cxi(batch, cxi_file,
+                  extra_cheetah_datasets=None,
                   cxi_dtype='auto',
                   compression=None,
                   shuffle=True
@@ -815,9 +826,14 @@ def save_full_cxi(batch, cxi_file,
     if os.path.exists(cxi_file):
         print('rename existing %s to %s.bk' % (cxi_file, cxi_file))
         os.rename(cxi_file, '%s.bk' % cxi_file)
+    if extra_cheetah_datasets is not None:
+        extra_cheetah_datasets = extra_cheetah_datasets.split(',')
+        extra_data = {
+            dataset: [] for dataset in extra_cheetah_datasets
+        }
     nb_frame = len(batch)
     filepath_curr = None
-    frames = []
+    images = []
     nb_peaks = np.zeros(nb_frame, dtype=np.int)
     peaks_x = np.zeros((nb_frame, 1024))
     peaks_y = np.zeros((nb_frame, 1024))
@@ -825,7 +841,8 @@ def save_full_cxi(batch, cxi_file,
     peaks_snr = np.zeros((nb_frame, 1024))
     for i in range(len(batch)):
         record = batch[i]
-        filepath = record['filepath']
+        filepath, image_dataset, frame = \
+            record['filepath'], record['dataset'], record['frame']
         if filepath != filepath_curr:
             try:
                 h5_obj = h5py.File(filepath, 'r')
@@ -833,9 +850,16 @@ def save_full_cxi(batch, cxi_file,
             except IOError:
                 print('Failed to load %s' % filepath)
                 continue
-        frame = read_image(filepath, record['frame'],
-                           h5_obj=h5_obj,
-                           dataset=record['dataset'])
+        data = read_image(
+            filepath, frame,
+            h5_obj=h5_obj, dataset=image_dataset,
+            extra_cheetah_datasets=extra_cheetah_datasets,
+        )
+        image = data['image']
+        if extra_cheetah_datasets is not None:
+            for dataset in extra_cheetah_datasets:
+                extra_data[dataset] = \
+                    data['extra_cheetah_datasets'][dataset][frame]
         peak_info = record['peak_info']
         nb_peak = min(len(peak_info['snr']), 1024)
         nb_peaks[i] = nb_peak
@@ -843,15 +867,15 @@ def save_full_cxi(batch, cxi_file,
         peaks_y[i, :nb_peak] = peak_info['pos'][:nb_peak, 1]
         peaks_intensity[i, :nb_peak] = peak_info['total intensity'][:nb_peak]
         peaks_snr[i, :nb_peak] = peak_info['snr'][:nb_peak]
-        frames.append(frame)
+        images.append(image)
 
-    in_dtype = frame.dtype
+    in_dtype = image.dtype
     if cxi_dtype == 'auto':
         cxi_dtype = in_dtype
     else:
         cxi_dtype = np.dtype(cxi_dtype)
-    frames = np.array(frames).astype(cxi_dtype)
-    n, x, y = frames.shape
+    images = np.array(images).astype(cxi_dtype)
+    n, x, y = images.shape
     if os.path.exists(cxi_file):
         os.rename(cxi_file, '%s.bk' % cxi_file)
     f = h5py.File(cxi_file, 'w')
@@ -860,17 +884,24 @@ def save_full_cxi(batch, cxi_file,
         'data',
         shape=(n, x, y),
         dtype=cxi_dtype,
-        data=frames,
+        data=images,
         compression=compression,
         chunks=(1, x, y),
         shuffle=shuffle,
     )
+    # save masks
+    # TODO..
     # save peak info
     f.create_dataset('peak_info/nPeaks', data=nb_peaks)
     f.create_dataset('peak_info/peakXPosRaw', data=peaks_y)  # fs
     f.create_dataset('peak_info/peakYPosRaw', data=peaks_x)  # ss
     f.create_dataset('peak_info/peakTotalIntensity', data=peaks_intensity)
     f.create_dataset('peak_info/peakSNR', data=peaks_snr)
+    # save extra data
+    if extra_cheetah_datasets is not None:
+        for name, data in extra_data.items():
+            data = np.array(data)
+            f.create_dataset(name, data=data)
     f.close()
 
 

@@ -181,10 +181,11 @@ class Peak2CxiThread(QThread):
             self.settings.workdir, 'cxi_hit', self.job, self.tag)
         peak_file = os.path.join(hit_dir, '%s.npy' % self.job)
         min_peaks = str(self.settings.min_peaks)
+        extra_datasets = self.settings.cheetah_datasets
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/engines/%s/run_peak2cxi' % \
                        (dir_, self.settings.engine)
         python_script = '%s/util/batch_peak2cxi.py' % dir_
         subprocess.call(
             [shell_script, self.job, python_script, peak_file, hit_dir,
-             '--min-peaks', min_peaks])
+             '--min-peaks', min_peaks, '--extra-datasets', extra_datasets])

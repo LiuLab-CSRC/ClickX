@@ -36,7 +36,7 @@ class JobWindow(QWidget):
             )
         self.jobTable.setColumnCount(len(self.header_labels))
         self.jobTable.setHorizontalHeaderLabels(self.header_labels)
-        self.compressed_batch_size = settings.compressed_batch_size
+        self.mpi_batch_size = settings.mpi_batch_size
 
         self.jobs_info = None
         self.conf_files = None
@@ -86,7 +86,7 @@ class JobWindow(QWidget):
                 'peak2cxi'
             )
 
-        self.compressed_batch_size = settings.compressed_batch_size
+        self.mpi_batch_size = settings.mpi_batch_size
         self.jobTable.setColumnCount(len(self.header_labels))
         self.jobTable.setHorizontalHeaderLabels(self.header_labels)
 

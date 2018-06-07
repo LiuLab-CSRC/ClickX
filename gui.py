@@ -2,13 +2,12 @@ import os
 import sys
 from datetime import datetime
 from functools import partial
-import yaml
 from glob import glob
 
 import h5py
 import numpy as np
-import PyQt5
 import pyqtgraph as pg
+import yaml
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import pyqtSlot, QPoint, Qt
 from PyQt5.QtWidgets import QMainWindow, QApplication, QListWidgetItem, \
@@ -16,11 +15,11 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QListWidgetItem, \
 from PyQt5.uic import loadUi
 from pyqtgraph.parametertree import Parameter
 
-from util import util
-from threads import MeanCalculatorThread, GenPowderThread
-from settings import Settings, SettingDialog
-from job_win import JobWindow
 from hit_win import HitWindow
+from job_win import JobWindow
+from settings import Settings, SettingDialog
+from threads import MeanCalculatorThread, GenPowderThread
+from util import util
 
 
 class GUI(QMainWindow):
@@ -639,7 +638,7 @@ class GUI(QMainWindow):
         self.mask_on = conf_dict.get('mask on', False)
         self.mask_file = conf_dict.get('mask file', None)
         if self.mask_on and self.mask_file is not None:
-            self.mask = util.read_image(self.mask_file)
+            self.mask = util.read_image(self.mask_file)['image']
         self.center = np.array(conf_dict.get('center', [0, 0]))
         self.hit_finder = conf_dict.get('hit finder', 'snr model')
         self.max_peaks = conf_dict.get('max peaks', 500)
@@ -919,7 +918,7 @@ class GUI(QMainWindow):
     def change_mask_on(self, _, mask_on):
         self.mask_on = mask_on
         if self.mask_on and self.mask_file is not None:
-            mask = util.read_image(self.mask_file)
+            mask = util.read_image(self.mask_file)['image']
             self.mask = mask
         else:
             self.mask = None
@@ -1157,7 +1156,7 @@ class GUI(QMainWindow):
             lcls_detector=self.lcls_detector,
             lcls_events=self.lcls_events,
             lcls_event=self.lcls_event,
-        ).astype(float)
+        )['image'].astype(float)
         self.mask_image = util.make_simple_mask(
             self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
             dilation=self.dilation_size, erosion2=self.erosion2_size)
@@ -1521,7 +1520,7 @@ class GUI(QMainWindow):
         elif action == action_set_as_mask:
             self.mask_file = path
             if self.mask_on:
-                mask = util.read_image(path)
+                mask = util.read_image(path)['image']
                 self.mask = mask
             self.update_file_info()
             self.change_image()

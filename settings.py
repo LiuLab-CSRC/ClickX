@@ -54,7 +54,8 @@ class SettingDialog(QDialog):
         )
         self.compressRawData.stateChanged.connect(
             partial(self.update_attribute,
-                    attr='compress_raw_data', widget=self.compressRawData)
+                    attr='compress_raw_data',
+                    widget=self.compressRawData)
         )
         self.rawDataset.editingFinished.connect(
             partial(self.update_attribute,
@@ -64,10 +65,10 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='compressed_dataset', widget=self.compressedDataset)
         )
-        self.compressedBatchSize.valueChanged.connect(
+        self.mpiBatchSize.valueChanged.connect(
             partial(self.update_attribute,
-                    attr='compressed_batch_size',
-                    widget=self.compressedBatchSize)
+                    attr='mpi_batch_size',
+                    widget=self.mpiBatchSize)
         )
         self.cxiRawDataPath.editingFinished.connect(
             partial(self.update_attribute,
@@ -78,6 +79,11 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='cxi_peak_info_path',
                     widget=self.cxiPeakInfoPath)
+        )
+        self.cheetahDatasets.editingFinished.connect(
+            partial(self.update_attribute,
+                    attr='cheetah_datasets',
+                    widget=self.cheetahDatasets)
         )
         self.jobPoolSize.valueChanged.connect(
             partial(self.update_attribute, attr='job_pool_size',
@@ -120,14 +126,16 @@ class SettingDialog(QDialog):
             self.rawDataset.setText(kwargs['raw_dataset'])
         if 'compressed_dataset' in kwargs:
             self.compressedDataset.setText(kwargs['compressed_dataset'])
-        if 'compressed_batch_size' in kwargs:
-            self.compressedBatchSize.setValue(kwargs['compressed_batch_size'])
+        if 'mpi_batch_size' in kwargs:
+            self.mpiBatchSize.setValue(kwargs['mpi_batch_size'])
         if 'min_peaks' in kwargs:
             self.minPeaks.setValue(kwargs['min_peaks'])
         if 'cxi_raw_data_path' in kwargs:
             self.cxiRawDataPath.setText(kwargs['cxi_raw_data_path'])
         if 'cxi_peak_info_path' in kwargs:
             self.cxiPeakInfoPath.setText(kwargs['cxi_peak_info_path'])
+        if 'cheetah_datasets' in kwargs:
+            self.cheetahDatasets.setText(kwargs['cheetah_datasets'])
         if 'job_pool_size' in kwargs:
             self.jobPoolSize.setValue(kwargs['job_pool_size'])
         if 'max_info' in kwargs:
@@ -144,6 +152,13 @@ class SettingDialog(QDialog):
             value = widget.value()
         elif isinstance(widget, QCheckBox):
             value = widget.isChecked()
+        if attr == 'compress_raw_data':
+            if widget.isChecked():
+                self.rawDataset.setEnabled(True)
+                self.compressedDataset.setEnabled(True)
+            else:
+                self.rawDataset.setEnabled(False)
+                self.compressedDataset.setEnabled(False)
         self.attribute_changed.emit((attr, value))
 
     def get_checked_table_columns(self):
@@ -164,12 +179,14 @@ class SettingDialog(QDialog):
 
 class Settings(object):
     setting_file = '.config.yml'
-    saved_attrs = ('workdir', 'engine', 'photon_energy', 'detector_distance',
-                   'pixel_size', 'image_width', 'image_height', 'center_x',
-                   'center_y', 'compress_raw_data', 'raw_dataset',
-                   'compressed_dataset', 'compressed_batch_size',
-                   'cxi_raw_data_path', 'cxi_peak_info_path',
-                   'min_peaks', 'max_info', 'job_pool_size')
+    saved_attrs = (
+        'workdir', 'engine', 'photon_energy', 'detector_distance',
+        'pixel_size', 'image_width', 'image_height', 'center_x',
+        'center_y', 'compress_raw_data', 'raw_dataset',
+        'compressed_dataset', 'mpi_batch_size',
+        'cxi_raw_data_path', 'cxi_peak_info_path', 'cheetah_datasets',
+        'min_peaks', 'max_info', 'job_pool_size'
+    )
 
     def __init__(self, setting_diag):
         super(Settings, self).__init__()
@@ -187,9 +204,10 @@ class Settings(object):
         self.compress_raw_data = None
         self.raw_dataset = None
         self.compressed_dataset = None
-        self.compressed_batch_size = None
+        self.mpi_batch_size = None
         self.cxi_raw_data_path = None
         self.cxi_peak_info_path = None
+        self.cheetah_datasets = None  # extra datasets from cheetah data
         self.job_pool_size = None
         self.min_peaks = None
         self.max_info = None
@@ -218,12 +236,14 @@ class Settings(object):
         self.update(raw_dataset=settings.get('raw_dataset', 'data'))
         self.update(compressed_dataset=settings.get(
             'compressed_dataset', 'data'))
-        self.update(compressed_batch_size=settings.get(
-            'compressed_batch_size', 200))
+        self.update(mpi_batch_size=settings.get(
+            'mpi_batch_size', 5))
         self.update(cxi_raw_data_path=settings.get(
             'cxi_raw_data_path', 'data'))
         self.update(cxi_peak_info_path=settings.get(
             'cxi_peak_info_path', 'peak_info'))
+        self.update(cheetah_datasets=settings.get(
+            'cheetah_datasets', ''))
         self.update(job_pool_size=settings.get('job_pool_size', 4))
         self.update(min_peaks=settings.get('min_peaks', 20))
         self.update(max_info=settings.get('max_info', 1000))
@@ -250,4 +270,6 @@ class Settings(object):
 def get_all_engines():
     dir_ = os.path.abspath(os.path.dirname(__file__))
     engines = os.listdir('%s/engines' % dir_)
+    # remove fake engines if start with .
+    engines = [engine for engine in engines if not engine[0] == '.']
     return engines
