@@ -2,13 +2,9 @@ from PyQt5.QtCore import QThread, pyqtSignal
 
 import os
 import subprocess
-import operator
 import time
-from glob import glob
-import yaml
 
 import numpy as np
-import math
 import random
 import h5py
 from util import util

@@ -1,8 +1,14 @@
-from PyQt5 import QtGui
-from PyQt5.QtCore import pyqtSlot, QPoint, Qt, QTimer
+import csv
+import os
+from glob import glob
+import yaml
+import time
+import operator
+
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QPoint, Qt, QTimer
 from PyQt5.QtWidgets import QWidget, QMenu, QTableWidgetItem
 from PyQt5.uic import loadUi
-from threads import *
+from threads import CompressorThread, HitFinderThread, Peak2CxiThread
 
 
 class JobWindow(QWidget):
@@ -48,6 +54,7 @@ class JobWindow(QWidget):
         # slots
         self.jobTable.customContextMenuRequested.connect(self.show_job_menu)
         self.autoSubmit.toggled.connect(self.change_auto_submit)
+        self.exportButton.clicked.connect(self.export_jobs)
         self.timer.timeout.connect(self.check_and_submit_jobs)
 
     def start(self):
@@ -375,11 +382,32 @@ class JobWindow(QWidget):
         width = self.jobTable.width()
         col_count = self.jobTable.columnCount()
         header = self.jobTable.horizontalHeader()
+
         for i in range(col_count):
             header.resizeSection(i, width // col_count)
 
     def closeEvent(self, _):
         self.timer.stop()
+
+    def export_jobs(self):
+        nb_cols = self.jobTable.horizontalHeader().count()
+        header_labels = []
+        for i in range(nb_cols):
+            header_labels.append(
+                self.jobTable.horizontalHeaderItem(i).text()
+            )
+        nb_rows = self.jobTable.rowCount()
+        rows = []
+        for i in range(nb_rows):
+            row = []
+            for j in range(nb_cols):
+                row.append(self.jobTable.item(i, j).text())
+            rows.append(row)
+        with open('SFX-Suite.csv', 'w') as f:
+            writer = csv.writer(f)
+            print(header_labels)
+            writer.writerow(header_labels)
+            writer.writerows(rows)
 
 
 class Job(object):
