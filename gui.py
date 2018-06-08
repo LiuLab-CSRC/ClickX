@@ -833,11 +833,13 @@ class GUI(QMainWindow):
 
     @pyqtSlot()
     def show_powder_win(self):
+        self.powder_win.update_settings(self.settings)
+        self.powder_win.update_peaks_view()
         self.powder_win.showMaximized()
 
     @pyqtSlot()
     def show_job_win(self):
-        self.job_win.update_status(self.settings)
+        self.job_win.update_settings(self.settings)
         self.job_win.showMaximized()
         self.job_win.start()
 
@@ -912,7 +914,7 @@ class GUI(QMainWindow):
 
     @pyqtSlot(object)
     def change_eraser(self, eraser):
-        if self.enable_eraser:
+        if self.enable_eraser and self.raw_image is not None:
             pos = eraser.pos()
             radius = eraser.size()[0] / 2
             center = (pos[0] + radius, pos[1] + radius)

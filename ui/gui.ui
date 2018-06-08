@@ -74,16 +74,9 @@
         <item>
          <layout class="QGridLayout" name="gridLayout">
           <item row="0" column="0">
-           <widget class="QLabel" name="label_6">
-            <property name="text">
-             <string>Add File(s):</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
            <widget class="QLineEdit" name="addFileLine">
             <property name="placeholderText">
-             <string>/path/to/files</string>
+             <string>add files...</string>
             </property>
            </widget>
           </item>
@@ -279,7 +272,7 @@ QTabBar::tab:top, QTabBar::tab:bottom {
 }</string>
            </property>
            <property name="currentIndex">
-            <number>1</number>
+            <number>0</number>
            </property>
            <widget class="QWidget" name="tab">
             <attribute name="title">

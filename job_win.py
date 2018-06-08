@@ -60,7 +60,7 @@ class JobWindow(QWidget):
     def start(self):
         self.timer.start(self.settings.update_period * 1000)
 
-    def update_status(self, settings):
+    def update_settings(self, settings):
         self.settings = settings
         self.workdir = settings.workdir
         self.raw_dataset = settings.raw_dataset

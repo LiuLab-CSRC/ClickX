@@ -19,7 +19,7 @@
   <property name="windowTitle">
    <string>Powder Fit</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_5">
+  <layout class="QVBoxLayout" name="verticalLayout_5" stretch="0,1">
    <item>
     <widget class="QFrame" name="frame">
      <property name="frameShape">
@@ -317,7 +317,7 @@
    <item>
     <widget class="QSplitter" name="splitter_2">
      <property name="orientation">
-      <enum>Qt::Vertical</enum>
+      <enum>Qt::Horizontal</enum>
      </property>
      <property name="handleWidth">
       <number>3</number>

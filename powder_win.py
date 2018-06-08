@@ -22,10 +22,12 @@ class PowderWindow(QWidget):
         self.settings = settings
         self.workdir = settings.workdir
         self.max_peaks = 10000
-        self.center = np.array([settings.center_x, settings.center_y])
-        self.eps = 1.
-        self.min_samples = 10
-        self.tol = 1
+        self.powder_width = settings.image_width
+        self.powder_height = settings.image_height
+        self.center = [settings.center_x, settings.center_y]
+        self.eps = 3.
+        self.min_samples = 100
+        self.tol = 10
         self.photon_energy = settings.photon_energy
         self.detector_distance = settings.detector_distance
         self.pixel_size = settings.pixel_size
@@ -116,6 +118,15 @@ class PowderWindow(QWidget):
         self.fittingButton.clicked.connect(self.cluster_and_fit)
         self.powder_table.cellClicked.connect(self.highlight_cluster)
         self.powder_table.cellChanged.connect(self.change_resolution)
+
+    def update_settings(self, settings):
+        self.powder_width = settings.image_width
+        self.powder_height = settings.image_height
+        self.center = [settings.center_x, settings.center_y]
+        self.center = [settings.center_x, settings.center_y]
+        self.photon_energy = settings.photon_energy
+        self.detector_distance = settings.detector_distance
+        self.pixel_size = settings.pixel_size
 
     @pyqtSlot()
     def load_peaks(self):
@@ -282,7 +293,7 @@ class PowderWindow(QWidget):
                 real_radius * self.pixel_size * 1E-3 / self.detector_distance
             )
             self.ring_2theta[label] = two_theta
-            wavelength = self.wavelength_sb.value()
+            wavelength = get_photon_wavelength(self.photon_energy)
             resolution = wavelength / (2. * math.sin(two_theta / 2.))
             res_dict = {
                 'resolution/Å': '%.4f' % resolution,
@@ -305,15 +316,24 @@ class PowderWindow(QWidget):
         slope, _, r_value, _, _ = linregress(
             np.tan(ring_2theta) ** 2., center_shift
         )
+        center_shiftx = (ring_centers[:, 0] - ring_centers[-1, 0])\
+                        * self.pixel_size
+        slope_x, _, _, _, _ = linregress(
+            np.tan(ring_2theta) ** 2., center_shiftx
+        )
         print('r_value square: ', r_value ** 2)
         tilting_angle = np.rad2deg(
             math.asin(slope * 1E-3 / self.detector_distance)
         )
-        message = 'beam center: %.2f %.2f, tilting %.3f deg' \
+        tilting_anglex = np.rad2deg(
+            math.asin(slope_x * 1E-3 / self.detector_distance)
+        )
+        message = 'beam center: %.2f %.2f, tilting %.3f deg, %.3f' \
                   % (self.fitting_center[0, 0],
                      self.fitting_center[0, 1],
-                     tilting_angle)
-        self.fitting_results_lb.setText(message)
+                     tilting_angle, tilting_anglex)
+        self.fittingResults.setText(message)
+        self.fittingResults.repaint()
 
     @pyqtSlot(int, int)
     def change_resolution(self, row, col):
@@ -324,7 +344,7 @@ class PowderWindow(QWidget):
             return
         resolution = float(item.text())
         label = int(self.powder_table.item(row, 0).text())
-        wavelength = self.wavelength_sb.value()
+        wavelength = get_photon_wavelength(self.photon_energy)
         theta = math.asin(wavelength/(2. * resolution))
         ring_radius = self.real_radii[label] * self.pixel_size
         det_dist = ring_radius / math.tan(2.0 * theta) * 1E-3
@@ -350,10 +370,9 @@ class PowderWindow(QWidget):
                 item.setText(str(row_dict[field]))
 
     def update_peaks_view(self):
-        powder = build_grid_image(
-            self.settings.image_width, self.settings.image_height)
+        powder = build_grid_image(self.powder_width, self.powder_height)
         self.peaks_view.setImage(powder)
         self.peaks_view.setLevels(min=-1, max=2)
-        self.center_item.setData(pos=self.center.reshape(1, 2) + 0.5)
+        self.center_item.setData(pos=np.array(self.center).reshape(1, 2) + 0.5)
         if len(self.peaks) > 0:
             self.peak_item.setData(pos=self.peaks + 0.5)
