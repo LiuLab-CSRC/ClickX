@@ -156,13 +156,15 @@ class SettingDialog(QDialog):
             for tag in kwargs['hit_conf_tags']:
                 self.hitTags.addItem(tag)
         if 'curr_hit_tag' in kwargs:
+            hit_conf_tags = []
+            for i in range(self.hitTags.count()):
+                hit_conf_tags.append(self.hitTags.itemText(i))
             if kwargs['curr_hit_tag'] is not None:
-                hit_conf_tags = []
-                for i in range(self.hitTags.count()):
-                    hit_conf_tags.append(self.hitTags.itemText(i))
                 tag_id = hit_conf_tags.index(kwargs['curr_hit_tag'])
             else:
                 tag_id = 0
+                if len(hit_conf_tags) > 0:
+                    self.update_attribute('curr_hit_tag', self.hitTags)
             self.hitTags.setCurrentIndex(tag_id)
         if 'cxi_raw_data_path' in kwargs:
             self.cxiRawDataPath.setText(kwargs['cxi_raw_data_path'])
