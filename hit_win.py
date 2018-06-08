@@ -36,6 +36,7 @@ class HitWindow(QWidget):
         path = self.table.item(row, 0).text()
         dataset = self.table.item(row, 1).text()
         frame = int(self.table.item(row, 2).text())
+        self.main_win.maybe_add_file(path)
         self.main_win.load_data(path, dataset=dataset, frame=frame)
         self.main_win.update_file_info()
         self.main_win.change_image()
