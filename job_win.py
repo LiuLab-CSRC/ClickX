@@ -199,7 +199,8 @@ class JobWindow(QWidget):
         for item in items:
             rows.append(self.jobTable.row(item))
         rows = set(rows)  # remove duplicates
-        action_compression = menu.addAction('run compressor')
+        if self.settings.compress_raw_data:
+            action_compression = menu.addAction('run compressor')
         action_hit_finding = menu.addAction('run hit finder')
         action_peak2cxi = menu.addAction('save all to cxi')
         menu.addSeparator()
