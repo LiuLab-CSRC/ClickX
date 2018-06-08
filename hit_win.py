@@ -1,6 +1,6 @@
 from PyQt5.uic import loadUi
 from PyQt5.QtWidgets import QWidget, QFileDialog
-from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtCore import pyqtSlot, Qt
 
 import os
 
@@ -61,3 +61,7 @@ class HitWindow(QWidget):
             ('nb_peak', int),
         ])
         self.table.setData(data)
+        for i in range(self.table.rowCount()):
+            for j in range(self.table.columnCount()):
+                item = self.table.item(i, j)
+                item.setTextAlignment(Qt.AlignCenter)
