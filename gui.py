@@ -816,6 +816,7 @@ class GUI(QMainWindow):
 
     @pyqtSlot()
     def show_settings(self):
+        self.settings.load_settings()
         if self.setting_diag.exec_() == QDialog.Accepted:
             self.settings.save_settings()
 
@@ -829,7 +830,7 @@ class GUI(QMainWindow):
 
     @pyqtSlot()
     def show_job_win(self):
-        self.job_win.update_info(self.settings)
+        self.job_win.update_status(self.settings)
         self.job_win.showMaximized()
         self.job_win.start()
 

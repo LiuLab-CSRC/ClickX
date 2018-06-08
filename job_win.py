@@ -18,8 +18,7 @@ class JobWindow(QWidget):
         self.workdir = settings.workdir
         self.raw_dataset = settings.raw_dataset
         self.compressed_dataset = settings.compressed_dataset
-        self.rawDataset.setText(self.raw_dataset)
-        self.compressedDataset.setText(self.compressed_dataset)
+        self.hit_tag = settings.curr_hit_tag
 
         if settings.compress_raw_data:
             self.header_labels = (
@@ -42,9 +41,6 @@ class JobWindow(QWidget):
         self.conf_files = None
         self.jobs_stat = None
         self.auto_submit = False
-        self.hit_conf = None
-        self.hit_tag = None
-        self.curr_conf = []
         self.jobs = []
 
         self.timer = QTimer()
@@ -52,26 +48,19 @@ class JobWindow(QWidget):
         # slots
         self.jobTable.customContextMenuRequested.connect(self.show_job_menu)
         self.autoSubmit.toggled.connect(self.change_auto_submit)
-        self.hitFindingConf.currentIndexChanged.connect(self.change_hit_conf)
         self.timer.timeout.connect(self.check_and_submit_jobs)
 
     def start(self):
-        self.timer.start(1000)
+        self.timer.start(self.settings.update_period * 1000)
 
-    @pyqtSlot(int)
-    def change_hit_conf(self, conf_id):
-        if conf_id < 0:
-            return
-        self.hit_conf = self.hitFindingConf.itemData(conf_id)
-        self.hit_tag = self.hitFindingConf.itemText(conf_id)
-
-    def update_info(self, settings):
+    def update_status(self, settings):
         self.settings = settings
         self.workdir = settings.workdir
         self.raw_dataset = settings.raw_dataset
         self.compressed_dataset = settings.compressed_dataset
-        self.rawDataset.setText(self.raw_dataset)
-        self.compressedDataset.setText(self.compressed_dataset)
+        self.hit_tag = settings.curr_hit_tag
+        self.mpi_batch_size = settings.mpi_batch_size
+
         if settings.compress_raw_data:
             self.header_labels = (
                 'job id', 'compression', 'compression ratio',
@@ -86,7 +75,6 @@ class JobWindow(QWidget):
                 'peak2cxi'
             )
 
-        self.mpi_batch_size = settings.mpi_batch_size
         self.jobTable.setColumnCount(len(self.header_labels))
         self.jobTable.setHorizontalHeaderLabels(self.header_labels)
 
@@ -175,9 +163,6 @@ class JobWindow(QWidget):
             jobs_info, key=operator.itemgetter('job id')
         )
 
-        hit_conf_dir = os.path.join(self.workdir, 'conf')
-        self.conf_files = glob('%s/*.yml' % hit_conf_dir)
-
         if total_processed_frames > 0:
             total_hit_rate = float(total_processed_hits) / \
                              total_processed_frames
@@ -194,15 +179,6 @@ class JobWindow(QWidget):
     def update_jobs_info(self):
         for i, job_info in enumerate(self.jobs_info):
             self.fill_table_row(job_info, i)
-
-    @pyqtSlot(list)
-    def update_conf(self):
-        for conf in self.conf_files:
-            if conf in self.curr_conf:
-                continue
-            tag = os.path.basename(conf).split('.')[0]
-            self.hitFindingConf.addItem(tag, userData=conf)
-            self.curr_conf.append(conf)
 
     @pyqtSlot(dict)
     def update_stat(self):
@@ -225,7 +201,7 @@ class JobWindow(QWidget):
         rows = set(rows)  # remove duplicates
         action_compression = menu.addAction('run compressor')
         action_hit_finding = menu.addAction('run hit finder')
-        action_peak2cxi = menu.addAction('save data to cxi')
+        action_peak2cxi = menu.addAction('save all to cxi')
         menu.addSeparator()
         action_view_hits = menu.addAction('view hits')
         menu.addSeparator()
@@ -251,7 +227,6 @@ class JobWindow(QWidget):
                           settings=self.settings,
                           job_id=job_id,
                           tag_id=self.hit_tag,
-                          hit_conf=self.hit_conf,
                           compressed=self.settings.compress_raw_data)
                 self.jobs.append(job)
                 job.submit()
@@ -305,7 +280,6 @@ class JobWindow(QWidget):
         print('checking and submitting jobs')
         self.crawler_run()
         self.update_jobs_info()
-        self.update_conf()
         self.update_stat()
         if self.auto_submit:
             self.find_and_submit_jobs()
@@ -354,7 +328,6 @@ class JobWindow(QWidget):
                                 settings=self.settings,
                                 job_id=job_id,
                                 tag_id=self.hit_tag,
-                                hit_conf=self.hit_conf,
                                 compressed=self.settings.compress_raw_data)
                 ready_jobs.append(ready_job)
             elif hit_finding == 'not ready':
@@ -425,7 +398,6 @@ class Job(object):
             self.job_thread = HitFinderThread(
                 self.settings,
                 job=self.job_id,
-                conf=self.hit_conf,
                 tag=self.tag_id,
                 compressed=self.compressed,
             )

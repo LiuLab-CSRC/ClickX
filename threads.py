@@ -136,13 +136,11 @@ class HitFinderThread(QThread):
     def __init__(self, settings,
                  parent=None,
                  job=None,
-                 conf=None,
                  tag=None,
                  compressed=True):
         super(HitFinderThread, self).__init__(parent)
         self.settings = settings
         self.job = job
-        self.conf = conf
         self.tag = tag
         self.compressed = compressed
 
@@ -155,7 +153,7 @@ class HitFinderThread(QThread):
             cxi_lst = os.path.join(
                 self.settings.workdir, 'raw_lst', '%s.lst' % self.job
             )
-        conf = self.conf
+        conf = '%s/conf/%s.yml' % (self.settings.workdir, self.tag)
         job = self.job
         min_peaks = str(self.settings.min_peaks)
         hit_dir = os.path.join(

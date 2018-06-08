@@ -808,7 +808,7 @@ def collect_jobs(files, dataset, batch_size):
 
 
 def save_full_cxi(batch, cxi_file,
-                  mask_file=mask_file,
+                  mask_file=None,
                   extra_datasets=None,
                   cxi_dtype='auto',
                   compression='gzip',

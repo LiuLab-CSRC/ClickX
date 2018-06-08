@@ -1,4 +1,5 @@
 import os
+from glob import glob
 from functools import partial
 import yaml
 
@@ -15,6 +16,7 @@ class SettingDialog(QDialog):
         super(SettingDialog, self).__init__()
         dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/settings_diag.ui' % dir_, self)
+        # general
         self.workDir.editingFinished.connect(
             partial(self.update_attribute,
                     attr='workdir', widget=self.workDir)
@@ -24,6 +26,7 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='engine', widget=self.jobEngine)
         )
+        # experiment
         self.photonEnergy.valueChanged.connect(
             partial(self.update_attribute,
                     attr='photon_energy', widget=self.photonEnergy)
@@ -52,6 +55,7 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='center_y', widget=self.centerY)
         )
+        # batch job
         self.compressRawData.stateChanged.connect(
             partial(self.update_attribute,
                     attr='compress_raw_data',
@@ -65,10 +69,13 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='compressed_dataset', widget=self.compressedDataset)
         )
-        self.mpiBatchSize.valueChanged.connect(
+        self.hitTags.currentIndexChanged.connect(
             partial(self.update_attribute,
-                    attr='mpi_batch_size',
-                    widget=self.mpiBatchSize)
+                    attr='curr_hit_tag', widget=self.hitTags)
+        )
+        self.minPeaks.valueChanged.connect(
+            partial(self.update_attribute,
+                    attr='min_peaks', widget=self.minPeaks)
         )
         self.cxiRawDataPath.editingFinished.connect(
             partial(self.update_attribute,
@@ -89,15 +96,27 @@ class SettingDialog(QDialog):
             partial(self.update_attribute, attr='job_pool_size',
                     widget=self.jobPoolSize)
         )
+        self.mpiBatchSize.valueChanged.connect(
+            partial(self.update_attribute,
+                    attr='mpi_batch_size',
+                    widget=self.mpiBatchSize)
+        )
+        self.updatePeriod.valueChanged.connect(
+            partial(self.update_attribute, attr='update_period',
+                    widget=self.updatePeriod)
+        )
+        # other
         self.maxInfo.valueChanged.connect(
             partial(self.update_attribute,
                     attr='max_info', widget=self.maxInfo)
         )
 
     def update(self, **kwargs):
+        # general
         if 'workdir' in kwargs:
             self.workDir.setText(kwargs['workdir'])
         if 'engines' in kwargs:
+            self.jobEngine.clear()
             for engine in kwargs['engines']:
                 self.jobEngine.addItem(engine)
         if 'engine' in kwargs:
@@ -106,6 +125,7 @@ class SettingDialog(QDialog):
                 engines.append(self.jobEngine.itemText(i))
             engine_id = engines.index(kwargs['engine'])
             self.jobEngine.setCurrentIndex(engine_id)
+        # experiment
         if 'photon_energy' in kwargs:
             self.photonEnergy.setValue(kwargs['photon_energy'])
         if 'detector_distance' in kwargs:
@@ -120,6 +140,7 @@ class SettingDialog(QDialog):
             self.centerX.setValue(kwargs['center_x'])
         if 'center_y' in kwargs:
             self.centerY.setValue(kwargs['center_y'])
+        # batch job
         if 'compress_raw_data' in kwargs:
             self.compressRawData.setChecked(kwargs['compress_raw_data'])
         if 'raw_dataset' in kwargs:
@@ -130,6 +151,19 @@ class SettingDialog(QDialog):
             self.mpiBatchSize.setValue(kwargs['mpi_batch_size'])
         if 'min_peaks' in kwargs:
             self.minPeaks.setValue(kwargs['min_peaks'])
+        if 'hit_conf_tags' in kwargs:
+            self.hitTags.clear()
+            for tag in kwargs['hit_conf_tags']:
+                self.hitTags.addItem(tag)
+        if 'curr_hit_tag' in kwargs:
+            if kwargs['curr_hit_tag'] is not None:
+                hit_conf_tags = []
+                for i in range(self.hitTags.count()):
+                    hit_conf_tags.append(self.hitTags.itemText(i))
+                tag_id = hit_conf_tags.index(kwargs['curr_hit_tag'])
+            else:
+                tag_id = 0
+            self.hitTags.setCurrentIndex(tag_id)
         if 'cxi_raw_data_path' in kwargs:
             self.cxiRawDataPath.setText(kwargs['cxi_raw_data_path'])
         if 'cxi_peak_info_path' in kwargs:
@@ -138,6 +172,9 @@ class SettingDialog(QDialog):
             self.cheetahDatasets.setText(kwargs['cheetah_datasets'])
         if 'job_pool_size' in kwargs:
             self.jobPoolSize.setValue(kwargs['job_pool_size'])
+        if 'update_period' in kwargs:
+            self.updatePeriod.setValue(kwargs['update_period'])
+        # other
         if 'max_info' in kwargs:
             self.maxInfo.setValue(kwargs['max_info'])
 
@@ -185,7 +222,8 @@ class Settings(object):
         'center_y', 'compress_raw_data', 'raw_dataset',
         'compressed_dataset', 'mpi_batch_size',
         'cxi_raw_data_path', 'cxi_peak_info_path', 'cheetah_datasets',
-        'min_peaks', 'max_info', 'job_pool_size'
+        'min_peaks', 'max_info', 'job_pool_size', 'update_period',
+        'curr_hit_tag'
     )
 
     def __init__(self, setting_diag):
@@ -194,6 +232,8 @@ class Settings(object):
         self.workdir = None
         self.engines = None  # available engines
         self.engine = None  # current engine
+        self.hit_conf_tags = None
+        self.curr_hit_tag = None
         self.photon_energy = None
         self.detector_distance = None
         self.pixel_size = None
@@ -209,9 +249,9 @@ class Settings(object):
         self.cxi_peak_info_path = None
         self.cheetah_datasets = None  # extra datasets from cheetah data
         self.job_pool_size = None
+        self.update_period = None
         self.min_peaks = None
         self.max_info = None
-        self.update(engines=get_all_engines())
         self.load_settings()
         # signal/slots
         self.setting_diag.attribute_changed.connect(self.update)
@@ -224,6 +264,7 @@ class Settings(object):
         if settings is None:
             settings = {}
         self.update(workdir=settings.get('workdir', os.getcwd()))
+        self.update(engines=get_all_engines())
         self.update(engine=settings.get('engine', 'local'))
         self.update(photon_energy=settings.get('photon_energy', 9000))
         self.update(detector_distance=settings.get('detector_distance', 100))
@@ -245,8 +286,11 @@ class Settings(object):
         self.update(cheetah_datasets=settings.get(
             'cheetah_datasets', ''))
         self.update(job_pool_size=settings.get('job_pool_size', 4))
+        self.update(update_period=settings.get('update_period', 2))
         self.update(min_peaks=settings.get('min_peaks', 20))
         self.update(max_info=settings.get('max_info', 1000))
+        self.update(hit_conf_tags=get_all_hit_tags(self.workdir))
+        self.update(curr_hit_tag=settings.get('curr_hit_tag', None))
 
     def save_settings(self):
         settings = {attr: getattr(self, attr) for attr in self.saved_attrs}
@@ -256,8 +300,14 @@ class Settings(object):
     def update(self, *args, **kwargs):
         for arg in args:
             setattr(self, arg[0], arg[1])
+            if arg[0] == 'workdir':
+                self.update(hit_conf_tags=get_all_hit_tags(self.workdir))
+                self.update(curr_hit_tag=self.curr_hit_tag)
         for key, value in kwargs.items():
             setattr(self, key, value)
+            if key == 'workdir':
+                self.update(hit_conf_tags=get_all_hit_tags(self.workdir))
+                self.update(curr_hit_tag=self.curr_hit_tag)
         self.setting_diag.update(**kwargs)
 
     def __str__(self):
@@ -273,3 +323,11 @@ def get_all_engines():
     # remove fake engines if start with .
     engines = [engine for engine in engines if not engine[0] == '.']
     return engines
+
+
+def get_all_hit_tags(workdir):
+    conf_dir = '%s/conf' % workdir
+    hit_files = glob('%s/*.yml' % conf_dir)
+    hit_tags = [hit_file.split('/')[-1].split('.')[0]
+                for hit_file in hit_files]
+    return hit_tags
