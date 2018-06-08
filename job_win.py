@@ -209,7 +209,7 @@ class JobWindow(QWidget):
         action_sum = menu.addAction('calc sum')
         action = menu.exec_(self.jobTable.mapToGlobal(pos))
 
-        if action == action_compression:
+        if self.settings.compress_raw_data and action == action_compression:
             for row in rows:
                 job_id = self.jobTable.item(
                     row, self.header_labels.index('job id')).text()
