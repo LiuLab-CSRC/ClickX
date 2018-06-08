@@ -32,7 +32,7 @@ class MeanCalculatorThread(QThread):
             for i in range(data_shape[self.dataset][0]):
                 img = util.read_image(
                     filepath, frame=i, h5_obj=h5_obj,
-                    dataset=self.dataset).astype(np.float32)
+                    dataset=self.dataset)['image'].astype(np.float32)
                 if count == 0:
                     img_mean = img
                     img_sigma = np.zeros_like(img_mean)

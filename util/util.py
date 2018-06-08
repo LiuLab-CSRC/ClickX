@@ -35,6 +35,8 @@ def read_image(path, frame=0,
         data = np.load(path)[dataset]
         if len(data.shape) == 3:
             image = data[frame]
+        else:
+            image = data
     elif ext in ('h5', 'cxi'):
         if 'header/frame_num' in h5_obj:  # PAL specific h5 file
             data = h5_obj['ts-%07d/data' % frame].value

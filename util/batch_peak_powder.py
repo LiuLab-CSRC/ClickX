@@ -14,6 +14,8 @@ Options:
                             [default: 500000].
     --flush                 Flush output of print.
 """
+from __future__ import print_function
+from six import print_ as print
 from mpi4py import MPI
 import h5py
 import numpy as np
@@ -106,7 +108,7 @@ def master_run(args):
     frame = jobs[0][0]['frame']
     h5_obj = h5py.File(filepath, 'r')
     image = util.read_image(
-        filepath, frame=frame, h5_obj=h5_obj, dataset=dataset)
+        filepath, frame=frame, h5_obj=h5_obj, dataset=dataset)['image']
     powder = np.zeros(image.shape)
     peaks = np.round(np.array(peaks)).astype(np.int)
     powder[peaks[:, 0], peaks[:, 1]] = 1
@@ -119,7 +121,7 @@ def master_run(args):
     MPI.Finalize()
 
 
-def slave_run(args):
+def worker_run(args):
     stop = False
     filepath = None
     h5_obj = None
@@ -134,7 +136,7 @@ def slave_run(args):
     epsilon = conf['epsilon']
     bin_size = conf['bin size']
     if conf['mask on']:
-        mask = util.read_image(conf['mask file'])
+        mask = util.read_image(conf['mask file'])['image']
     else:
         mask = None
     hit_finder = conf['hit finder']
@@ -166,7 +168,7 @@ def slave_run(args):
                 filepath = _filepath
                 h5_obj = h5py.File(filepath, 'r')
             image = util.read_image(filepath, frame=frame,
-                                    h5_obj=h5_obj, dataset=dataset)
+                                    h5_obj=h5_obj, dataset=dataset)['image']
             peaks_dict = util.find_peaks(
                 image, center,
                 adu_per_photon=adu_per_photon,
@@ -210,4 +212,4 @@ if __name__ == '__main__':
     if rank == 0:
         master_run(argv)
     else:
-        slave_run(argv)
+        worker_run(argv)

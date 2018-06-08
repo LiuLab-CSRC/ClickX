@@ -21,13 +21,11 @@ class PowderWindow(QWidget):
         # load settings
         self.settings = settings
         self.workdir = settings.workdir
-        self.max_peaks = settings.max_peaks
-        self.powder_width = settings.width
-        self.powder_height = settings.height
-        self.center = settings.center
-        self.eps = settings.eps
-        self.min_samples = settings.min_samples
-        self.tol = settings.tol
+        self.max_peaks = 10000
+        self.center = np.array([settings.center_x, settings.center_y])
+        self.eps = 1.
+        self.min_samples = 10
+        self.tol = 1
         self.photon_energy = settings.photon_energy
         self.detector_distance = settings.detector_distance
         self.pixel_size = settings.pixel_size
@@ -35,20 +33,13 @@ class PowderWindow(QWidget):
         # setup ui
         dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/powder_win.ui' % dir_, self)
-        self.max_peaks_sb.setValue(self.max_peaks)
-        self.width_sb.setValue(self.powder_width)
-        self.height_sb.setValue(self.powder_height)
-        self.center_x_sb.setValue(int(self.center[0]))
-        self.center_y_sb.setValue(int(self.center[1]))
-        self.wavelength_sb.setValue(
-            get_photon_wavelength(self.photon_energy)
-        )
-        self.energy_sb.setValue(self.photon_energy)
-        self.det_dist_sb.setValue(self.detector_distance)
-        self.pixel_size_sb.setValue(self.pixel_size)
-        self.eps_sb.setValue(self.eps)
-        self.min_samples_sb.setValue(self.min_samples)
-        self.tol_sb.setValue(self.tol)
+        self.maxPeaks.setValue(self.max_peaks)
+        self.centerX.setValue(int(self.center[0]))
+        self.centerY.setValue(int(self.center[1]))
+        self.detectorDistance.setValue(self.detector_distance)
+        self.epsBox.setValue(self.eps)
+        self.minSamples.setValue(self.min_samples)
+        self.tolBox.setValue(self.tol)
         self.header_labels = [
             'label',
             'raw \n peaks num',
@@ -110,24 +101,19 @@ class PowderWindow(QWidget):
         self.update_peaks_view()
 
         # slots
-        self.browse_btn.clicked.connect(self.load_peaks)
-        self.max_peaks_sb.valueChanged.connect(self.change_max_peaks)
-        self.width_sb.valueChanged.connect(self.change_width)
-        self.height_sb.valueChanged.connect(self.change_height)
-        self.center_x_sb.valueChanged.connect(
+        self.browseButton.clicked.connect(self.load_peaks)
+        self.maxPeaks.valueChanged.connect(self.change_max_peaks)
+        self.centerX.valueChanged.connect(
             partial(self.change_center, dim=0)
         )
-        self.center_y_sb.valueChanged.connect(
+        self.centerY.valueChanged.connect(
             partial(self.change_center, dim=1)
         )
-        self.wavelength_sb.valueChanged.connect(self.change_wavelength)
-        self.energy_sb.valueChanged.connect(self.change_energy)
-        self.det_dist_sb.valueChanged.connect(self.change_det_dist)
-        self.pixel_size_sb.valueChanged.connect(self.change_pixel_size)
-        self.eps_sb.valueChanged.connect(self.change_eps)
-        self.min_samples_sb.valueChanged.connect(self.change_min_samples)
-        self.tol_sb.valueChanged.connect(self.change_tol)
-        self.fit_btn.clicked.connect(self.cluster_and_fit)
+        self.detectorDistance.valueChanged.connect(self.change_det_dist)
+        self.epsBox.valueChanged.connect(self.change_eps)
+        self.minSamples.valueChanged.connect(self.change_min_samples)
+        self.tolBox.valueChanged.connect(self.change_tol)
+        self.fittingButton.clicked.connect(self.cluster_and_fit)
         self.powder_table.cellClicked.connect(self.highlight_cluster)
         self.powder_table.cellChanged.connect(self.change_resolution)
 
@@ -137,22 +123,12 @@ class PowderWindow(QWidget):
             self, "Select peak file", self.workdir, "Peak File (*.npz)")
         if len(peak_file) == 0:
             return
-        self.peak_file_le.setText(peak_file)
+        self.peakFile.setText(peak_file)
         self.full_peaks = np.load(peak_file)['powder_peaks']
         if len(self.full_peaks) > self.max_peaks:
             self.peaks = self.full_peaks[:self.max_peaks]
         else:
             self.peaks = self.full_peaks
-        self.update_peaks_view()
-
-    @pyqtSlot(int)
-    def change_width(self, width):
-        self.powder_width = width
-        self.update_peaks_view()
-
-    @pyqtSlot(int)
-    def change_height(self, height):
-        self.powder_height = height
         self.update_peaks_view()
 
     @pyqtSlot(float)
@@ -161,22 +137,8 @@ class PowderWindow(QWidget):
         self.update_peaks_view()
 
     @pyqtSlot(float)
-    def change_wavelength(self, wavelength):
-        self.photon_energy = get_photon_energy(wavelength)
-        self.energy_sb.setValue(self.photon_energy)
-
-    @pyqtSlot(float)
-    def change_energy(self, energy):
-        wavelength = get_photon_wavelength(energy)
-        self.wavelength_sb.setValue(wavelength)
-
-    @pyqtSlot(float)
     def change_det_dist(self, det_dist):
         self.detector_distance = det_dist
-
-    @pyqtSlot(float)
-    def change_pixel_size(self, pixel_size):
-        self.pixel_size = pixel_size
 
     @pyqtSlot(int)
     def change_max_peaks(self, max_peaks):
@@ -388,7 +350,8 @@ class PowderWindow(QWidget):
                 item.setText(str(row_dict[field]))
 
     def update_peaks_view(self):
-        powder = build_grid_image(self.powder_width, self.powder_height)
+        powder = build_grid_image(
+            self.settings.image_width, self.settings.image_height)
         self.peaks_view.setImage(powder)
         self.peaks_view.setLevels(min=-1, max=2)
         self.center_item.setData(pos=self.center.reshape(1, 2) + 0.5)

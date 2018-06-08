@@ -17,6 +17,7 @@ from pyqtgraph.parametertree import Parameter
 
 from hit_win import HitWindow
 from job_win import JobWindow
+from powder_win import PowderWindow
 from settings import Settings, SettingDialog
 from threads import MeanCalculatorThread, GenPowderThread
 from util import util
@@ -63,6 +64,7 @@ class GUI(QMainWindow):
         # other windows
         self.job_win = JobWindow(main_win=self, settings=self.settings)
         self.hit_win = HitWindow(main_win=self, settings=self.settings)
+        self.powder_win = PowderWindow(settings=self.settings)
 
         # fixed attributes
         self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz', 'lcls')
@@ -467,6 +469,7 @@ class GUI(QMainWindow):
             self.show_or_hide_file_list)
         self.actionShow_Inspector.triggered.connect(self.show_inspector)
         self.actionPeak_Table.triggered.connect(self.show_peak_table)
+        self.actionPowder_Fit.triggered.connect(self.show_powder_win)
         self.actionJob_Table.triggered.connect(self.show_job_win)
         self.actionHit_Table.triggered.connect(
             partial(self.show_hit_win, job=None, tag=None))
@@ -827,6 +830,10 @@ class GUI(QMainWindow):
     @pyqtSlot()
     def show_peak_table(self):
         self.peak_table.show()
+
+    @pyqtSlot()
+    def show_powder_win(self):
+        self.powder_win.showMaximized()
 
     @pyqtSlot()
     def show_job_win(self):
