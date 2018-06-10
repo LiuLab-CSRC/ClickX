@@ -145,6 +145,8 @@ def worker_run(args):
     hit_dir = args['<hit-dir>']
     min_peaks = int(args['--min-peaks'])
     cxi_size = int(args['--cxi-size'])
+    raw_data_path = args['--raw-data-path']
+    peak_info_path = args['--peak-info-path']
     cxi_dtype = args['--cxi-dtype']
     extra_datasets = args['--extra-datasets']
     mask_file = args['--mask-file']
@@ -170,6 +172,8 @@ def worker_run(args):
                 )
                 util.save_full_cxi(
                     batch, cxi_file,
+                    raw_data_path=raw_data_path,
+                    peak_info_path=peak_info_path,
                     mask_file=mask_file,
                     extra_datasets=extra_datasets,
                     cxi_dtype=cxi_dtype,
@@ -186,9 +190,15 @@ def worker_run(args):
         cxi_file = os.path.join(
             hit_dir, '%s-rank%d-job%d.cxi' % (prefix, rank, count)
         )
-        util.save_full_cxi(batch, cxi_file,
-                           cxi_dtype=cxi_dtype,
-                           shuffle=shuffle)
+        util.save_full_cxi(
+            batch, cxi_file,
+            raw_data_path=raw_data_path,
+            peak_info_path=peak_info_path,
+            mask_file=mask_file,
+            extra_datasets=extra_datasets,
+            cxi_dtype=cxi_dtype,
+            shuffle=shuffle
+        )
         sys.stdout.flush()
     done = True
     comm.send(done, dest=0)
