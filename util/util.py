@@ -810,6 +810,8 @@ def collect_jobs(files, dataset, batch_size):
 
 
 def save_full_cxi(batch, cxi_file,
+                  raw_data_path='data',
+                  peak_info_path='peak_info',
                   mask_file=None,
                   extra_datasets=None,
                   cxi_dtype='auto',
@@ -820,6 +822,8 @@ def save_full_cxi(batch, cxi_file,
     Save crystfel-compatible cxi file.
     :param batch: a list contains frame and peak info.
     :param cxi_file: output cxi filepath.
+    :param raw_data_path: path of raw data.
+    :param peak_info_path: path of peak info.
     :param mask_file: mask filepath.
     :param extra_datasets: save extra datasets from cheetah cxi file.
     :param cxi_dtype: datatype of cxi file.
@@ -887,7 +891,7 @@ def save_full_cxi(batch, cxi_file,
     f = h5py.File(cxi_file, 'w')
     # save patterns
     f.create_dataset(
-        'data',
+        raw_data_path,
         shape=(n, x, y),
         dtype=cxi_dtype,
         data=images,
@@ -910,11 +914,12 @@ def save_full_cxi(batch, cxi_file,
             shuffle=shuffle,
         )
     # save peak info
-    f.create_dataset('peak_info/nPeaks', data=nb_peaks)
-    f.create_dataset('peak_info/peakXPosRaw', data=peaks_y)  # fs
-    f.create_dataset('peak_info/peakYPosRaw', data=peaks_x)  # ss
-    f.create_dataset('peak_info/peakTotalIntensity', data=peaks_intensity)
-    f.create_dataset('peak_info/peakSNR', data=peaks_snr)
+    f.create_dataset('%s/nPeaks' % peak_info_path, data=nb_peaks)
+    f.create_dataset('%s/peakXPosRaw' % peak_info_path, data=peaks_y)  # fs
+    f.create_dataset('%s/peakYPosRaw' % peak_info_path, data=peaks_x)  # ss
+    f.create_dataset('%s/peakTotalIntensity' % peak_info_path,
+                     data=peaks_intensity)
+    f.create_dataset('%s/peakSNR' % peak_info_path, data=peaks_snr)
     # save extra data
     if extra_datasets is not None:
         for name, data in extra_data.items():

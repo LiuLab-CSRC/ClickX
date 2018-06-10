@@ -10,6 +10,8 @@ Options:
     --min-peaks NUM             Specify min peaks for a hit [default: 20].
     --cxi-size SIZE             Specify max frame in one single cxi file
                                 [default: 1000].
+    --raw-data-path PATH        Specify path of raw data [default: data].
+    --peak-info-path PATH       Specify path of peak info [default: peak_info].
     --cxi-dtype DATATYPE        Specify datatype of patterns in compressed cxi
                                 file [default: auto].
     --mask-file FILE            Specify mask file for cxi.
