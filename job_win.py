@@ -142,9 +142,13 @@ class JobWindow(QWidget):
                     processed_hits = cxi_hit_stat.get('processed hits', 0)
                     hit_rate = cxi_hit_stat.get('hit rate', 0)
                     raw_frames = cxi_hit_stat.get('total frames', 0)
+                    peak2cxi_file = os.path.join(tag_dir, 'peak2cxi.yml')
                     if hit_finding == 'done':
-                        peak2cxi_stat = check_peak2cxi(tag_dir)
-                        peak2cxi = peak2cxi_stat.get('progress', 0)
+                        if not os.path.exists(peak2cxi_file):
+                            peak2cxi = 'ready'
+                        else:
+                            peak2cxi_stat = check_peak2cxi(tag_dir)
+                            peak2cxi = peak2cxi_stat.get('progress', 0)
                     else:
                         peak2cxi = 'not ready'
                     jobs_info.append(
