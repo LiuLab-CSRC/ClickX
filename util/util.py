@@ -422,11 +422,13 @@ def calc_snr(image,
         half_crop = crop_size // 2
     for i in range(nb_pos):
         x, y = pos[i]
-        if half_crop <= x <= image.shape[0] - half_crop - 1:
+        if x < half_crop or x > image.shape[0] - half_crop - 1:
+            crop = np.zeros((crop_size, crop_size))
+        elif y < half_crop or y > image.shape[1] - half_crop - 1:
+            crop = np.zeros((crop_size, crop_size))
+        else:
             crop = image[x - half_crop:x + half_crop + 1,
                          y - half_crop:y + half_crop + 1]
-        else:
-            crop = np.zeros((crop_size, crop_size))
         crops.append(crop)
     crops = np.array(crops).astype(np.float32)
     crops = np.reshape(crops, (-1, crop_size, crop_size))
