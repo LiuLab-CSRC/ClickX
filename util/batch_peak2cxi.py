@@ -74,7 +74,7 @@ def master_run(args):
             job = jobs[job_id]
         else:
             job = []  # dummy job
-        comm.isend(jobs[job_id], dest=worker)
+        comm.isend(job, dest=worker)
         reqs[worker] = comm.irecv(buf=buffer_size, source=worker)
         print('job %d/%d --> slave %d'
               % (job_id, nb_jobs, worker), flush=flush)
