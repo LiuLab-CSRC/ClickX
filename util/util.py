@@ -897,13 +897,15 @@ def save_full_cxi(batch, cxi_file,
         shape=(n, x, y),
         dtype=cxi_dtype,
         data=images,
-        compression=compression,
+        compression='gzip',
+        compression_opts=3,
         chunks=(1, x, y),
         shuffle=shuffle,
     )
     # save masks
     if mask_file is not None:
         n, x, y = images.shape
+        del images
         mask = np.load(mask_file)
         mask = np.expand_dims(mask, axis=0)
         mask = np.repeat(mask, n, axis=0)
@@ -911,7 +913,8 @@ def save_full_cxi(batch, cxi_file,
             'mask',
             shape=(n, x, y),
             data=mask,
-            compression=compression,
+            compression='gzip',
+            compression_opts=3,
             chunks=(1, x, y),
             shuffle=shuffle,
         )
