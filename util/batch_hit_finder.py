@@ -55,7 +55,8 @@ def master_run(args):
     dataset = conf['dataset']
     # save hit conf and mask in hit dir
     mask_file = conf['mask file']
-    copyfile(mask_file, '%s/mask.npy' % hit_dir)
+    if mask_file is not None:
+        copyfile(mask_file, '%s/mask.npy' % hit_dir)
     copyfile(conf_file, '%s/hit_conf.yml' % hit_dir)
 
     batch_size = int(args['--batch-size'])
