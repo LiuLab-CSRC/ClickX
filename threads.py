@@ -173,20 +173,26 @@ class Peak2CxiThread(QThread):
     def run(self):
         hit_dir = os.path.join(
             self.settings.workdir, 'cxi_hit', self.job, self.tag)
+        options = []
         mask_file = os.path.join(hit_dir, 'mask.npy')
+        if os.path.exists(mask_file):
+            options += ['--mask-file', mask_file]
         peak_file = os.path.join(hit_dir, '%s.npy' % self.job)
         min_peaks = str(self.settings.min_peaks)
         raw_data_path = self.settings.cxi_raw_data_path
         peak_info_path = self.settings.cxi_peak_info_path
         extra_datasets = self.settings.cheetah_datasets
         batch_size = str(self.settings.mpi_batch_size)
+        options += ['--min-peaks', min_peaks,
+                    '--extra-datasets', extra_datasets,
+                    '--batch-size', batch_size,
+                    '--raw-data-path', raw_data_path,
+                    '--peak-info-path', peak_info_path]
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/engines/%s/run_peak2cxi' % \
                        (dir_, self.settings.engine)
         python_script = '%s/util/batch_peak2cxi.py' % dir_
         subprocess.call(
-            [shell_script, self.job, python_script, peak_file, hit_dir,
-             '--min-peaks', min_peaks, '--extra-datasets', extra_datasets,
-             '--batch-size', batch_size, '--mask-file', mask_file,
-             '--raw-data-path', raw_data_path,
-             '--peak-info-path', peak_info_path])
+            [shell_script, self.job, python_script, peak_file, hit_dir]
+            + options
+        )
