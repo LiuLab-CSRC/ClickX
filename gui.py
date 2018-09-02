@@ -354,7 +354,7 @@ class GUI(QMainWindow):
                         'value': self.gaussian_sigma,
                     },
                     {
-                        'name': 'min gradient', 'type': 'int',
+                        'name': 'min gradient', 'type': 'float',
                         'value': self.min_gradient,
                     },
                     {
@@ -1726,7 +1726,7 @@ class GUI(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     win = GUI()
-    win.setWindowTitle('SFX Suite')
+    win.setWindowTitle('Click')
     win.showMaximized()
     sys.exit(app.exec_())
 
