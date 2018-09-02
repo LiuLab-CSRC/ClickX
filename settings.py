@@ -244,6 +244,7 @@ class Settings(object):
         self.center_x = None
         self.center_y = None
         self.compress_raw_data = None
+        self.compressed_batch_size = None
         self.raw_dataset = None
         self.compressed_dataset = None
         self.mpi_batch_size = None
@@ -276,6 +277,8 @@ class Settings(object):
         self.update(center_x=settings.get('center_x', 500))
         self.update(center_y=settings.get('center_y', 500))
         self.update(compress_raw_data=settings.get('compress_raw_data', True))
+        self.update(
+            compressed_batch_size=settings.get('compressed_batch_size', 100))
         self.update(raw_dataset=settings.get('raw_dataset', 'data'))
         self.update(compressed_dataset=settings.get(
             'compressed_dataset', 'data'))
