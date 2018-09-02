@@ -923,7 +923,8 @@ def save_full_cxi(batch, cxi_file,
             chunks=(1, x, y),
             shuffle=shuffle,
         )
-    del mask
+    if 'mask' in locals():
+        del mask
     # save peak info
     f.create_dataset('%s/nPeaks' % peak_info_path, data=nb_peaks)
     f.create_dataset('%s/peakXPosRaw' % peak_info_path, data=peaks_y)  # fs
