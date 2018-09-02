@@ -156,11 +156,16 @@ def find_peaks_by_snr(image, center,
         image = gaussian_filter(image.astype(np.float32), gaussian_sigma)
     grad = np.gradient(image.astype(np.float32))
     grad_mag = np.sqrt(grad[0] ** 2. + grad[1] ** 2.)
+    if mask is None:
+        labels = None
+    else:
+        labels = binary_erosion(mask, disk(2)).astype(np.int)
     raw_peaks = peak_local_max(
         grad_mag,
         exclude_border=5,
         min_distance=int(round((min_distance - 1.) / 2.)),
-        threshold_abs=min_gradient, num_peaks=max_peaks
+        threshold_abs=min_gradient, num_peaks=max_peaks,
+        labels=labels
     )
     raw_peaks = np.reshape(raw_peaks, (-1, 2))
     peaks_dict['raw'] = raw_peaks
@@ -199,7 +204,7 @@ def find_peaks_by_snr(image, center,
         (snr_info['snr'] >= min_snr) *
         (snr_info['signal pixel num'] >= min_pixels) *
         (snr_info['signal pixel num'] <= max_pixels)
-    )[0]
+    )[0][:max_peaks]
     strong_peaks = opt_peaks[strong_ids]
     peaks_dict['strong'] = strong_peaks
     radius = np.linalg.norm(strong_peaks - center, axis=1)
@@ -642,7 +647,7 @@ def get_data_shape(path):
         image = read_image(path, frame=0,
                            lcls_datasource=datasource,
                            lcls_detector=detector,
-                           lcls_events=[])
+                           lcls_events=[])['image']
         x, y = image.shape
         data_shape['lcls-data'] = (9999, x, y)
     else:
@@ -673,7 +678,7 @@ def save_cxi(batch,
             record['frame'],
             h5_obj=h5_obj,
             dataset=record['dataset']
-        )
+        )['image']
         data.append(frame)
     in_dtype = frame.dtype
     if out_dtype == 'auto':
@@ -918,6 +923,7 @@ def save_full_cxi(batch, cxi_file,
             chunks=(1, x, y),
             shuffle=shuffle,
         )
+    del mask
     # save peak info
     f.create_dataset('%s/nPeaks' % peak_info_path, data=nb_peaks)
     f.create_dataset('%s/peakXPosRaw' % peak_info_path, data=peaks_y)  # fs
