@@ -1,4 +1,6 @@
 #!/bin/env python
+# -*- coding: utf-8 -*-
+
 
 """Run hit finding on multiple cores using MPI.
 

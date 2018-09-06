@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+
 from PyQt5.uic import loadUi
 from PyQt5.QtWidgets import QWidget, QFileDialog
 from PyQt5.QtCore import pyqtSlot, Qt

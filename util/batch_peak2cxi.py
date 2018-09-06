@@ -1,4 +1,6 @@
 #!/bin/env python
+# -*- coding: utf-8 -*-
+
 
 """Generate cxi files from hits in peak files using MPI.
 

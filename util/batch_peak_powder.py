@@ -1,4 +1,6 @@
 #!/bin/env python
+# -*- coding: utf-8 -*-
+
 
 """
 Generate peak powder pattern on multiple cores using MPI.

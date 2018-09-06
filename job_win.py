@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+
 import csv
 import os
 from glob import glob

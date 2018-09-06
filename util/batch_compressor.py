@@ -1,4 +1,6 @@
 #!/bin/env python
+# -*- coding: utf-8 -*-
+
 
 """
 Compress raw data in h5/cxi format to compressed cxi files on multiple cores
