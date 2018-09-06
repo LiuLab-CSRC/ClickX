@@ -183,11 +183,13 @@ class Peak2CxiThread(QThread):
         peak_info_path = self.settings.cxi_peak_info_path
         extra_datasets = self.settings.cheetah_datasets
         batch_size = str(self.settings.mpi_batch_size)
+        cxi_size = str(self.settings.cxi_size)
         options += ['--min-peaks', min_peaks,
                     '--extra-datasets', extra_datasets,
                     '--batch-size', batch_size,
                     '--raw-data-path', raw_data_path,
-                    '--peak-info-path', peak_info_path]
+                    '--peak-info-path', peak_info_path,
+                    '--cxi-size', cxi_size]
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/engines/%s/run_peak2cxi' % \
                        (dir_, self.settings.engine)
