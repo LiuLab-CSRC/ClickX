@@ -69,6 +69,11 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='compressed_dataset', widget=self.compressedDataset)
         )
+        self.compressedBatchSize.valueChanged.connect(
+            partial(self.update_attribute,
+                    attr='compressed_batch_size',
+                    widget=self.compressedBatchSize)
+        )
         self.hitTags.currentIndexChanged.connect(
             partial(self.update_attribute,
                     attr='curr_hit_tag', widget=self.hitTags)
@@ -86,6 +91,11 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='cxi_peak_info_path',
                     widget=self.cxiPeakInfoPath)
+        )
+        self.cxiSize.valueChanged.connect(
+            partial(self.update_attribute,
+                    attr='cxi_size',
+                    widget=self.cxiSize)
         )
         self.cheetahDatasets.editingFinished.connect(
             partial(self.update_attribute,
@@ -147,6 +157,8 @@ class SettingDialog(QDialog):
             self.rawDataset.setText(kwargs['raw_dataset'])
         if 'compressed_dataset' in kwargs:
             self.compressedDataset.setText(kwargs['compressed_dataset'])
+        if 'compressed_batch_size' in kwargs:
+            self.compressedBatchSize.setValue(kwargs['compressed_batch_size'])
         if 'mpi_batch_size' in kwargs:
             self.mpiBatchSize.setValue(kwargs['mpi_batch_size'])
         if 'min_peaks' in kwargs:
@@ -170,6 +182,8 @@ class SettingDialog(QDialog):
             self.cxiRawDataPath.setText(kwargs['cxi_raw_data_path'])
         if 'cxi_peak_info_path' in kwargs:
             self.cxiPeakInfoPath.setText(kwargs['cxi_peak_info_path'])
+        if 'cxi_size' in kwargs:
+            self.cxiSize.setValue(kwargs['cxi_size'])
         if 'cheetah_datasets' in kwargs:
             self.cheetahDatasets.setText(kwargs['cheetah_datasets'])
         if 'job_pool_size' in kwargs:
@@ -220,10 +234,10 @@ class Settings(object):
     setting_file = '.config.yml'
     saved_attrs = (
         'workdir', 'engine', 'photon_energy', 'detector_distance',
-        'pixel_size', 'image_width', 'image_height', 'center_x',
-        'center_y', 'compress_raw_data', 'raw_dataset',
-        'compressed_dataset', 'mpi_batch_size',
-        'cxi_raw_data_path', 'cxi_peak_info_path', 'cheetah_datasets',
+        'pixel_size', 'image_width', 'image_height', 'center_x', 'center_y',
+        'compress_raw_data', 'raw_dataset', 'compressed_dataset',
+        'compressed_batch_size', 'cxi_raw_data_path', 'cxi_peak_info_path',
+        'cxi_size', 'cheetah_datasets', 'mpi_batch_size',
         'min_peaks', 'max_info', 'job_pool_size', 'update_period',
         'curr_hit_tag'
     )
@@ -250,6 +264,7 @@ class Settings(object):
         self.mpi_batch_size = None
         self.cxi_raw_data_path = None
         self.cxi_peak_info_path = None
+        self.cxi_size = None
         self.cheetah_datasets = None  # extra datasets from cheetah data
         self.job_pool_size = None
         self.update_period = None
@@ -288,6 +303,8 @@ class Settings(object):
             'cxi_raw_data_path', 'data'))
         self.update(cxi_peak_info_path=settings.get(
             'cxi_peak_info_path', 'peak_info'))
+        self.update(cxi_size=settings.get(
+            'cxi_size', 100))
         self.update(cheetah_datasets=settings.get(
             'cheetah_datasets', ''))
         self.update(job_pool_size=settings.get('job_pool_size', 4))
