@@ -21,7 +21,7 @@ from skimage.measure import label, regionprops
 
 if os.getenv('facility', 'general') == 'lcls':
     sys.path.append('/reg/g/psdm/sw/conda/inst/miniconda2-prod-rhel7/envs/'
-                    'ana-1.3.52/lib/python2.7/site-packages')
+                    'ana-1.3.58/lib/python2.7/site-packages')
     import psana
 
 
@@ -1105,7 +1105,7 @@ def make_circle_mask(shape, center, radius, mode='background'):
 def get_lcls_data(path):
     with open(path) as f:
         data = yaml.load(f)
-    datasource = psana.DataSource('exp=%s:run=%d'
-                          % (data['exp'], data['run']))
+    datasource = psana.DataSource('exp=%s:run=%d' %
+                                  (data['exp'], data['run']))
     detector = psana.Detector(data['det'])
     return datasource, detector
