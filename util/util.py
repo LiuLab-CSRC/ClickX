@@ -14,6 +14,7 @@ import pandas as pd
 from tqdm import tqdm
 import yaml
 
+from scipy.cluster import hierarchy
 from skimage.feature import peak_local_max
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from skimage.morphology import disk, binary_dilation, binary_erosion
@@ -85,7 +86,8 @@ def find_peaks(image, center,
                hit_finder='poisson model',
                gaussian_sigma=1.,
                min_gradient=0.,
-               min_distance=0,
+               min_distance=1,
+               clean_flat_peaks=False,
                max_peaks=500,
                min_snr=0.,
                min_pixels=2,
@@ -116,6 +118,7 @@ def find_peaks(image, center,
                                  gaussian_sigma=gaussian_sigma,
                                  min_gradient=min_gradient,
                                  min_distance=min_distance,
+                                 merge_flat_peaks=clean_flat_peaks,
                                  max_peaks=max_peaks,
                                  min_snr=min_snr,
                                  min_pixels=min_pixels,
@@ -138,7 +141,8 @@ def find_peaks_by_snr(image, center,
                       mask=None,
                       gaussian_sigma=1.,
                       min_gradient=0.,
-                      min_distance=0,
+                      min_distance=1,
+                      merge_flat_peaks=False,
                       max_peaks=500,
                       min_snr=0.,
                       min_pixels=2,
@@ -166,11 +170,20 @@ def find_peaks_by_snr(image, center,
     raw_peaks = peak_local_max(
         grad_mag,
         exclude_border=5,
-        min_distance=int(round((min_distance - 1.) / 2.)),
+        min_distance=min_distance,
         threshold_abs=min_gradient, num_peaks=max_peaks,
         labels=labels
     )
     raw_peaks = np.reshape(raw_peaks, (-1, 2))
+    if merge_flat_peaks:
+        # do hierarchy clustering to remove flat peaks
+        link = hierarchy.linkage(raw_peaks, method='single')
+        r = hierarchy.cut_tree(link, height=min_distance)
+        clusters = []
+        for i in np.unique(r):
+            clusters.append(raw_peaks[r[:, 0] == i].mean(axis=0))
+        raw_peaks = np.array(clusters).reshape(-1, 2)
+
     peaks_dict['raw'] = raw_peaks
     if len(raw_peaks) == 0:
         return peaks_dict
