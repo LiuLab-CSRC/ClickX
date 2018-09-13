@@ -208,6 +208,7 @@ def worker_run(args):
     hit_finder = conf['hit finder']
     gaussian_sigma = conf['gaussian filter sigma']
     min_distance = conf['min distance']
+    merge_flat_peaks = conf['merge flat peaks']
     min_gradient = conf['min gradient']
     max_peaks = conf['max peaks']
     min_snr = conf['min snr']
@@ -247,6 +248,7 @@ def worker_run(args):
                 gaussian_sigma=gaussian_sigma,
                 min_gradient=min_gradient,
                 min_distance=min_distance,
+                merge_flat_peaks=merge_flat_peaks,
                 max_peaks=max_peaks,
                 min_snr=min_snr,
                 min_pixels=min_pixels,

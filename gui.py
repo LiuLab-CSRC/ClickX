@@ -123,6 +123,7 @@ class GUI(QMainWindow):
         self.gaussian_sigma = 1.0
         self.min_gradient = 10.
         self.min_distance = 10
+        self.merge_flat_peaks = False
         self.crop_size = 7
         self.peak_refine_mode = self.peak_refine_mode_list[0]
         self.min_snr = 6.  # min srn for a strong peak
@@ -365,6 +366,10 @@ class GUI(QMainWindow):
                         'value': self.min_distance
                     },
                     {
+                        'name': 'clean flat peaks', 'type': 'bool',
+                        'value': self.merge_flat_peaks
+                    },
+                    {
                         'name': 'crop size', 'type': 'int',
                         'value': self.crop_size,
                         'visible': False,
@@ -595,6 +600,9 @@ class GUI(QMainWindow):
             'snr model', 'min distance'
         ).sigValueChanged.connect(self.change_min_distance)
         self.hit_finder_params.param(
+            'snr model', 'clean flat peaks'
+        ).sigValueChanged.connect(self.change_clean_flat_peaks)
+        self.hit_finder_params.param(
             'snr model', 'crop size'
         ).sigValueChanged.connect(self.change_crop_size)
         self.hit_finder_params.param(
@@ -655,6 +663,7 @@ class GUI(QMainWindow):
         self.gaussian_sigma = conf_dict.get('gaussian filter sigma', 1.)
         self.min_gradient = conf_dict.get('min gradient', 10)
         self.min_distance = conf_dict.get('min distance', 10)
+        self.merge_flat_peaks = conf_dict.get('merge flat peaks', False)
         self.crop_size = conf_dict.get('crop size', 7)
         self.peak_refine_mode = conf_dict.get('peak refine mode', 'gradient')
         self.min_snr = conf_dict.get('min snr', 6)
@@ -702,6 +711,9 @@ class GUI(QMainWindow):
         self.hit_finder_params.param(
             'snr model', 'min distance'
         ).setValue(self.min_distance)
+        self.hit_finder_params.param(
+            'snr model', 'clean flat peaks'
+        ).setValue(self.merge_flat_peaks)
         self.hit_finder_params.param(
             'snr model', 'crop size'
         ).setValue(self.crop_size)
@@ -758,6 +770,7 @@ class GUI(QMainWindow):
             'gaussian filter sigma': self.gaussian_sigma,
             'min gradient': self.min_gradient,
             'min distance': self.min_distance,
+            'merge flat peaks': self.merge_flat_peaks,
             'crop size': self.crop_size,
             'peak refine mode': self.peak_refine_mode,
             'min snr': self.min_snr,
@@ -975,6 +988,11 @@ class GUI(QMainWindow):
     @pyqtSlot(object, object)
     def change_min_distance(self, _, min_distance):
         self.min_distance = min_distance
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_clean_flat_peaks(self, _, clean_flat_peaks):
+        self.merge_flat_peaks = clean_flat_peaks
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -1217,6 +1235,7 @@ class GUI(QMainWindow):
                 gaussian_sigma=self.gaussian_sigma,
                 min_gradient=self.min_gradient,
                 min_distance=self.min_distance,
+                clean_flat_peaks=self.merge_flat_peaks,
                 max_peaks=self.max_peaks,
                 min_snr=self.min_snr,
                 min_pixels=self.min_pixels,
