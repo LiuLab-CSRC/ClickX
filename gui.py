@@ -1233,7 +1233,7 @@ class GUI(QMainWindow):
                 gaussian_sigma=self.gaussian_sigma,
                 min_gradient=self.min_gradient,
                 min_distance=self.min_distance,
-                clean_flat_peaks=self.merge_flat_peaks,
+                merge_flat_peaks=self.merge_flat_peaks,
                 max_peaks=self.max_peaks,
                 min_snr=self.min_snr,
                 min_pixels=self.min_pixels,
