@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#----run hit finder script on lcls cluster.-----#
+
+mpiexec=/reg/neh/home5/xxli/software/anaconda2/bin/mpiexec
+python_exec=/reg/neh/home5/xxli/software/anaconda2/bin/python
+nb_process=12
+queue=psanaq
+
+echo "
+#!/bin/bash
+
+source /reg/g/psdm/etc/psconda.sh
+export facility=lcls
+$mpiexec -n $nb_process $python_exec "${@:2}"
+" > .${1}-hit.sh
+bsub -q $queue -n 12 -R "span[hosts=1]" -J ${1}-hit -o ${1}-hit.log bash .${1}-hit.sh
