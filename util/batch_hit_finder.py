@@ -5,7 +5,7 @@
 """Run hit finding on multiple cores using MPI.
 
 Usage:
-   batch_hit_finder.py <cxi-lst> <conf-file> <hit-dir> [options]
+   batch_hit_finder.py <input-lst> <conf-file> <hit-dir> [options]
 
 Options:
     -h --help               Show this screen.
@@ -41,19 +41,15 @@ def master_run(args):
     if not os.path.isdir(hit_dir):
         os.makedirs(hit_dir)
 
-    cxi_lst = args['<cxi-lst>']
+    input_lst = args['<input-lst>']
     min_peaks = int(args['--min-peaks'])
-    with open(cxi_lst) as f:
+    with open(input_lst) as f:
         _files = f.readlines()
-    # remove trailing '/n'
-    files = []
-    for f in _files:
-        files.append(f[:-1])
+    files = [f.strip() for f in _files]
     # load hit finding configuration file
     conf_file = args['<conf-file>']
     with open(conf_file) as f:
         conf = yaml.load(f)
-    # collect jobs
     dataset = conf['dataset']
     # save hit conf and mask in hit dir
     mask_file = conf['mask file']
@@ -69,7 +65,7 @@ def master_run(args):
           (nb_frames, nb_jobs), flush=flush)
 
     update_freq = int(args['--update-freq'])
-    prefix = os.path.basename(cxi_lst).split('.')[0]
+    prefix = os.path.basename(input_lst).split('.')[0]
 
     # dispatch jobs
     job_id = 0
@@ -89,7 +85,7 @@ def master_run(args):
         job_id += 1
     while job_id < nb_jobs:
         stop = False
-        time.sleep(0.1)  # take a break
+        time.sleep(0.1)
         workers -= finished_workers
         for worker in workers:
             finished, result = reqs[worker].test()
@@ -111,6 +107,8 @@ def master_run(args):
             # update stat
             progress = float(job_id) / nb_jobs * 100
             df = pd.DataFrame(results)
+            if len(df) == 0:
+                continue
             processed_hits = len(df[df['nb_peak'] >= min_peaks])
             processed_frames = len(df)
             hit_rate = float(processed_hits) / processed_frames * 100.
@@ -147,6 +145,10 @@ def master_run(args):
     duration = time_end - time_start
     # save stat file
     df = pd.DataFrame(results)
+    if len(df) == 0:
+        print('WARNING! Empty hit finding results!')
+        sys.exit()
+
     processed_hits = len(df[df['nb_peak'] >= min_peaks])
     processed_frames = len(df)
     hit_rate = float(processed_hits) / processed_frames * 100.
@@ -160,7 +162,6 @@ def master_run(args):
         'total frames': nb_frames,
         'time start': time_start,
     }
-
     stat_file = os.path.join(hit_dir, 'stat.yml')
     with open(stat_file, 'w') as f:
         yaml.dump(stat_dict, f, default_flow_style=False)
@@ -233,37 +234,47 @@ def worker_run(args):
             frame = job[i]['frame']
             if _filepath != filepath:
                 filepath = _filepath
-                h5_obj = h5py.File(filepath, 'r')
-            image = util.read_image(filepath,
-                                    frame=frame,
-                                    h5_obj=h5_obj,
-                                    dataset=dataset)['image']
-            peaks_dict = util.find_peaks(
-                image, center,
-                adu_per_photon=adu_per_photon,
-                epsilon=epsilon,
-                bin_size=bin_size,
-                mask=mask,
-                hit_finder=hit_finder,
-                gaussian_sigma=gaussian_sigma,
-                min_gradient=min_gradient,
-                min_distance=min_distance,
-                merge_flat_peaks=merge_flat_peaks,
-                max_peaks=max_peaks,
-                min_snr=min_snr,
-                min_pixels=min_pixels,
-                max_pixels=max_pixels,
-                refine_mode=peak_refine_mode,
-                snr_mode=snr_mode,
-                signal_radius=sig_radius,
-                bg_inner_radius=bg_inner_radius,
-                bg_outer_radius=bg_outer_radius,
-                crop_size=crop_size,
-                bg_ratio=bg_ratio,
-                signal_ratio=sig_ratio,
-                signal_thres=sig_thres,
-            )
-            if peaks_dict['strong'] is not None:
+                ext = filepath.split('.')[-1]
+                h5_obj = h5py.File(filepath, 'r') if ext in ('cxi', 'h5') \
+                    else None
+                lcls_data = util.get_lcls_data(filepath) if ext == 'lcls' \
+                    else None
+            image = util.read_image(
+                filepath, frame=frame,
+                h5_obj=h5_obj,
+                lcls_data=lcls_data,
+                dataset=dataset
+            )['image']
+            if image is None:
+                peaks_dict = util.find_peaks(
+                    image, center,
+                    adu_per_photon=adu_per_photon,
+                    epsilon=epsilon,
+                    bin_size=bin_size,
+                    mask=mask,
+                    hit_finder=hit_finder,
+                    gaussian_sigma=gaussian_sigma,
+                    min_gradient=min_gradient,
+                    min_distance=min_distance,
+                    merge_flat_peaks=merge_flat_peaks,
+                    max_peaks=max_peaks,
+                    min_snr=min_snr,
+                    min_pixels=min_pixels,
+                    max_pixels=max_pixels,
+                    refine_mode=peak_refine_mode,
+                    snr_mode=snr_mode,
+                    signal_radius=sig_radius,
+                    bg_inner_radius=bg_inner_radius,
+                    bg_outer_radius=bg_outer_radius,
+                    crop_size=crop_size,
+                    bg_ratio=bg_ratio,
+                    signal_ratio=sig_ratio,
+                    signal_thres=sig_thres,
+                )
+                peaks_dict['total_intensity'] = np.sum(image)
+            else:
+                peaks_dict = {}
+            if peaks_dict.get('strong', None) is not None:
                 job[i]['nb_peak'] = len(peaks_dict['strong'])
                 job[i]['peak_info'] = peaks_dict['info']
             else:

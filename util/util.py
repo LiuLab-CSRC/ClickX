@@ -29,8 +29,7 @@ if os.getenv('facility', 'general') == 'lcls':
 def read_image(path, frame=0,
                h5_obj=None, dataset=None,
                extra_datasets=None,
-               lcls_detector=None, lcls_datasource=None,
-               lcls_events=None, lcls_event=None):
+               lcls_data=None):
     ext = path.split('.')[-1]
     data_dict = {}
     if ext == 'npy':
@@ -56,21 +55,20 @@ def read_image(path, frame=0,
             }
             data_dict['extra_datasets'] = extra_data
     elif ext == 'lcls':
-        if lcls_event is None:
-            while True:
-                if frame < len(lcls_events):
-                    lcls_event = lcls_events[frame]
-                    break
-                else:
-                    for i in range(10):  # load 10 more events
-                        lcls_events.append(lcls_datasource.events().next())
-        raw_data = lcls_detector.calib(lcls_event)
-        image = np.zeros((1480, 1552))  # for CSPad Detector
-        for i in range(4):
-            for j in range(8):
-                x1, x2 = j * 185, (j + 1) * 185
-                y1, y2 = i * 388, (i + 1) * 388
-                image[x1:x2, y1:y2] = raw_data[i * 8 + j]
+        detector = lcls_data['detector']
+        run = lcls_data['run']
+        times = lcls_data['times']
+        event = run.evet(times[frame])
+        raw_data = detector.calib(event)
+        if raw_data is not None:
+            image = np.zeros((1480, 1552))  # for CSPad Detector
+            for i in range(4):
+                for j in range(8):
+                    x1, x2 = j * 185, (j + 1) * 185
+                    y1, y2 = i * 388, (i + 1) * 388
+                    image[x1:x2, y1:y2] = raw_data[i * 8 + j]
+        else:
+            image = None
     else:
         print('Unsupported format: %s' % ext)
         return None
@@ -655,17 +653,10 @@ def get_data_shape(path):
             elif len(data[key].shape) == 3:
                 data_shape[key] = data[key].shape
     elif ext == 'lcls':
-        with open(path) as f:
-            data = yaml.load(f)
-        detector = psana.Detector(data['det'])
-        datasource = psana.DataSource('exp=%s:run=%d'
-                                      % (data['exp'], data['run']))
-        image = read_image(path, frame=0,
-                           lcls_datasource=datasource,
-                           lcls_detector=detector,
-                           lcls_events=[])['image']
+        lcls_data = get_lcls_data(path)
+        image = read_image(path, frame=0, lcls_data=lcls_data)['image']
         x, y = image.shape
-        data_shape['lcls-data'] = (9999, x, y)
+        data_shape['lcls-data'] = (len(lcls_data['times']), x, y)
     else:
         print('Unsupported file type: %s' % path)
         return
@@ -797,38 +788,33 @@ def get_size(obj, seen=None):
     return size
 
 
-def collect_jobs(files, dataset, batch_size):
+def collect_jobs(files, dataset, job_size):
     jobs = []
-    batch = []
+    job = []
     frames = 0
     print('collecting jobs...')
-    for i in tqdm(range(len(files))):
-        try:
-            data_shape = get_data_shape(files[i])
-            shape = data_shape[dataset]
-            if len(shape) == 3:
-                nb_frame = shape[0]
-                for j in range(nb_frame):
-                    batch.append(
-                        {'filepath': files[i], 'dataset': dataset, 'frame': j}
-                    )
-                    frames += 1
-                    if len(batch) == batch_size:
-                        jobs.append(batch)
-                        batch = []
-            else:
-                batch.append(
-                    {'filepath': files[i], 'dataset': dataset, 'frame': 0}
+    for f in files:
+        data_shape = get_data_shape(f)
+        shape = data_shape[dataset]
+        if len(shape) == 3:
+            for j in range(shape[0]):
+                job.append(
+                    {'filepath': f, 'dataset': dataset, 'frame': j}
                 )
                 frames += 1
-                if len(batch) == batch_size:
-                    jobs.append(batch)
-                    batch = []
-        except OSError:
-            print('Failed to load %s' % files[i])
-            pass
-    if len(batch) > 0:
-        jobs.append(batch)
+                if len(job) == job_size:
+                    jobs.append(job)
+                    job = []
+        else:
+            job.append(
+                {'filepath': f, 'dataset': dataset, 'frame': 0}
+            )
+            frames += 1
+            if len(job) == job_size:
+                jobs.append(job)
+                job = []
+    if len(job) > 0:
+        jobs.append(job)
     return jobs, frames
 
 
@@ -839,8 +825,7 @@ def save_full_cxi(batch, cxi_file,
                   extra_datasets=None,
                   cxi_dtype='auto',
                   compression='gzip',
-                  shuffle=True
-                  ):
+                  shuffle=True):
     """
     Save crystfel-compatible cxi file.
     :param batch: a list contains frame and peak info.
@@ -878,18 +863,20 @@ def save_full_cxi(batch, cxi_file,
         filepath, image_dataset, frame = \
             record['filepath'], record['dataset'], record['frame']
         if filepath != filepath_curr:
-            try:
-                h5_obj = h5py.File(filepath, 'r')
-                filepath_curr = filepath
-            except IOError:
-                print('Failed to load %s' % filepath)
-                continue
+            ext = filepath.split('.')[-1]
+            h5_obj = h5py.File(filepath, 'r') if ext in ('cxi', 'h5') else None
+            lcls_data = get_lcls_data(filepath) if ext == 'lcls' else None
+            filepath_curr = filepath
         data = read_image(
             filepath, frame,
-            h5_obj=h5_obj, dataset=image_dataset,
+            h5_obj=h5_obj,
+            lcls_data=lcls_data,
+            dataset=image_dataset,
             extra_datasets=extra_datasets,
         )
         image = data['image']
+        if image is None:
+            continue
         if extra_datasets is not None:
             for dataset in extra_datasets:
                 extra_data[dataset].append(data['extra_datasets'][dataset])
@@ -1118,7 +1105,16 @@ def make_circle_mask(shape, center, radius, mode='background'):
 def get_lcls_data(path):
     with open(path) as f:
         data = yaml.load(f)
-    datasource = psana.DataSource('exp=%s:run=%d' %
-                                  (data['exp'], data['run']))
+    datasource = psana.DataSource(
+        'exp=%s:run=%d:idx' % (data['exp'], data['run'])
+    )
     detector = psana.Detector(data['det'])
-    return datasource, detector
+    run = datasource.runs().next()
+    times = run.tiems()
+    lcls_data = {
+        'datasource': datasource,
+        'detector': detector,
+        'run': run,
+        'times': times
+    }
+    return lcls_data

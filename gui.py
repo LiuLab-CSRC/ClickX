@@ -80,12 +80,9 @@ class GUI(QMainWindow):
         self.path = None  # path of current file
         self.mask_file = None
         self.mask = None
-        self.lcls_datasource = None
-        self.lcls_detector = None
-        self.lcls_events = []
-        self.lcls_event = None
         self.eraser_mask = None
         self.h5_obj = None  # h5 object
+        self.lcls_data = {}  # lcls data structure
         self.dataset = ''  # current dataset
         self.total_frames = 0  # total frames of current dataset
         self.raw_image = None  # current raw image for display
@@ -1180,14 +1177,15 @@ class GUI(QMainWindow):
     def change_image(self):
         if self.path is None:
             return
-        self.raw_image = util.read_image(
+        raw_image = util.read_image(
             self.path, frame=self.curr_frame,
             h5_obj=self.h5_obj, dataset=self.dataset,
-            lcls_datasource=self.lcls_datasource,
-            lcls_detector=self.lcls_detector,
-            lcls_events=self.lcls_events,
-            lcls_event=self.lcls_event,
-        )['image'].astype(float)
+            lcls_data=self.lcls_data,
+        )['image']
+        if raw_image is None:  # skip None image
+            self.add_info('NoneType image found', info_type='WARNING')
+            return
+        self.raw_image = raw_image.astype(np.float)
         self.mask_image = util.make_simple_mask(
             self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
             dilation=self.dilation_size, erosion2=self.erosion2_size)
@@ -1197,8 +1195,6 @@ class GUI(QMainWindow):
         self.mask_image *= self.eraser_mask
 
     def update_display(self):
-        if self.raw_image is None:
-            return
         if self.mask_on and self.mask is not None:
             raw_image = self.raw_image * self.mask
         else:
@@ -1672,14 +1668,13 @@ class GUI(QMainWindow):
             self.shape = shape
         elif ext == 'lcls':  # self-defined format
             dataset = 'lcls-data'
-            datasource, detector = util.get_lcls_data(path)
+            lcls_data = util.get_lcls_data(path)
             data_shape = util.get_data_shape(path)
             nb_frame = data_shape[dataset][0]
             self.path = path
             self.dataset = dataset
             self.total_frames = nb_frame
-            self.lcls_datasource = datasource
-            self.lcls_detector = detector
+            self.lcls_data = lcls_data
             self.shape = data_shape[dataset][1:]
         else:
             return
