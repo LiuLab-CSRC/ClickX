@@ -1195,6 +1195,8 @@ class GUI(QMainWindow):
         self.mask_image *= self.eraser_mask
 
     def update_display(self):
+        if self.raw_image is None:
+            return
         if self.mask_on and self.mask is not None:
             raw_image = self.raw_image * self.mask
         else:
