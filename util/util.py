@@ -1110,7 +1110,7 @@ def get_lcls_data(path):
     )
     detector = psana.Detector(data['det'])
     run = datasource.runs().next()
-    times = run.tiems()
+    times = run.times()
     lcls_data = {
         'datasource': datasource,
         'detector': detector,
