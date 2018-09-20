@@ -182,7 +182,7 @@ def worker_run(args):
                     shuffle=shuffle,
                 )
                 sys.stdout.flush()
-                batch.clear()
+                batch = []
                 count += 1
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
