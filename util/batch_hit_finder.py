@@ -245,7 +245,7 @@ def worker_run(args):
                 lcls_data=lcls_data,
                 dataset=dataset
             )['image']
-            if image is None:
+            if image is not None:
                 peaks_dict = util.find_peaks(
                     image, center,
                     adu_per_photon=adu_per_photon,
