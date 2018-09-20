@@ -11,7 +11,6 @@ from scipy.optimize import minimize
 import math
 import h5py
 import pandas as pd
-from tqdm import tqdm
 import yaml
 
 from scipy.cluster import hierarchy
@@ -58,7 +57,7 @@ def read_image(path, frame=0,
         detector = lcls_data['detector']
         run = lcls_data['run']
         times = lcls_data['times']
-        event = run.evet(times[frame])
+        event = run.event(times[frame])
         raw_data = detector.calib(event)
         if raw_data is not None:
             image = np.zeros((1480, 1552))  # for CSPad Detector
