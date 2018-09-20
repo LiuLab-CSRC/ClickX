@@ -27,15 +27,19 @@ class MeanCalculatorThread(QThread):
         count = 0
         for filepath in self.files:
             ext = filepath.split('.')[-1]
-            if ext in ('cxi', 'h5'):
-                h5_obj = h5py.File(filepath, 'r')
-            else:
-                h5_obj = None
+            h5_obj = h5py.File(filepath, 'r') if ext in ('cxi', 'h5') else None
+            lcls_data = util.get_lcls_data(filepath) if ext == 'lcls' else None
             data_shape = util.get_data_shape(filepath)
             for i in range(data_shape[self.dataset][0]):
                 img = util.read_image(
-                    filepath, frame=i, h5_obj=h5_obj,
-                    dataset=self.dataset)['image'].astype(np.float32)
+                    filepath, frame=i,
+                    h5_obj=h5_obj,
+                    lcls_data=lcls_data,
+                    dataset=self.dataset
+                )['image']
+                if img is None:
+                    continue
+                img = img.astype(np.float64)
                 if count == 0:
                     img_mean = img
                     img_sigma = np.zeros_like(img_mean)
@@ -185,10 +189,11 @@ class Peak2CxiThread(QThread):
         raw_data_path = self.settings.cxi_raw_data_path
         peak_info_path = self.settings.cxi_peak_info_path
         extra_datasets = self.settings.cheetah_datasets
+        if len(extra_datasets) > 0:
+            options += ['--extra-datasets', extra_datasets]
         batch_size = str(self.settings.mpi_batch_size)
         cxi_size = str(self.settings.cxi_size)
         options += ['--min-peaks', min_peaks,
-                    '--extra-datasets', extra_datasets,
                     '--batch-size', batch_size,
                     '--raw-data-path', raw_data_path,
                     '--peak-info-path', peak_info_path,
