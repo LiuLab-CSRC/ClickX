@@ -70,7 +70,7 @@ class GUI(QMainWindow):
         self.powder_win = PowderWindow(settings=self.settings)
 
         # fixed attributes
-        self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz', 'lcls')
+        self.accepted_file_types = ('h5', 'npy', 'cxi', 'npz', 'lcls', 'tif')
         self.hit_finders = ('snr model', 'poisson model')
         self.peak_refine_mode_list = ('gradient', 'mean')
         self.snr_mode_list = ('adaptive', 'simple', 'rings')
@@ -80,6 +80,8 @@ class GUI(QMainWindow):
         self.path = None  # path of current file
         self.mask_file = None
         self.mask = None
+        self.geometry_file = None
+        self.geometry = None
         self.eraser_mask = None
         self.h5_obj = None  # h5 object
         self.lcls_data = {}  # lcls data structure
@@ -95,6 +97,7 @@ class GUI(QMainWindow):
         # viewer parameters
         self.curr_frame = 0  # current frame
         self.show_center = True
+        self.geometry_on = False
         self.auto_range = False
         self.auto_level = False
         self.auto_histogram_range = False
@@ -1678,6 +1681,13 @@ class GUI(QMainWindow):
             self.total_frames = nb_frame
             self.lcls_data = lcls_data
             self.shape = data_shape[dataset][1:]
+        elif ext == 'tif':
+            dataset = 'tif-data'
+            data_shape = util.get_data_shape(path)
+            self.path = path
+            self.dataset = dataset
+            self.total_frames = 1
+            self.shape = data_shape['tif-data']
         else:
             return
 

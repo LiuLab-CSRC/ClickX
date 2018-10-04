@@ -5,6 +5,7 @@ import os
 import sys
 
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.linalg import eig, inv, det
 from scipy.optimize import minimize
@@ -68,6 +69,8 @@ def read_image(path, frame=0,
                     image[x1:x2, y1:y2] = raw_data[i * 8 + j]
         else:
             image = None
+    elif ext == 'tif':
+        image = plt.imread(path)[:,:,0]
     else:
         print('Unsupported format: %s' % ext)
         return None
@@ -656,6 +659,8 @@ def get_data_shape(path):
         image = read_image(path, frame=0, lcls_data=lcls_data)['image']
         x, y = image.shape
         data_shape['lcls-data'] = (len(lcls_data['times']), x, y)
+    elif ext == 'tif':
+        data_shape['tif-data'] = plt.imread(path).shape[:-1]
     else:
         print('Unsupported file type: %s' % path)
         return
