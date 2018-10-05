@@ -24,6 +24,7 @@ from powder_win import PowderWindow
 from settings import Settings, SettingDialog
 from threads import MeanCalculatorThread, GenPowderThread
 from util import util
+from util import geometry
 
 
 class GUI(QMainWindow):
@@ -80,8 +81,8 @@ class GUI(QMainWindow):
         self.path = None  # path of current file
         self.mask_file = None
         self.mask = None
-        self.geometry_file = None
-        self.geometry = None
+        self.geom_file = None
+        self.geom = None
         self.eraser_mask = None
         self.h5_obj = None  # h5 object
         self.lcls_data = {}  # lcls data structure
@@ -89,6 +90,7 @@ class GUI(QMainWindow):
         self.total_frames = 0  # total frames of current dataset
         self.raw_image = None  # current raw image for display
         self.shape = None
+        self.new_shape = None  # new shape after geometry applied
         self.mask_image = None
         self.debug_image = None
         self.peak_info = None
@@ -97,7 +99,7 @@ class GUI(QMainWindow):
         # viewer parameters
         self.curr_frame = 0  # current frame
         self.show_center = True
-        self.geometry_on = False
+        self.apply_geom = False
         self.auto_range = False
         self.auto_level = False
         self.auto_histogram_range = False
@@ -195,6 +197,10 @@ class GUI(QMainWindow):
                 'value': self.mask_file,
             },
             {
+                'name': 'geom file', 'type': 'str', 'readonly': True,
+                'value': self.geom_file,
+            },
+            {
                 'name': 'shape', 'type': 'str', 'readonly': True,
                 'value': self.shape,
             },
@@ -218,6 +224,10 @@ class GUI(QMainWindow):
             {
                 'name': 'show center', 'type': 'bool',
                 'value': self.show_center,
+            },
+            {
+                'name': 'apply geom', 'type': 'bool',
+                'value': self.apply_geom,
             },
             {
                 'name': 'display', 'type': 'group', 'children': [
@@ -466,6 +476,7 @@ class GUI(QMainWindow):
         # menu bar action
         self.actionAdd_File.triggered.connect(self.add_file)
         self.actionLoad_Hit_Finding_Conf.triggered.connect(self.load_hit_conf)
+        self.actionLoad_Geometry.triggered.connect(self.load_geom_file)
         self.actionSave_Hit_Finding_Conf.triggered.connect(self.save_hit_conf)
         self.actionSave_Mask.triggered.connect(self.save_mask)
         self.actionSettings.triggered.connect(self.show_settings)
@@ -518,6 +529,9 @@ class GUI(QMainWindow):
         self.viewer_params.param(
             'show center'
         ).sigValueChanged.connect(self.change_show_center)
+        self.viewer_params.param(
+            'apply geom'
+        ).sigValueChanged.connect(self.change_apply_geom)
         self.viewer_params.param(
             'display', 'auto range'
         ).sigValueChanged.connect(self.change_auto_range)
@@ -749,6 +763,18 @@ class GUI(QMainWindow):
         ).setValue(self.sig_thres)
 
     @pyqtSlot()
+    def load_geom_file(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open Geom File",
+            self.workdir, "Geometry (*.geom *.h5 *. *.npz *.data)"
+        )
+        if len(path) == 0:
+            return
+        self.geom_file = path
+        self.geom = geometry.Geometry(self.geom_file, 110)  # TODO
+        self.add_info('Load geometry file: %s' % self.geom_file)
+
+    @pyqtSlot()
     def save_hit_conf(self):
         path, _ = QFileDialog.getSaveFileName(
             self, "Save Hit Finding Conf File",
@@ -863,6 +889,12 @@ class GUI(QMainWindow):
     @pyqtSlot(object, object)
     def change_show_center(self, _, show_center):
         self.show_center = show_center
+        self.update_display()
+
+    @pyqtSlot(object, object)
+    def change_apply_geom(self, _, apply_geom):
+        self.apply_geom = apply_geom
+        self.update_file_info()
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -1206,6 +1238,8 @@ class GUI(QMainWindow):
             raw_image = self.raw_image
         # apply current mask
         raw_image *= self.mask_image
+        if self.apply_geom and self.geom is not None:
+            raw_image = self.geom.rearrange(raw_image)
         self.rawView.setImage(
             raw_image, autoRange=self.auto_range,
             autoLevels=self.auto_level,
@@ -1227,7 +1261,7 @@ class GUI(QMainWindow):
 
         if self.hit_finding_on:
             peaks_dict = util.find_peaks(
-                self.raw_image, self.center,
+                raw_image, self.center,
                 adu_per_photon=self.adu_per_photon,
                 epsilon=self.epsilon,
                 bin_size=self.bin_size,
@@ -1623,7 +1657,12 @@ class GUI(QMainWindow):
         self.status_params.param('filepath').setValue(self.path)
         self.status_params.param('dataset').setValue(self.dataset)
         self.status_params.param('mask file').setValue(self.mask_file)
-        self.status_params.param('shape').setValue(self.shape)
+        self.status_params.param('geom file').setValue(self.geom_file)
+        if self.apply_geom and self.geom is not None:
+            shape_str = str(self.shape) + ' -> ' + str(self.geom.shape)
+        else:
+            shape_str = str(self.shape)
+        self.status_params.param('shape').setValue(shape_str)
         self.status_params.param('total frame').setValue(self.total_frames)
         self.viewer_params.param('current frame').setValue(self.curr_frame)
 

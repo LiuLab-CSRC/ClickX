@@ -343,6 +343,7 @@ QTabBar::tab:top, QTabBar::tab:bottom {
     <addaction name="actionAdd_File"/>
     <addaction name="separator"/>
     <addaction name="actionLoad_Hit_Finding_Conf"/>
+    <addaction name="actionLoad_Geometry"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Hit_Finding_Conf"/>
     <addaction name="actionSave_Mask"/>
@@ -469,6 +470,11 @@ QTabBar::tab:top, QTabBar::tab:bottom {
   <action name="actionAbout_SFX_Suite">
    <property name="text">
     <string>About SFX Suite</string>
+   </property>
+  </action>
+  <action name="actionLoad_Geometry">
+   <property name="text">
+    <string>Load Geometry</string>
    </property>
   </action>
  </widget>
