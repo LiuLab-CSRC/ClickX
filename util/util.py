@@ -171,7 +171,8 @@ def find_peaks_by_snr(image, center,
         grad_mag,
         exclude_border=5,
         min_distance=min_distance,
-        threshold_abs=min_gradient, num_peaks=max_peaks,
+        threshold_abs=min_gradient,
+        num_peaks=max_peaks,
         labels=labels
     )
     raw_peaks = np.reshape(raw_peaks, (-1, 2))
@@ -187,20 +188,10 @@ def find_peaks_by_snr(image, center,
     peaks_dict['raw'] = raw_peaks
     if len(raw_peaks) == 0:
         return peaks_dict
-    # mask out invalid peaks
-    if mask is not None:
-        valid_peak_ids = []
-        for i in range(raw_peaks.shape[0]):
-            peak = np.round(raw_peaks[i].astype(np.int))
-            if mask[peak[0], peak[1]] == 1:
-                valid_peak_ids.append(i)
-        valid_peaks = raw_peaks[valid_peak_ids]
-    else:
-        valid_peaks = raw_peaks.copy()
-    valid_peaks = np.reshape(valid_peaks, (-1, 2))
+
+    valid_peaks = np.reshape(raw_peaks, (-1, 2))
     peaks_dict['valid'] = valid_peaks
-    if len(valid_peaks) == 0:
-        return peaks_dict
+
     # refine peak location
     opt_peaks = refine_peaks(raw_image, valid_peaks, mode=refine_mode)
     peaks_dict['opt'] = opt_peaks
@@ -220,7 +211,7 @@ def find_peaks_by_snr(image, center,
         (snr_info['snr'] >= min_snr) *
         (snr_info['signal pixel num'] >= min_pixels) *
         (snr_info['signal pixel num'] <= max_pixels)
-    )[0][:max_peaks]
+    )[0]
     strong_peaks = opt_peaks[strong_ids]
     peaks_dict['strong'] = strong_peaks
     radius = np.linalg.norm(strong_peaks - center, axis=1)
