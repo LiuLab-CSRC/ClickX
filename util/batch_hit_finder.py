@@ -271,7 +271,10 @@ def worker_run(args):
                     signal_ratio=sig_ratio,
                     signal_thres=sig_thres,
                 )
-                peaks_dict['total_intensity'] = np.sum(image)
+                peaks_dict['total_intensity'] = np.sum(image * mask) \
+                    if mask is not None else np.sum(image)
+                peaks_dict['max_intensity'] = np.max(image * mask) \
+                    if mask is not None else np.max(image)
             else:
                 peaks_dict = {}
             if peaks_dict.get('strong', None) is not None:
