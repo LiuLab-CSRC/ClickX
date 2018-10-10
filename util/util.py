@@ -27,7 +27,8 @@ if os.getenv('facility', 'general') == 'lcls':
 
 
 def read_image(path, frame=0,
-               h5_obj=None, dataset=None,
+               h5_obj=None,
+               dataset=None,
                extra_datasets=None,
                lcls_data=None):
     ext = path.split('.')[-1]
@@ -42,7 +43,7 @@ def read_image(path, frame=0,
             image = data
     elif ext in ('h5', 'cxi'):
         if 'header/frame_num' in h5_obj:  # PAL specific h5 file
-            data = h5_obj['ts-%07d/data' % frame].value
+            image = h5_obj['ts-%07d/data' % frame].value
         elif len(h5_obj[dataset].shape) == 3:
             image = h5_obj[dataset][frame]
         else:
@@ -70,7 +71,7 @@ def read_image(path, frame=0,
         else:
             image = None
     elif ext == 'tif':
-        image = plt.imread(path)[:,:,0]
+        image = plt.imread(path)[:, :, 0]
     else:
         print('Unsupported format: %s' % ext)
         return None
