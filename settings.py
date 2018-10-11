@@ -18,7 +18,7 @@ class SettingDialog(QDialog):
     def __init__(self):
         super(SettingDialog, self).__init__()
         dir_ = os.path.abspath(os.path.dirname(__file__))
-        loadUi('%s/ui/settings_diag.ui' % dir_, self)
+        loadUi('%s/ui/dialogs/settings.ui' % dir_, self)
         # general
         self.workDir.editingFinished.connect(
             partial(self.update_attribute,
@@ -248,6 +248,7 @@ class Settings(object):
     def __init__(self, setting_diag):
         super(Settings, self).__init__()
         self.setting_diag = setting_diag
+        self.facility = None
         self.workdir = None
         self.engines = None  # available engines
         self.engine = None  # current engine
@@ -334,6 +335,9 @@ class Settings(object):
                 self.update(hit_conf_tags=get_all_hit_tags(self.workdir))
                 self.update(curr_hit_tag=self.curr_hit_tag)
         self.setting_diag.update(**kwargs)
+
+    def set_facility(self, facility):
+        self.facility = facility
 
     def __str__(self):
         s = ''
