@@ -1,8 +1,20 @@
 # -*- coding: utf-8 -*-
 
+"""
+Usage:
+    gui.py run <facility>
+    gui.py startproject <project>
+    gui.py -h | --help
+    gui.py --version
+
+Options:
+    -h --help       Show this screen.
+    --version       Show version.
+"""
 
 import os
 import sys
+from docopt import docopt
 from datetime import datetime
 from functools import partial
 from glob import glob
@@ -28,7 +40,7 @@ from util import geometry
 
 
 class GUI(QMainWindow):
-    def __init__(self):
+    def __init__(self, facility='local'):
         super(GUI, self).__init__()
         # setup layout
         dir_ = os.path.abspath(os.path.dirname(__file__))
@@ -63,6 +75,7 @@ class GUI(QMainWindow):
 
         # load settings
         self.settings = Settings(self.setting_diag)
+        self.settings.set_facility(facility)
         self.settings.save_settings()
 
         # other windows
@@ -76,7 +89,6 @@ class GUI(QMainWindow):
         self.peak_refine_mode_list = ('gradient', 'mean')
         self.snr_mode_list = ('adaptive', 'simple', 'rings')
 
-        self.workdir = self.settings.workdir
         self.all_files = []  # available files in file list
         self.path = None  # path of current file
         self.mask_file = None
@@ -643,7 +655,7 @@ class GUI(QMainWindow):
     def add_file(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Open Data File",
-            self.workdir, "Data (*.h5 *.cxi *.npy *.npz *.lcls)"
+            '.', "Data (*.h5 *.cxi *.npy *.npz *.lcls)"
         )
         if len(path) == 0:
             return
@@ -653,8 +665,7 @@ class GUI(QMainWindow):
     def load_hit_conf(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Open Hit Finding Conf File",
-            self.workdir,
-            "Yaml Files (*.yml)"
+            '.', "Yaml Files (*.yml)"
         )
         if len(path) == 0:
             return
@@ -766,7 +777,7 @@ class GUI(QMainWindow):
     def load_geom_file(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Open Geom File",
-            self.workdir, "Geometry (*.geom *.h5 *. *.npz *.data)"
+            '.', "Geometry (*.geom *.h5 *. *.npz *.data)"
         )
         if len(path) == 0:
             return
@@ -778,7 +789,7 @@ class GUI(QMainWindow):
     def save_hit_conf(self):
         path, _ = QFileDialog.getSaveFileName(
             self, "Save Hit Finding Conf File",
-            self.workdir, "Yaml Files (*.yml)"
+            '.', "Yaml Files (*.yml)"
         )
         if len(path) == 0:
             return
@@ -852,7 +863,7 @@ class GUI(QMainWindow):
             self.add_info('No mask image available')
         else:
             path, _ = QFileDialog.getSaveFileName(
-                self, "Save mask to", self.workdir, "npy file(*.npy)"
+                self, "Save mask to", '.', "npy file(*.npy)"
             )
             if len(path) == 0:
                 return
@@ -1375,7 +1386,7 @@ class GUI(QMainWindow):
     def show_hit_win(self, job, tag):
         if job is not None and tag is not None:
             hit_file = os.path.join(
-                self.workdir, 'cxi_hit', job, tag, '%s.csv' % job)
+                '.', 'cxi_hit', job, tag, '%s.csv' % job)
             self.hit_win.hitFile.setText(hit_file)
             self.hit_win.load_hits(hit_file)
         self.hit_win.show()
@@ -1435,9 +1446,9 @@ class GUI(QMainWindow):
         if line_edit is not None:
             curr_dir = line_edit.text()
         else:
-            curr_dir = ""
+            curr_dir = ''
         dir_ = QFileDialog.getExistingDirectory(
-            self, "Choose directory", self.workdir
+            self, 'Choose directory', '.'
         )
         if len(dir_) == 0:
             return
@@ -1475,7 +1486,7 @@ class GUI(QMainWindow):
         tag = self.powder_diag.datasetComboBox.currentText()
         if tag == '':
             return
-        conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
+        conf_file = 'conf/%s.yml' % tag
         with open(conf_file, 'r') as f:
             conf = yaml.load(f)
         dataset = conf['dataset']
@@ -1499,7 +1510,7 @@ class GUI(QMainWindow):
             files.append(item.data(1))
         powder_diag = self.powder_diag
         tag = powder_diag.datasetComboBox.currentText()
-        conf_file = os.path.join(self.workdir, 'conf/%s.yml' % tag)
+        conf_file = 'conf/%s.yml' % tag
         nb_frame = int(powder_diag.totalFrameLabel.text())
         max_frame = min(int(powder_diag.usedFrameBox.text()), nb_frame)
         output_dir = powder_diag.outputDirLine.text()
@@ -1602,7 +1613,7 @@ class GUI(QMainWindow):
             if len(mask_files) == 0:
                 return
             save_file, _ = QFileDialog.getSaveFileName(
-                self, "Save mask", self.workdir, "npy file(*.npy)"
+                self, "Save mask", '.', "npy file(*.npy)"
             )
             if len(save_file) == 0:
                 return
@@ -1622,19 +1633,16 @@ class GUI(QMainWindow):
             data_shape = util.get_data_shape(path)
             for dataset, shape in data_shape.items():
                 combo_box.addItem(dataset)
-            output_dir = os.path.join(self.workdir, 'mean')
-            self.mean_diag.outputDirLine.setText(output_dir)
+            self.mean_diag.outputDirLine.setText('mean')
             self.mean_diag.progressBar.setValue(0)
             self.mean_diag.exec_()
         elif action == action_gen_powder:
-            conf_dir = os.path.join(self.workdir, 'conf')
-            confs = glob('%s/*.yml' % conf_dir)
+            confs = glob('conf/*.yml')
             self.powder_diag.datasetComboBox.clear()
             for conf in confs:
                 tag = os.path.basename(conf).split('.')[0]
                 self.powder_diag.datasetComboBox.addItem(tag)
-            output_dir = os.path.join(self.workdir, 'powder')
-            self.powder_diag.outputDirLine.setText(output_dir)
+            self.powder_diag.outputDirLine.setText('powder')
             self.powder_diag.exec_()
         elif action == action_del_file:
             items = self.fileList.selectedItems()
@@ -1791,13 +1799,25 @@ class GUI(QMainWindow):
         pass
 
 
-def main():
-    app = QApplication(sys.argv)
-    win = GUI()
-    win.setWindowTitle('Click')
-    win.showMaximized()
-    sys.exit(app.exec_())
+def create_project(project_name):
+    print('Create project %s' % project_name)
+    os.makedirs((os.path.join(project_name, '.click')))
+    os.makedirs(os.path.join(project_name, 'raw_lst'))
 
 
 if __name__ == '__main__':
-    main()
+    argv = docopt(__doc__)
+    if argv['<project>'] is not None:
+        create_project(argv['<project>'])
+    if argv['<facility>'] is not None:
+        # check environment
+        if not os.path.exists('.click'):
+            print('This is not a Click project directory!')
+            sys.exit()
+        app = QApplication(sys.argv)
+        win = GUI(facility=argv['<facility>'])
+        win.setWindowTitle('Click')
+        win.showMaximized()
+        sys.exit(app.exec_())
+    if argv['--version']:
+        print('Click 1.0 by Xuanxuan Li(lxx2011011580@gmail.com).')
