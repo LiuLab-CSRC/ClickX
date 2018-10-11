@@ -21,7 +21,7 @@ class JobWindow(QWidget):
         super(JobWindow, self).__init__()
         # setup ui
         dir_ = os.path.abspath(os.path.dirname(__file__))
-        loadUi('%s/ui/job_win.ui' % dir_, self)
+        loadUi('%s/ui/window/batch.ui' % dir_, self)
         self.settings = settings
         self.main_win = main_win
         self.workdir = settings.workdir

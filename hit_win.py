@@ -16,7 +16,7 @@ class HitWindow(QWidget):
         super(HitWindow, self).__init__()
         # setup layout
         dir_ = os.path.abspath(os.path.dirname(__file__))
-        loadUi('%s/ui/hit_win.ui' % dir_, self)
+        loadUi('%s/ui/window/hits.ui' % dir_, self)
         # load settings
         self.settings = settings
         self.main_win = main_win

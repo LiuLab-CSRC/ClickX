@@ -37,7 +37,7 @@ class PowderWindow(QWidget):
 
         # setup ui
         dir_ = os.path.abspath(os.path.dirname(__file__))
-        loadUi('%s/ui/powder_win.ui' % dir_, self)
+        loadUi('%s/ui/window/powder.ui' % dir_, self)
         self.maxPeaks.setValue(self.max_peaks)
         self.centerX.setValue(int(self.center[0]))
         self.centerY.setValue(int(self.center[1]))

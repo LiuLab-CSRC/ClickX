@@ -46,18 +46,18 @@ class GUI(QMainWindow):
         dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/gui.ui' % dir_, self)
         self.dataset_diag = QDialog()
-        loadUi('%s/ui/dataset_diag.ui' % dir_, self.dataset_diag)
+        loadUi('%s/ui/dialogs/dataset.ui' % dir_, self.dataset_diag)
         self.setting_diag = SettingDialog()
         self.inspector = QDialog()
         self.inspector.setWindowFlags(
             self.inspector.windowFlags() | Qt.WindowStaysOnTopHint)
-        loadUi('%s/ui/inspector.ui' % dir_, self.inspector)
+        loadUi('%s/ui/widgets/inspector.ui' % dir_, self.inspector)
         self.peak_table = QWidget()
-        loadUi('%s/ui/peak_table.ui' % dir_, self.peak_table)
+        loadUi('%s/ui/widgets/peak_table.ui' % dir_, self.peak_table)
         self.mean_diag = QDialog()
-        loadUi('%s/ui/mean_diag.ui' % dir_, self.mean_diag)
+        loadUi('%s/ui/dialogs/mean_sigma.ui' % dir_, self.mean_diag)
         self.powder_diag = QDialog()
-        loadUi('%s/ui/powder_diag.ui' % dir_, self.powder_diag)
+        loadUi('%s/ui/dialogs/powder.ui' % dir_, self.powder_diag)
         self.splitter.setSizes([0.2 * self.height(),
                                 0.8 * self.height()])
         self.splitter_2.setSizes([0.3 * self.height(),
@@ -420,7 +420,8 @@ class GUI(QMainWindow):
                                 'name': 'signal ratio', 'type': 'float',
                                 'value': self.sig_ratio,
                             },
-                        ]
+                        ],
+                        'visible': True if self.snr_mode == 'simple' else False
                     },
                     {
                         'name': 'rings', 'type': 'group', 'children': [
@@ -439,7 +440,7 @@ class GUI(QMainWindow):
                                 'value': self.bg_outer_radius,
                             },
                         ],
-                        'visible': False,
+                        'visible': True if self.snr_mode == 'rings' else False
                     },
                     {
                         'name': 'adaptive', 'type': 'group', 'children': [
@@ -452,7 +453,8 @@ class GUI(QMainWindow):
                                 'value': self.sig_thres,
                             },
                         ],
-                        'visible': False,
+                        'visible': True if self.snr_mode == 'adaptive'
+                        else False
                     },
                     
                 ],
@@ -511,14 +513,10 @@ class GUI(QMainWindow):
             self.zoom_in_on_peak
         )
         # mean dialog
-        self.mean_diag.browseButton.clicked.connect(
-            partial(self.choose_dir, self.mean_diag.outputDirLine))
         self.mean_diag.datasetComboBox.currentIndexChanged.connect(
             self.update_mean_diag_nframe)
         self.mean_diag.applyButton.clicked.connect(self.calc_mean_std)
         # powder dialog
-        self.powder_diag.browseButton.clicked.connect(
-            partial(self.choose_dir, self.powder_diag.outputDirLine))
         self.powder_diag.datasetComboBox.currentIndexChanged.connect(
             self.update_powder_diag_nframe)
         self.powder_diag.submitButton.clicked.connect(self.gen_powder)
@@ -789,7 +787,7 @@ class GUI(QMainWindow):
     def save_hit_conf(self):
         path, _ = QFileDialog.getSaveFileName(
             self, "Save Hit Finding Conf File",
-            '.', "Yaml Files (*.yml)"
+            'conf/hit_finding', "Yaml Files (*.yml)"
         )
         if len(path) == 0:
             return
@@ -863,7 +861,7 @@ class GUI(QMainWindow):
             self.add_info('No mask image available')
         else:
             path, _ = QFileDialog.getSaveFileName(
-                self, "Save mask to", '.', "npy file(*.npy)"
+                self, "Save mask to", 'mask', "npy file(*.npy)"
             )
             if len(path) == 0:
                 return
@@ -1426,9 +1424,8 @@ class GUI(QMainWindow):
         dataset = self.mean_diag.datasetComboBox.currentText()
         nb_frame = int(self.mean_diag.totalFrameLabel.text())
         max_frame = min(int(self.mean_diag.usedFrameBox.text()), nb_frame)
-        output_dir = self.mean_diag.outputDirLine.text()
         prefix = self.mean_diag.prefixLine.text()
-        output = os.path.join(output_dir, '%s.npz' % prefix)
+        output = os.path.join('mean', '%s.npz' % prefix)
 
         self.calc_mean_thread = MeanCalculatorThread(
             files=files, dataset=dataset, max_frame=max_frame, output=output
@@ -1486,7 +1483,7 @@ class GUI(QMainWindow):
         tag = self.powder_diag.datasetComboBox.currentText()
         if tag == '':
             return
-        conf_file = 'conf/%s.yml' % tag
+        conf_file = 'conf/hit_finding/%s.yml' % tag
         with open(conf_file, 'r') as f:
             conf = yaml.load(f)
         dataset = conf['dataset']
@@ -1510,12 +1507,11 @@ class GUI(QMainWindow):
             files.append(item.data(1))
         powder_diag = self.powder_diag
         tag = powder_diag.datasetComboBox.currentText()
-        conf_file = 'conf/%s.yml' % tag
+        conf_file = 'conf/hit_finding/%s.yml' % tag
         nb_frame = int(powder_diag.totalFrameLabel.text())
         max_frame = min(int(powder_diag.usedFrameBox.text()), nb_frame)
-        output_dir = powder_diag.outputDirLine.text()
-        prefix = powder_diag.prefixLine.text()
-        output = os.path.join(output_dir, '%s.npz' % prefix)
+        filename = powder_diag.prefixLine.text()
+        output = os.path.join('powder', '%s.npz' % filename)
         self.add_info('Submit powder generation job.')
         self.gen_powder_thread = GenPowderThread(
             files, conf_file, self.settings,
@@ -1633,16 +1629,14 @@ class GUI(QMainWindow):
             data_shape = util.get_data_shape(path)
             for dataset, shape in data_shape.items():
                 combo_box.addItem(dataset)
-            self.mean_diag.outputDirLine.setText('mean')
             self.mean_diag.progressBar.setValue(0)
             self.mean_diag.exec_()
         elif action == action_gen_powder:
-            confs = glob('conf/*.yml')
+            confs = glob('conf/hit_finding/*.yml')
             self.powder_diag.datasetComboBox.clear()
             for conf in confs:
                 tag = os.path.basename(conf).split('.')[0]
                 self.powder_diag.datasetComboBox.addItem(tag)
-            self.powder_diag.outputDirLine.setText('powder')
             self.powder_diag.exec_()
         elif action == action_del_file:
             items = self.fileList.selectedItems()
@@ -1800,9 +1794,14 @@ class GUI(QMainWindow):
 
 
 def create_project(project_name):
-    print('Create project %s' % project_name)
+    print('Project %s created.' % project_name)
     os.makedirs((os.path.join(project_name, '.click')))
     os.makedirs(os.path.join(project_name, 'raw_lst'))
+    os.makedirs(os.path.join(project_name, 'mean'))
+    os.makedirs(os.path.join(project_name, 'mask'))
+    os.makedirs(os.path.join(project_name, 'powder'))
+    os.makedirs(os.path.join(project_name, 'conf', 'hit_finding'))
+    os.makedirs(os.path.join(project_name, 'conf', 'indexing'))
 
 
 if __name__ == '__main__':
