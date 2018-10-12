@@ -23,7 +23,6 @@ class PowderWindow(QWidget):
         super(PowderWindow, self).__init__()
         # load settings
         self.settings = settings
-        self.workdir = settings.workdir
         self.max_peaks = 10000
         self.powder_width = settings.image_width
         self.powder_height = settings.image_height
@@ -39,8 +38,8 @@ class PowderWindow(QWidget):
         dir_ = os.path.abspath(os.path.dirname(__file__))
         loadUi('%s/ui/window/powder.ui' % dir_, self)
         self.maxPeaks.setValue(self.max_peaks)
-        self.centerX.setValue(int(self.center[0]))
-        self.centerY.setValue(int(self.center[1]))
+        self.centerX.setValue(self.center[0])
+        self.centerY.setValue(self.center[1])
         self.detectorDistance.setValue(self.detector_distance)
         self.epsBox.setValue(self.eps)
         self.minSamples.setValue(self.min_samples)
@@ -134,7 +133,7 @@ class PowderWindow(QWidget):
     @pyqtSlot()
     def load_peaks(self):
         peak_file, _ = QFileDialog.getOpenFileName(
-            self, "Select peak file", self.workdir, "Peak File (*.npz)")
+            self, 'Select peak file', '', 'Peak File (*.npz)')
         if len(peak_file) == 0:
             return
         self.peakFile.setText(peak_file)
