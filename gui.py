@@ -2,14 +2,16 @@
 
 """
 Usage:
-    gui.py run <facility>
-    gui.py startproject <project>
+    gui.py startproject <project> -f <facility>
+    gui.py
     gui.py -h | --help
     gui.py --version
 
 Options:
-    -h --help       Show this screen.
-    --version       Show version.
+    -h --help                   Show this screen.
+    --version                   Show version.
+    -f --facility=<facility>    Specify facility e.g. LCLS/PAL/local
+                                [default: local].
 """
 
 import os
@@ -18,6 +20,7 @@ from docopt import docopt
 from datetime import datetime
 from functools import partial
 from glob import glob
+from shutil import copyfile
 
 import h5py
 import numpy as np
@@ -37,6 +40,9 @@ from settings import Settings, SettingDialog
 from threads import MeanCalculatorThread, GenPowderThread
 from util import util
 from util import geometry
+
+
+SOURCE_DIR = os.path.dirname(__file__)
 
 
 class GUI(QMainWindow):
@@ -75,7 +81,6 @@ class GUI(QMainWindow):
 
         # load settings
         self.settings = Settings(self.setting_diag)
-        self.settings.set_facility(facility)
         self.settings.save_settings()
 
         # other windows
@@ -1793,8 +1798,8 @@ class GUI(QMainWindow):
         pass
 
 
-def create_project(project_name):
-    print('Project %s created.' % project_name)
+def create_project(project_name, facility):
+    print('Project %s for %s is created.' % (project_name, facility))
     os.makedirs((os.path.join(project_name, '.click')))
     os.makedirs(os.path.join(project_name, 'raw_lst'))
     os.makedirs(os.path.join(project_name, 'mean'))
@@ -1802,21 +1807,23 @@ def create_project(project_name):
     os.makedirs(os.path.join(project_name, 'powder'))
     os.makedirs(os.path.join(project_name, 'conf', 'hit_finding'))
     os.makedirs(os.path.join(project_name, 'conf', 'indexing'))
+    copyfile(os.path.join(SOURCE_DIR, 'conf', 'config-%s.yml' % facility),
+             os.path.join(project_name, '.click', 'config.yml'))
 
 
 if __name__ == '__main__':
     argv = docopt(__doc__)
-    if argv['<project>'] is not None:
-        create_project(argv['<project>'])
-    if argv['<facility>'] is not None:
+    if argv['startproject']:
+        create_project(argv['<project>'], argv['--facility'])
+    elif argv['--version']:
+        print('Click 1.0 by Xuanxuan Li(lxx2011011580@gmail.com).')
+    else:
         # check environment
         if not os.path.exists('.click'):
             print('This is not a Click project directory!')
             sys.exit()
         app = QApplication(sys.argv)
-        win = GUI(facility=argv['<facility>'])
+        win = GUI()
         win.setWindowTitle('Click')
         win.showMaximized()
         sys.exit(app.exec_())
-    if argv['--version']:
-        print('Click 1.0 by Xuanxuan Li(lxx2011011580@gmail.com).')
