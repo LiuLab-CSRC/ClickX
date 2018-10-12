@@ -114,12 +114,11 @@ class CompressorThread(QThread):
 
     def run(self):
         job = self.job
-        workdir = self.settings.workdir
-        raw_lst = os.path.join(workdir, 'raw_lst', '%s.lst' % job)
+        raw_lst = os.path.join('raw_lst', '%s.lst' % job)
         raw_dataset = self.settings.raw_dataset
         comp_dataset = self.settings.compressed_dataset
-        comp_dir = os.path.join(workdir, 'cxi_comp', job)
-        comp_lst_dir = os.path.join(workdir, 'cxi_lst')
+        comp_dir = os.path.join('cxi_comp', job)
+        comp_lst_dir = 'cxi_lst'
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/engines/%s/run_compressor' \
                        % (dir_, self.settings.engine)
@@ -131,7 +130,7 @@ class CompressorThread(QThread):
                 raw_lst, raw_dataset, comp_dir, comp_lst_dir,
                 '--comp-dataset', comp_dataset,
                 '--comp-size', comp_size,
-             ]
+            ]
         )
 
 
@@ -149,18 +148,13 @@ class HitFinderThread(QThread):
 
     def run(self):
         if self.compressed:
-            cxi_lst = os.path.join(
-                self.settings.workdir, 'cxi_lst', '%s.lst' % self.job
-            )
+            cxi_lst = os.path.join('cxi_lst', '%s.lst' % self.job)
         else:
-            cxi_lst = os.path.join(
-                self.settings.workdir, 'raw_lst', '%s.lst' % self.job
-            )
-        conf = '%s/conf/%s.yml' % (self.settings.workdir, self.tag)
+            cxi_lst = os.path.join('raw_lst', '%s.lst' % self.job)
+        conf = 'conf/hit_finding/%s.yml' % self.tag
         job = self.job
         min_peaks = str(self.settings.min_peaks)
-        hit_dir = os.path.join(
-            self.settings.workdir, 'cxi_hit', self.job, self.tag)
+        hit_dir = os.path.join('cxi_hit', self.job, self.tag)
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/engines/%s/run_hit_finder' % \
                        (dir_, self.settings.engine)
