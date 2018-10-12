@@ -24,7 +24,6 @@ class JobWindow(QWidget):
         loadUi('%s/ui/window/batch.ui' % dir_, self)
         self.settings = settings
         self.main_win = main_win
-        self.workdir = settings.workdir
         self.raw_dataset = settings.raw_dataset
         self.compressed_dataset = settings.compressed_dataset
         self.hit_tag = settings.curr_hit_tag
@@ -65,7 +64,6 @@ class JobWindow(QWidget):
 
     def update_settings(self, settings):
         self.settings = settings
-        self.workdir = settings.workdir
         self.raw_dataset = settings.raw_dataset
         self.compressed_dataset = settings.compressed_dataset
         self.hit_tag = settings.curr_hit_tag
@@ -93,18 +91,17 @@ class JobWindow(QWidget):
         total_raw_frames = 0
         total_processed_frames = 0
         total_processed_hits = 0
-        raw_lst_files = glob('%s/raw_lst/*.lst' % self.workdir)
+        raw_lst_files = glob('raw_lst/*.lst')
         for raw_lst in raw_lst_files:
             job_id = os.path.basename(raw_lst).split('.')[0]
             if self.settings.compress_raw_data:
-                cxi_comp_dir = os.path.join(self.workdir, 'cxi_comp', job_id)
+                cxi_comp_dir = os.path.join('cxi_comp', job_id)
                 cxi_comp_stat = check_cxi_comp(cxi_comp_dir)
                 compression = cxi_comp_stat.get('progress', 0)
                 compression_ratio = cxi_comp_stat.get('compression ratio', 0)
                 raw_frames = cxi_comp_stat.get('total frames', 0)
 
-                cxi_lst = os.path.join(
-                    self.workdir, 'cxi_lst', '%s.lst' % job_id)
+                cxi_lst = os.path.join('cxi_lst', '%s.lst' % job_id)
                 if os.path.exists(cxi_lst):
                     hit_finding = 'ready'
                 else:
@@ -114,7 +111,7 @@ class JobWindow(QWidget):
                 compression = 'NA'
                 compression_ratio = 'NA'
                 raw_frames = 0
-            cxi_hit_dir = os.path.join(self.workdir, 'cxi_hit', job_id)
+            cxi_hit_dir = os.path.join('cxi_hit', job_id)
             hit_tags = glob('%s/*' % cxi_hit_dir)
             if len(hit_tags) == 0:
                 tag_id = 'NA'
@@ -136,9 +133,7 @@ class JobWindow(QWidget):
             else:
                 tag_ids = [os.path.basename(tag_id) for tag_id in hit_tags]
                 for tag_id in tag_ids:
-                    tag_dir = os.path.join(
-                        self.workdir, 'cxi_hit', job_id, tag_id
-                    )
+                    tag_dir = os.path.join('cxi_hit', job_id, tag_id)
                     cxi_hit_stat = check_cxi_hit(tag_dir)
                     hit_finding = cxi_hit_stat.get('progress', 0)
                     processed_frames = cxi_hit_stat.get('processed frames', 0)
@@ -410,7 +405,7 @@ class JobWindow(QWidget):
             for j in range(nb_cols):
                 row.append(self.jobTable.item(i, j).text())
             rows.append(row)
-        with open('SFX-Suite.csv', 'w') as f:
+        with open('click.csv', 'w') as f:
             writer = csv.writer(f)
             print(header_labels)
             writer.writerow(header_labels)
