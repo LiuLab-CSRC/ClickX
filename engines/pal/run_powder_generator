@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+#----powder generator script on local machine.-----#
+
+mpiexec=mpiexec
+python_exec=python
+nb_process=2
+
+$mpiexec -n $nb_process $python_exec "$@"
