@@ -1,0 +1,13 @@
+# default configuration file
+
+# general
+facility: 'LCLS'
+engine: 'lcls'
+raw_data_directory: ''
+
+detector_distance: 100  # in mm
+pixel_size: 110  # in um
+image_height: 1520  # in pixel
+image_width: 1480  # in pixel
+center_x: 760 # in pixel
+center_y: 740 # in pixel

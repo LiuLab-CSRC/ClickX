@@ -1,0 +1,28 @@
+# default configuration file
+
+# general
+facility: 'PAL'
+engine: 'pal'
+raw_data_dir: ''
+
+detector_distance: 100  # in mm
+pixel_size: 100  # in um
+image_height: 1440  # in pixel
+image_width: 1440  # in pixel
+center_x: 720 # in pixel
+center_y: 720 # in pixel
+photon_energy: 9800  # in eV
+
+compress_raw_data: true
+raw_dataset: ts-data-PAL
+compressed_batch_size: 100
+compressed_dataset: data
+curr_hit_tag: null
+cxi_peak_info_path: peak_info
+cxi_raw_data_path: data
+cxi_size: 100
+job_pool_size: 4
+max_info: 1000
+min_peaks: 20
+mpi_batch_size: 5
+update_period: 2  # in sec
