@@ -42,8 +42,9 @@ def read_image(path, frame=0,
         else:
             image = data
     elif ext in ('h5', 'cxi'):
-        if 'header/frame_num' in h5_obj:  # PAL specific h5 file
-            image = h5_obj['ts-%07d/data' % frame].value
+        first_group = list(h5_obj.keys())[0]
+        if 'R' == first_group[0] and 'scan_dat' in h5_obj[first_group].keys():  # PAL specific h5 file
+            image = h5_obj['%s/scan_dat/raymx_data' % first_group][frame]
         elif len(h5_obj[dataset].shape) == 3:
             image = h5_obj[dataset][frame]
         else:
@@ -626,11 +627,10 @@ def get_data_shape(path):
         def _get_all_dataset(key):
             if isinstance(f[key], h5py._hl.dataset.Dataset):
                 keys.append(key)
-        if 'header/frame_num' in f:  # PAL specific h5 file
-            nb_frame = f['header/frame_num'].value
+        first_group = list(f.keys())[0]
+        if 'R' == first_group[0] and 'scan_dat' in f[first_group]:  # PAL specific h5 file
             data_shape = {}
-            x, y = f['ts-0000000/data'].shape
-            data_shape['ts-data-PAL'] = (nb_frame, x, y)
+            data_shape['ts-data-PAL'] = f['%s/scan_dat/raymx_data' % first_group].shape
             return data_shape
         f.visit(_get_all_dataset)
         for key in keys:
