@@ -38,6 +38,12 @@ from docopt import docopt
 import yaml
 
 from mpi4py import MPI
+try:
+    import mkl 
+    mkl.set_num_threads(1)
+except:
+    pass
+    
 import util
 
 

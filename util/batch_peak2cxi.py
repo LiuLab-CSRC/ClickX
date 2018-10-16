@@ -36,6 +36,12 @@ import os
 import time
 
 from mpi4py import MPI
+try:
+    import mkl 
+    mkl.set_num_threads(1)
+except:
+    pass
+    
 import numpy as np
 import yaml
 import util

@@ -172,8 +172,7 @@ class Peak2CxiThread(QThread):
         self.tag = tag
 
     def run(self):
-        hit_dir = os.path.join(
-            self.settings.workdir, 'cxi_hit', self.job, self.tag)
+        hit_dir = os.path.join('cxi_hit', self.job, self.tag)
         options = []
         mask_file = os.path.join(hit_dir, 'mask.npy')
         if os.path.exists(mask_file):

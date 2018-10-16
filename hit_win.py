@@ -46,6 +46,8 @@ class HitWindow(QWidget):
         self.main_win.update_display()
 
     def load_hits(self, hit_file):
+        if not os.path.exists(hit_file):
+            return
         df = pd.read_csv(hit_file)
         data = []
         for i in range(len(df)):

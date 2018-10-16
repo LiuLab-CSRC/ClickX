@@ -20,6 +20,12 @@ from __future__ import print_function
 from six import print_ as print
 
 from mpi4py import MPI
+try:
+    import mkl 
+    mkl.set_num_threads(1)
+except:
+    pass
+    
 import numpy as np
 import pandas as pd
 import h5py

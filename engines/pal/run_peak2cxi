@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#----hit finding script on PAL eh2c7.-----#
+#----hit finding script on local machine.-----#
 
 mpiexec=mpiexec
 python_exec=python
