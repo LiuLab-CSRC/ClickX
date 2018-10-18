@@ -1253,7 +1253,11 @@ class GUI(QMainWindow):
         # apply current mask
         raw_image *= self.mask_image
         if self.apply_geom and self.geom is not None:
-            raw_image = self.geom.rearrange(raw_image)
+            raw_image = self.geom.raw2assembled(raw_image)
+            if self.mask_on and self.mask is not None:
+                mask = self.geom.raw2assembled(self.mask)
+            else:
+                mask = None
         self.rawView.setImage(
             raw_image, autoRange=self.auto_range,
             autoLevels=self.auto_level,
@@ -1279,7 +1283,7 @@ class GUI(QMainWindow):
                 adu_per_photon=self.adu_per_photon,
                 epsilon=self.epsilon,
                 bin_size=self.bin_size,
-                mask=self.mask,
+                mask=mask,
                 hit_finder=self.hit_finder,
                 gaussian_sigma=self.gaussian_sigma,
                 min_gradient=self.min_gradient,
@@ -1801,10 +1805,13 @@ class GUI(QMainWindow):
 def create_project(project_name, facility):
     print('Project %s for %s is created.' % (project_name, facility))
     os.makedirs((os.path.join(project_name, '.click')))
-    os.makedirs(os.path.join(project_name, 'raw_lst'))
     os.makedirs(os.path.join(project_name, 'mean'))
     os.makedirs(os.path.join(project_name, 'mask'))
     os.makedirs(os.path.join(project_name, 'powder'))
+    os.makedirs(os.path.join(project_name, 'raw_lst'))
+    os.makedirs(os.path.join(project_name, 'cxi_comp'))
+    os.makedirs(os.path.join(project_name, 'cxi_hit'))
+    os.makedirs(os.path.join(project_name, 'indexing'))
     os.makedirs(os.path.join(project_name, 'conf', 'hit_finding'))
     os.makedirs(os.path.join(project_name, 'conf', 'indexing'))
     copyfile(os.path.join(SOURCE_DIR, 'conf', 'config-%s.yml' % facility),

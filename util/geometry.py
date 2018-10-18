@@ -97,7 +97,7 @@ class Geometry(object):
         self.y -= self.offset[1]
         self.shape = self.x.max() + 1, self.y.max() + 1
 
-    def rearrange(self, raw_img):
+    def raw2assembled(self, raw_img):
         """
         Rearrange raw image to assembled image.
         :param raw_img: raw image, 2d array.
@@ -107,6 +107,14 @@ class Geometry(object):
         assembled_img[self.x.reshape(-1),
                       self.y.reshape(-1)] = raw_img.reshape(-1)
         return assembled_img
+
+    def assembled2raw(self, assembled_img):
+        """
+        Convert assembled image to raw image.
+        :param assembled_img: assembled image, 2d array.
+        :return: raw image, 2d array
+        """
+
 
     def map(self, raw_pos):
         """
