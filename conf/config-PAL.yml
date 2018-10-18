@@ -13,7 +13,7 @@ center_x: 720 # in pixel
 center_y: 720 # in pixel
 photon_energy: 9700  # in eV
 
-compress_raw_data: true
+compress_raw_data: false
 raw_dataset: ts-data-PAL
 compressed_batch_size: 100
 compressed_dataset: data
@@ -24,6 +24,6 @@ cxi_raw_data_path: data
 cxi_size: 100
 job_pool_size: 3
 max_info: 1000
-min_peaks: 20
+min_peaks: 15
 mpi_batch_size: 5
 update_period: 2  # in sec

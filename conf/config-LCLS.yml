@@ -3,11 +3,27 @@
 # general
 facility: 'LCLS'
 engine: 'lcls'
-raw_data_directory: ''
+raw_data_dir: ''
 
 detector_distance: 100  # in mm
 pixel_size: 110  # in um
-image_height: 1520  # in pixel
-image_width: 1480  # in pixel
-center_x: 760 # in pixel
-center_y: 740 # in pixel
+image_height: 1480  # in pixel
+image_width: 1552  # in pixel
+center_x: 740 # in pixel
+center_y: 776 # in pixel
+photon_energy: 9700  # in eV
+
+compress_raw_data: false
+raw_dataset: lcls-data
+compressed_batch_size: 100
+compressed_dataset: data
+cheetah_datasets: ""
+curr_hit_tag: null
+cxi_peak_info_path: peak_info
+cxi_raw_data_path: data
+cxi_size: 100
+job_pool_size: 3
+max_info: 1000
+min_peaks: 15
+mpi_batch_size: 5
+update_period: 2  # in sec
