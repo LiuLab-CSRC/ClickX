@@ -1238,10 +1238,10 @@ class GUI(QMainWindow):
         self.mask_image = util.make_simple_mask(
             self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
             dilation=self.dilation_size, erosion2=self.erosion2_size
-        ).astype(np.int)
+        ).astype(np.float)
         if self.eraser_mask is not None and (
                 self.eraser_mask.shape == self.raw_image.shape):
-            self.mask_image *= self.eraser_mask.astype(np.int)
+            self.mask_image *= self.eraser_mask.astype(np.float)
         if self.mask is not None:
             self.mask_image *= self.mask
 
