@@ -1242,22 +1242,24 @@ class GUI(QMainWindow):
                 self.eraser_mask.shape != self.raw_image.shape):
             self.eraser_mask = np.ones_like(self.raw_image, dtype=np.int)
         self.mask_image *= self.eraser_mask
+        if self.mask is not None:
+            self.mask_image *= self.mask
 
     def update_display(self):
         if self.raw_image is None:
             return
-        if self.mask_on and self.mask is not None:
-            raw_image = self.raw_image * self.mask
+        # apply mask
+        if self.mask_on:
+            raw_image = self.raw_image * self.mask_image
+            mask = self.mask_image
         else:
             raw_image = self.raw_image
-        # apply current mask
-        raw_image *= self.mask_image
+            mask = None
+        # apply geom
         if self.apply_geom and self.geom is not None:
             raw_image = self.geom.raw2assembled(raw_image)
-            if self.mask_on and self.mask is not None:
-                mask = self.geom.raw2assembled(self.mask)
-            else:
-                mask = None
+            if self.mask_on and mask is not None:
+                mask = self.geom.raw2assembled(mask)
         self.rawView.setImage(
             raw_image, autoRange=self.auto_range,
             autoLevels=self.auto_level,
@@ -1602,9 +1604,13 @@ class GUI(QMainWindow):
             self.update_display()
         elif action == action_set_as_mask:
             self.mask_file = path
-            if self.mask_on:
-                mask = util.read_image(path)['image']
-                self.mask = mask
+            mask = util.read_image(path)['image']
+            total_pixels = mask.size
+            valid_pixels = np.sum(mask)
+            self.add_info('%d/%d(%.3f) valid pixels' %
+                          (valid_pixels, total_pixels,
+                           float(valid_pixels)/float(total_pixels)))
+            self.mask = mask
             self.update_file_info()
             self.change_image()
             self.update_display()
