@@ -46,7 +46,7 @@ SOURCE_DIR = os.path.dirname(__file__)
 
 
 class GUI(QMainWindow):
-    def __init__(self, facility='local'):
+    def __init__(self):
         super(GUI, self).__init__()
         # setup layout
         dir_ = os.path.abspath(os.path.dirname(__file__))
@@ -1822,6 +1822,7 @@ def create_project(project_name, facility):
     os.makedirs(os.path.join(project_name, 'conf', 'indexing'))
     copyfile(os.path.join(SOURCE_DIR, 'conf', 'config-%s.yml' % facility),
              os.path.join(project_name, '.click', 'config.yml'))
+    os.environ['facility'] = facility
 
 
 if __name__ == '__main__':
