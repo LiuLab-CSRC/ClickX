@@ -20,7 +20,7 @@ from scipy.ndimage.filters import gaussian_filter, convolve1d
 from skimage.morphology import disk, binary_dilation, binary_erosion
 from skimage.measure import label, regionprops
 
-if os.getenv('facility', 'general') == 'lcls':
+if os.getenv('facility', 'local') == 'LCLS':
     sys.path.append('/reg/g/psdm/sw/conda/inst/miniconda2-prod-rhel7/envs/'
                     'ana-1.3.58/lib/python2.7/site-packages')
     import psana
