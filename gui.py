@@ -1237,11 +1237,11 @@ class GUI(QMainWindow):
         self.raw_image = raw_image.astype(np.float)
         self.mask_image = util.make_simple_mask(
             self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
-            dilation=self.dilation_size, erosion2=self.erosion2_size)
-        if self.eraser_mask is None or (
-                self.eraser_mask.shape != self.raw_image.shape):
-            self.eraser_mask = np.ones_like(self.raw_image, dtype=np.int)
-        self.mask_image *= self.eraser_mask
+            dilation=self.dilation_size, erosion2=self.erosion2_size
+        ).astype(np.int)
+        if self.eraser_mask is not None and (
+                self.eraser_mask.shape == self.raw_image.shape):
+            self.mask_image *= self.eraser_mask.astype(np.int)
         if self.mask is not None:
             self.mask_image *= self.mask
 
@@ -1822,7 +1822,6 @@ def create_project(project_name, facility):
     os.makedirs(os.path.join(project_name, 'conf', 'indexing'))
     copyfile(os.path.join(SOURCE_DIR, 'conf', 'config-%s.yml' % facility),
              os.path.join(project_name, '.click', 'config.yml'))
-    os.environ['facility'] = facility
 
 
 if __name__ == '__main__':
