@@ -1107,7 +1107,7 @@ def make_circle_mask(shape, center, radius, mode='background'):
 def get_lcls_data(path):
     with open(path) as f:
         data = yaml.load(f)
-    run_id = int(os.path.basename(f).split('.')[0][1:])
+    run_id = int(os.path.basename(path).split('.')[0][1:])
     datasource = psana.DataSource(
         'exp=%s:run=%d:idx' % (data['exp'], run_id)
     )
