@@ -245,15 +245,23 @@ def worker_run(args):
                     else None
                 lcls_data = util.get_lcls_data(filepath) if ext == 'lcls' \
                     else None
-            image = util.read_image(
+            image_data = util.read_image(
                 filepath, frame=frame,
                 h5_obj=h5_obj,
                 lcls_data=lcls_data,
                 dataset=dataset
-            )['image']
-            if image is not None:
+            )
+            data_dict = {}
+            if ext == 'lcls':
+                if 'event_codes' in image_data:
+                    data_dict['event_codes'] = image_data['event_codes']
+                if 'flow_rate' in image_data:
+                    data_dict['flow_rate'] = image_data['flow_rate']
+                if 'pressure' in image_data:
+                    data_dict['pressure'] = image_data['pressure']
+            if image_data['image'] is not None:
                 peaks_dict = util.find_peaks(
-                    image, center,
+                    image_data['image'], center,
                     adu_per_photon=adu_per_photon,
                     epsilon=epsilon,
                     bin_size=bin_size,
@@ -277,10 +285,12 @@ def worker_run(args):
                     signal_ratio=sig_ratio,
                     signal_thres=sig_thres,
                 )
-                peaks_dict['total_intensity'] = np.sum(image * mask) \
-                    if mask is not None else np.sum(image)
-                peaks_dict['max_intensity'] = np.max(image * mask) \
-                    if mask is not None else np.max(image)
+                data_dict['total_intensity'] = np.sum(
+                    image_data['image'] * mask
+                ) if mask is not None else np.sum(image_data['image'])
+                data_dict['max_intensity'] = np.max(
+                    image_data['image'] * mask
+                )if mask is not None else np.max(image_data['image'])
             else:
                 peaks_dict = {}
             if peaks_dict.get('strong', None) is not None:
@@ -288,6 +298,7 @@ def worker_run(args):
                 job[i]['peak_info'] = peaks_dict['info']
             else:
                 job[i]['nb_peak'] = 0
+            job[i]['data_dict'] = data_dict
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
     print('slave %d is exiting' % rank, flush=flush)

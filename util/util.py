@@ -71,6 +71,12 @@ def read_image(path, frame=0,
                     image[x1:x2, y1:y2] = raw_data[i * 8 + j]
         else:
             image = None
+        if 'evr' in lcls_data:
+            data_dict['event_codes'] = lcls_data['evr'].eventCodes(event)
+        if 'flow_rate' in lcls_data:
+            data_dict['flow_rate'] = lcls_data['flow_rate'](event)
+        if 'pressure' in lcls_data:
+            data_dict['pressure'] = lcls_data['pressure'](event)
     elif ext == 'tif':
         image = plt.imread(path)[:, :, 0]
     else:
@@ -1101,8 +1107,9 @@ def make_circle_mask(shape, center, radius, mode='background'):
 def get_lcls_data(path):
     with open(path) as f:
         data = yaml.load(f)
+    run_id = int(os.path.basename(f).split('.')[0][1:])
     datasource = psana.DataSource(
-        'exp=%s:run=%d:idx' % (data['exp'], data['run'])
+        'exp=%s:run=%d:idx' % (data['exp'], run_id)
     )
     detector = psana.Detector(data['det'])
     run = datasource.runs().next()
@@ -1113,4 +1120,10 @@ def get_lcls_data(path):
         'run': run,
         'times': times
     }
+    if 'flow_rate' in data:
+        lcls_data['flow_rate'] = psana.Detector(data['flow_rate'])
+    if 'pressure' in data:
+        lcls_data['pressure'] = psana.Detector(data['pressure'])
+    if 'evr' in data:
+        lcls_data['evr'] = psana.Detector(data['evr'])
     return lcls_data
