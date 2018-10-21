@@ -1242,19 +1242,16 @@ class GUI(QMainWindow):
         if self.eraser_mask is not None and (
                 self.eraser_mask.shape == self.raw_image.shape):
             self.mask_image *= self.eraser_mask.astype(np.float)
-        if self.mask is not None:
-            self.mask_image *= self.mask
 
     def update_display(self):
         if self.raw_image is None:
             return
         # apply mask
         if self.mask_on:
-            raw_image = self.raw_image * self.mask_image
-            mask = self.mask_image
+            raw_image = self.raw_image * self.mask
         else:
             raw_image = self.raw_image
-            mask = None
+        mask = self.mask
         # apply geom
         if self.apply_geom and self.geom is not None:
             raw_image = self.geom.raw2assembled(raw_image)

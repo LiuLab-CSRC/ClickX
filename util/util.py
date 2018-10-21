@@ -166,7 +166,10 @@ def find_peaks_by_snr(image, center,
                       signal_thres=5.,
                       label_pixels=False):
     peaks_dict = {}
-    raw_image = image.copy()
+    if mask is not None:
+        raw_image = image * mask
+    else:
+        raw_image = image.copy()
     if gaussian_sigma >= 0:
         image = gaussian_filter(image.astype(np.float32), gaussian_sigma)
     grad = np.gradient(image.astype(np.float32))
