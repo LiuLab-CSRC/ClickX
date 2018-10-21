@@ -336,7 +336,7 @@ class Settings(object):
         self.update(min_peaks=settings.get('min_peaks'))
         self.update(max_info=settings.get('max_info'))
         self.update(hit_conf_tags=get_all_hit_tags())
-        self.update(curr_hit_tag=settings.get('curr_hit_tag', None))
+        self.update(curr_hit_tag=settings.get('curr_hit_tag'))
 
     def save_settings(self):
         settings = {attr: getattr(self, attr) for attr in self.saved_attrs}
