@@ -21,11 +21,11 @@ from six import print_ as print
 
 from mpi4py import MPI
 try:
-    import mkl 
+    import mkl
     mkl.set_num_threads(1)
 except:
     pass
-    
+
 import numpy as np
 import pandas as pd
 import h5py
@@ -259,7 +259,12 @@ def worker_run(args):
                     data_dict['flow_rate'] = image_data['flow_rate']
                 if 'pressure' in image_data:
                     data_dict['pressure'] = image_data['pressure']
+            total_intensity, max_intensity = 0., 0.
             if image_data['image'] is not None:
+                image = image_data['image'] * mask if mask is not None else image_data['image']
+                total_intensity = np.sum(image)
+                max_intensity = np.max(image)
+            if max_intensity > 4000.:
                 peaks_dict = util.find_peaks(
                     image_data['image'], center,
                     adu_per_photon=adu_per_photon,
@@ -285,12 +290,6 @@ def worker_run(args):
                     signal_ratio=sig_ratio,
                     signal_thres=sig_thres,
                 )
-                data_dict['total_intensity'] = np.sum(
-                    image_data['image'] * mask
-                ) if mask is not None else np.sum(image_data['image'])
-                data_dict['max_intensity'] = np.max(
-                    image_data['image'] * mask
-                )if mask is not None else np.max(image_data['image'])
             else:
                 peaks_dict = {}
             if peaks_dict.get('strong', None) is not None:
@@ -298,6 +297,8 @@ def worker_run(args):
                 job[i]['peak_info'] = peaks_dict['info']
             else:
                 job[i]['nb_peak'] = 0
+            data_dict['total_intensity'] = total_intensity
+            data_dict['max_intensity'] = max_intensity
             job[i]['data_dict'] = data_dict
         comm.send(job, dest=0)
         stop = comm.recv(source=0)
