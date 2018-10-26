@@ -84,6 +84,12 @@ def read_image(path, frame=0,
             data_dict['photon_energy'] = 0.
         if 'clen_str' in lcls_data:
             data_dict['clen'] = lcls_data['epics'].value(lcls_data['clen_str'])
+        try:
+            event_id = event.get(psana.EventId)
+            fiducial = event_id.fiducials()
+        except:
+            fiducial = 0
+        data_dict['fiducial'] = fiducial
     elif ext == 'tif':
         image = plt.imread(path)[:, :, 0]
     else:
@@ -870,6 +876,12 @@ def save_full_cxi(batch, cxi_file,
     peaks_y = np.zeros((nb_frame, 1024))
     peaks_intensity = np.zeros((nb_frame, 1024))
     peaks_snr = np.zeros((nb_frame, 1024))
+    fiducials = np.zeros(nb_frame, dtype=np.int)
+    flow_rates = np.zeros(nb_frame, dtype=np.float)
+    pressure = np.zeros(nb_frame, dtype=np.float)
+    event_codes = np.zeros((nb_frame, 10), dtype=np.int)
+    clens = np.zeros(nb_frame, dtype=np.float)
+    photon_energy = np.zeros(nb_frame, dtype=np.float)
     for i in range(len(batch)):
         record = batch[i]
         filepath, image_dataset, frame = \
@@ -899,6 +911,14 @@ def save_full_cxi(batch, cxi_file,
         peaks_y[i, :nb_peak] = peak_info['pos'][:nb_peak, 1]
         peaks_intensity[i, :nb_peak] = peak_info['total intensity'][:nb_peak]
         peaks_snr[i, :nb_peak] = peak_info['snr'][:nb_peak]
+
+        data_dict = record['data_dict']
+        fiducials[i] = data_dict['fiducial']
+        flow_rates[i] = data_dict['flow_rate']
+        pressure[i] = data_dict['pressure']
+        event_codes[i][:len(data_dict['event_codes'])] = data_dict['event_codes']
+        clens[i] = data_dict['clen']
+        photon_energy[i] = data_dict['photon_energy']
         images.append(image)
 
     in_dtype = image.dtype
@@ -952,6 +972,13 @@ def save_full_cxi(batch, cxi_file,
         for name, data in extra_data.items():
             data = np.array(data)
             f.create_dataset(name, data=data)
+    # save lcls data
+    f.create_dataset('fiducial', data=fiducials)
+    f.create_dataset('flow_rate', data=flow_rates)
+    f.create_dataset('pressure', data=pressure)
+    f.create_dataset('event_codes', data=event_codes)
+    f.create_dataset('clen', data=clens)
+    f.create_dataset('photon_energy', data=photon_energy)
     f.close()
 
 
