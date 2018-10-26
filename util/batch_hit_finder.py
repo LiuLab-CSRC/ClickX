@@ -259,12 +259,18 @@ def worker_run(args):
                     data_dict['flow_rate'] = image_data['flow_rate']
                 if 'pressure' in image_data:
                     data_dict['pressure'] = image_data['pressure']
+                if 'photon_energy' in image_data:
+                    data_dict['photon_energy'] = image_data['photon_energy']
+                if 'clen' in image_data:
+                    data_dict['clen'] = image_data['clen']
+                if 'fiducial' in image_data:
+                    data_dict['fiducial'] = image_data['fiducial']
             total_intensity, max_intensity = 0., 0.
             if image_data['image'] is not None:
                 image = image_data['image'] * mask if mask is not None else image_data['image']
                 total_intensity = np.sum(image)
                 max_intensity = np.max(image)
-            if max_intensity > 4000.:
+            if max_intensity > 0.:
                 peaks_dict = util.find_peaks(
                     image_data['image'], center,
                     adu_per_photon=adu_per_photon,
