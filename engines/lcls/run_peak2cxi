@@ -4,7 +4,7 @@
 
 mpiexec=/reg/neh/home5/xxli/software/anaconda2/bin/mpiexec
 python_exec=/reg/neh/home5/xxli/software/anaconda2/bin/python
-nb_process=6
+nb_process=12
 queue=psanaq
 
 echo "
@@ -14,4 +14,4 @@ source /reg/g/psdm/etc/psconda.sh
 export facility=LCLS
 $mpiexec -n $nb_process $python_exec "${@:2}"
 " > .${1}-peak2cxi.sh
-bsub -q $queue -n 12 -R "span[hosts=1]" -J ${1}-peak2cxi -o ${1}-peak2cxi.log bash .${1}-peak2cxi.sh
+bsub -q $queue -n 12 -R "span[hosts=1]" -J ${1}-cxi -o ${1}-peak2cxi.log bash .${1}-peak2cxi.sh
