@@ -371,14 +371,14 @@ class JobWindow(QWidget):
                 if job == self.jobs[j]:
                     job_existed = True
             if not job_existed:
-                print('submitting job of ', job)
+                print('submitting job of ', str(job))
                 self.jobs.append(job)
                 job.submit()
                 time.sleep(1.0)  # take a break
-        # print('%d running jobs' % nb_running_jobs)
-        # print('%d ready jobs' % nb_ready_jobs)
-        # print('%d finished jobs' % nb_finished_jobs)
-        # print('%d jobs to to' % (nb_not_ready_jobs + nb_ready_jobs))
+        print('%d running jobs' % nb_running_jobs)
+        print('%d ready jobs' % nb_ready_jobs)
+        print('%d finished jobs' % nb_finished_jobs)
+        print('%d jobs to to' % (nb_not_ready_jobs + nb_ready_jobs))
 
     def resizeEvent(self, event):
         width = self.jobTable.width()
@@ -443,22 +443,22 @@ class Job(object):
     def __cmp__(self, other):
         return __cmp__((self.job_id, self.tag_id, self.job_type),
                        (other.job_id, other.tag_id, other.job_type))
-    
+
     def __lt__(self, other):
         tuple1 = (self.job_id, self.tag_id, self.job_type)
         tuple2 = (other.job_id, other.tag_id, other.job_type)
         return tuple1 < tuple2
-    
+
     def __eq__(self, other):
         tuple1 = (self.job_id, self.tag_id, self.job_type)
         tuple2 = (other.job_id, other.tag_id, other.job_type)
         return tuple1 == tuple2
-    
+
     def __gt__(self, other):
         tuple1 = (self.job_id, self.tag_id, self.job_type)
         tuple2 = (other.job_id, other.tag_id, other.job_type)
         return tuple1 > tuple2
-    
+
     def __str__(self):
         return '%s:%s-%s' % (self.job_type, self.job_id, self.tag_id)
 
