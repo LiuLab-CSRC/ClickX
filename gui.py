@@ -1809,10 +1809,12 @@ def create_project(project_name, facility):
     print('Project %s for %s is created.' % (project_name, facility))
     os.makedirs((os.path.join(project_name, '.click')))
     os.makedirs(os.path.join(project_name, 'mean'))
-    copytree(os.path.join(SOURCE_DIR, 'data', 'mask', facility),
-             os.path.join(project_name, 'mask'))
-    copytree(os.path.join(SOURCE_DIR, 'data', 'geom', facility),
-             os.path.join(project_name, 'geom'))
+    mask_dir = os.path.join(SOURCE_DIR, 'data', 'mask', facility)
+    if os.exists(mask_dir):
+        copytree(mask_dir, os.path.join(project_name, 'mask'))
+    geom_dir = os.path.join(SOURCE_DIR, 'data', 'geom', facility)
+    if os.exists(geom_dir):
+        copytree(geom_dir, os.path.join(project_name, 'geom'))
     os.makedirs(os.path.join(project_name, 'powder'))
     os.makedirs(os.path.join(project_name, 'raw_lst'))
     os.makedirs(os.path.join(project_name, 'cxi_comp'))
