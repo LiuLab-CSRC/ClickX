@@ -20,11 +20,11 @@ from __future__ import print_function
 from six import print_ as print
 from mpi4py import MPI
 try:
-    import mkl 
+    import mkl
     mkl.set_num_threads(1)
 except:
     pass
-    
+
 import h5py
 import numpy as np
 import time
@@ -174,9 +174,20 @@ def worker_run(args):
             frame = job[i]['frame']
             if _filepath != filepath:
                 filepath = _filepath
-                h5_obj = h5py.File(filepath, 'r')
-            image = util.read_image(filepath, frame=frame,
-                                    h5_obj=h5_obj, dataset=dataset)['image']
+                ext = filepath.split('.')[-1]
+                h5_obj = h5py.File(filepath, 'r') if ext in ('cxi', 'h5') \
+                    else None
+                lcls_data = util.get_lcls_data(filepath) if ext == 'lcls' \
+                    else None
+            image = util.read_image(
+                filepath,
+                frame=frame,
+                h5_obj=h5_obj,
+                lcls_data=lcls_data,
+                dataset=dataset
+            )['image']
+            if image is None:
+                continue
             peaks_dict = util.find_peaks(
                 image, center,
                 adu_per_photon=adu_per_photon,
@@ -200,7 +211,7 @@ def worker_run(args):
                 signal_ratio=sig_ratio,
                 signal_thres=sig_thres,
             )
-            if peaks_dict['strong'] is not None:
+            if peaks_dict.get('strong', None) is not None:
                 peaks += peaks_dict['strong'].tolist()
         comm.send(peaks, dest=0)
         stop = comm.recv(source=0)
