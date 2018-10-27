@@ -876,12 +876,19 @@ def save_full_cxi(batch, cxi_file,
     peaks_y = np.zeros((nb_frame, 1024))
     peaks_intensity = np.zeros((nb_frame, 1024))
     peaks_snr = np.zeros((nb_frame, 1024))
-    fiducials = np.zeros(nb_frame, dtype=np.int)
-    flow_rates = np.zeros(nb_frame, dtype=np.float)
-    pressure = np.zeros(nb_frame, dtype=np.float)
-    event_codes = np.zeros((nb_frame, 10), dtype=np.int)
-    clens = np.zeros(nb_frame, dtype=np.float)
-    photon_energy = np.zeros(nb_frame, dtype=np.float)
+
+    if 'fiducial' in batch[0]['data_dict']:
+        fiducials = np.zeros(nb_frame, dtype=np.int)
+    if 'flow_rate' in batch[0]['data_dict']:
+        flow_rates = np.zeros(nb_frame, dtype=np.float)
+    if 'pressure' in batch[0]['data_dict']:
+        pressure = np.zeros(nb_frame, dtype=np.float)
+    if 'event_codes' in batch[0]['data_dict']:
+        event_codes = np.zeros((nb_frame, 10), dtype=np.int)
+    if 'clen' in batch[0]['data_dict']:
+        clens = np.zeros(nb_frame, dtype=np.float)
+    if 'photon_energy' in batch[0]['data_dict']:
+        photon_energy = np.zeros(nb_frame, dtype=np.float)
     for i in range(len(batch)):
         record = batch[i]
         filepath, image_dataset, frame = \
@@ -913,12 +920,19 @@ def save_full_cxi(batch, cxi_file,
         peaks_snr[i, :nb_peak] = peak_info['snr'][:nb_peak]
 
         data_dict = record['data_dict']
-        fiducials[i] = data_dict['fiducial']
-        flow_rates[i] = data_dict['flow_rate']
-        pressure[i] = data_dict['pressure']
-        event_codes[i][:len(data_dict['event_codes'])] = data_dict['event_codes']
-        clens[i] = data_dict['clen']
-        photon_energy[i] = data_dict['photon_energy']
+        if 'fiducial' in data_dict:
+            fiducials[i] = data_dict['fiducial']
+        if 'flow_rate' in data_dict:
+            flow_rates[i] = data_dict.get['flow_rate']
+        if 'pressure' in data_dict:
+            pressure[i] = data_dict['pressure']
+        if 'event_codes' in data_dict:
+            event_codes[i][:len(data_dict['event_codes'])] = data_dict['event_codes']
+        if 'clen' in data_dict:
+            clens[i] = data_dict['clen']
+        if 'photon_energy' in data_dict:
+            photon_energy[i] = data_dict['photon_energy']
+
         images.append(image)
 
     in_dtype = image.dtype
@@ -973,12 +987,18 @@ def save_full_cxi(batch, cxi_file,
             data = np.array(data)
             f.create_dataset(name, data=data)
     # save lcls data
-    f.create_dataset('fiducial', data=fiducials)
-    f.create_dataset('flow_rate', data=flow_rates)
-    f.create_dataset('pressure', data=pressure)
-    f.create_dataset('event_codes', data=event_codes)
-    f.create_dataset('clen', data=clens)
-    f.create_dataset('photon_energy', data=photon_energy)
+    if 'fiducials' in locals():
+        f.create_dataset('fiducial', data=fiducials)
+    if 'flow_rates' in locals():
+        f.create_dataset('flow_rate', data=flow_rates)
+    if 'pressure' in locals():
+        f.create_dataset('pressure', data=pressure)
+    if 'event_cods' in locals():
+        f.create_dataset('event_codes', data=event_codes)
+    if 'clen' in locals():
+        f.create_dataset('clen', data=clens)
+    if 'photon_energy' in locals():
+        f.create_dataset('photon_energy', data=photon_energy)
     f.close()
 
 
