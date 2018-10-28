@@ -201,7 +201,7 @@ class PowderWindow(QWidget):
         powder_table.clearContents()
         powder_table.setRowCount(0)
         powder_table.clearContents()
-        self.ring_labels.clear()
+        self.ring_labels = []
         self.ring_centers.clear()
         self.highlight_ring_center_item.clear()
         self.highlight_peak_item.clear()
@@ -330,7 +330,7 @@ class PowderWindow(QWidget):
         tilting_anglex = np.rad2deg(
             math.asin(slope_x * 1E-3 / self.detector_distance)
         )
-        message = 'beam center: %.2f %.2f, tilting %.3f deg, %.3f' \
+        message = 'beam center: %.2f %.2f, tilting %.3fdeg, %.3fdeg' \
                   % (self.fitting_center[0, 0],
                      self.fitting_center[0, 1],
                      tilting_angle, tilting_anglex)

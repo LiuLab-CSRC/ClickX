@@ -26,4 +26,4 @@ job_pool_size: 3
 max_info: 1000
 min_peaks: 15
 mpi_batch_size: 5
-update_period: 2  # in sec
+update_period: 5  # in sec
