@@ -3,7 +3,7 @@
 # general
 facility: 'local'
 engine: 'local'
-raw_data_directory: ''
+raw_data_dir: ''
 
 detector_distance: 100  # in mm
 pixel_size: 100  # in um
@@ -11,3 +11,19 @@ image_height: 1000  # in pixel
 image_width: 1000  # in pixel
 center_x: 500 # in pixel
 center_y: 500 # in pixel
+photon_energy: 9000  # in eV
+
+compress_raw_data: false
+raw_dataset: ''
+compressed_batch_size: 100
+compressed_dataset: ''
+cheetah_datasets: ''
+curr_hit_tag: null
+cxi_peak_info_path: peak_info
+cxi_raw_data_path: data
+cxi_size: 100
+job_pool_size: 3
+max_info: 1000
+min_peaks: 15
+mpi_batch_size: 5
+update_period: 5  # in sec

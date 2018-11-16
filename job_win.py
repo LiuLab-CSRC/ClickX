@@ -7,6 +7,7 @@ from glob import glob
 import yaml
 import time
 import operator
+import subprocess
 
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QPoint, Qt, QTimer
 from PyQt5.QtWidgets import QWidget, QMenu, QTableWidgetItem
@@ -293,6 +294,17 @@ class JobWindow(QWidget):
         self.update_stat()
         if self.auto_submit:
             self.find_and_submit_jobs()
+        if len(self.settings.raw_data_dir) > 0:
+            if self.settings.facility == 'PAL':
+                dir_ = os.path.dirname(__file__)
+                monitor_script = os.path.join(dir_, 'monitors', 'pal.py')
+                raw_data_dir = self.settings.raw_data_dir
+                raw_lst_dir = 'raw_lst'
+                subprocess.call(
+                    [monitor_script, raw_data_dir, raw_lst_dir, '--only-once']
+                )
+        else:
+            print('pal-monitor failed to start, please set raw data directory in settings')
 
     def find_and_submit_jobs(self):
         nb_total_jobs = 0

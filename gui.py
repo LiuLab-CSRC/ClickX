@@ -930,7 +930,10 @@ class GUI(QMainWindow):
 
     @pyqtSlot(object, object)
     def change_ring_radii(self, _, radii_str):
-        self.ring_radii = np.array(list(map(float, radii_str.split(','))))
+        if len(radii_str) > 0:
+            self.ring_radii = np.array(list(map(float, radii_str.split(','))))
+        else:
+            self.ring_radii = []
         self.update_display()
 
     @pyqtSlot(object, object)
@@ -981,7 +984,10 @@ class GUI(QMainWindow):
             radius = eraser.size()[0] / 2
             center = (pos[0] + radius, pos[1] + radius)
             mask = util.make_circle_mask(self.raw_image.shape, center, radius)
-            self.eraser_mask *= mask
+            if self.eraser_mask is None:
+                self.eraser_mask = mask.copy()
+            else:
+                self.eraser_mask *= mask
             self.change_image()
             self.update_display()
 
@@ -1247,15 +1253,16 @@ class GUI(QMainWindow):
         if self.raw_image is None:
             return
         # apply mask
-        if self.mask_on:
-            raw_image = self.raw_image * self.mask
-        else:
-            raw_image = self.raw_image
-        mask = self.mask
+        mask = 1.
+        if self.mask_on and self.mask is not None:
+            mask *= self.mask
+        if self.mask_image is not None:
+            mask *= self.mask_image
+        raw_image = self.raw_image * mask
         # apply geom
         if self.apply_geom and self.geom is not None:
             raw_image = self.geom.raw2assembled(raw_image)
-            if self.mask_on and mask is not None:
+            if self.mask_on and int(mask) != 1:
                 mask = self.geom.raw2assembled(mask)
         self.rawView.setImage(
             raw_image, autoRange=self.auto_range,
