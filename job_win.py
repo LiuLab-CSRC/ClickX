@@ -11,6 +11,7 @@ import subprocess
 
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QPoint, Qt, QTimer
 from PyQt5.QtWidgets import QWidget, QMenu, QTableWidgetItem
+from PyQt5.QtGui import QColor
 from PyQt5.uic import loadUi
 from threads import CompressorThread, HitFinderThread, Peak2CxiThread
 
@@ -281,6 +282,13 @@ class JobWindow(QWidget):
                 self.jobTable.setItem(row, col, item)
             else:
                 item.setText(str(row_dict[field]))
+            if field in ['compression', 'hit finding', 'peak2cxi']:
+                if row_dict[field] == 'not ready':
+                    item.setBackground(QColor(255, 236, 139))
+                elif row_dict[field] == 'done':
+                    item.setBackground(QColor(0, 0, 0, 0))
+                else:
+                    item.setBackground(QColor(162, 210, 132))
 
     @pyqtSlot(bool)
     def change_auto_submit(self, auto_submit):
@@ -294,8 +302,8 @@ class JobWindow(QWidget):
         self.update_stat()
         if self.auto_submit:
             self.find_and_submit_jobs()
-        if len(self.settings.raw_data_dir) > 0:
-            if self.settings.facility == 'PAL':
+        if self.settings.facility == 'PAL':
+            if len(self.settings.raw_data_dir) > 0:
                 dir_ = os.path.dirname(__file__)
                 monitor_script = os.path.join(dir_, 'monitors', 'pal.py')
                 raw_data_dir = self.settings.raw_data_dir
@@ -303,8 +311,9 @@ class JobWindow(QWidget):
                 subprocess.call(
                     [monitor_script, raw_data_dir, raw_lst_dir, '--only-once']
                 )
-        else:
-            print('pal-monitor failed to start, please set raw data directory in settings')
+            else:
+                print('pal-monitor failed to start, please set raw data '
+                      'directory in settings')
 
     def find_and_submit_jobs(self):
         nb_total_jobs = 0
