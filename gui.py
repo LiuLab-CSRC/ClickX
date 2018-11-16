@@ -461,7 +461,7 @@ class GUI(QMainWindow):
                         'visible': True if self.snr_mode == 'adaptive'
                         else False
                     },
-                    
+
                 ],
                 'expanded': False
             },
@@ -1253,7 +1253,7 @@ class GUI(QMainWindow):
         if self.raw_image is None:
             return
         # apply mask
-        mask = 1.
+        mask = np.ones_like(self.raw_image, dtype=np.float)
         if self.mask_on and self.mask is not None:
             mask *= self.mask
         if self.mask_image is not None:
@@ -1262,8 +1262,7 @@ class GUI(QMainWindow):
         # apply geom
         if self.apply_geom and self.geom is not None:
             raw_image = self.geom.raw2assembled(raw_image)
-            if self.mask_on and int(mask) != 1:
-                mask = self.geom.raw2assembled(mask)
+            mask = self.geom.raw2assembled(mask)
         self.rawView.setImage(
             raw_image, autoRange=self.auto_range,
             autoLevels=self.auto_level,
