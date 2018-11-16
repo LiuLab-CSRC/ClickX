@@ -923,7 +923,7 @@ def save_full_cxi(batch, cxi_file,
         if 'fiducial' in data_dict:
             fiducials[i] = data_dict['fiducial']
         if 'flow_rate' in data_dict:
-            flow_rates[i] = data_dict.get['flow_rate']
+            flow_rates[i] = data_dict['flow_rate']
         if 'pressure' in data_dict:
             pressure[i] = data_dict['pressure']
         if 'event_codes' in data_dict:
@@ -993,7 +993,7 @@ def save_full_cxi(batch, cxi_file,
         f.create_dataset('flow_rate', data=flow_rates)
     if 'pressure' in locals():
         f.create_dataset('pressure', data=pressure)
-    if 'event_cods' in locals():
+    if 'event_codes' in locals():
         f.create_dataset('event_codes', data=event_codes)
     if 'clen' in locals():
         f.create_dataset('clen', data=clens)
