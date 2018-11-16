@@ -29,7 +29,7 @@ import yaml
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import pyqtSlot, QPoint, Qt
 from PyQt5.QtWidgets import QMainWindow, QApplication, QListWidgetItem, \
-    QDialog, QFileDialog, QMenu, QTableWidgetItem, QWidget
+    QDialog, QFileDialog, QMenu, QTableWidgetItem, QWidget, QDialogButtonBox
 from PyQt5.uic import loadUi
 from pyqtgraph.parametertree import Parameter
 
@@ -520,7 +520,7 @@ class GUI(QMainWindow):
         # mean dialog
         self.mean_diag.datasetComboBox.currentIndexChanged.connect(
             self.update_mean_diag_nframe)
-        self.mean_diag.applyButton.clicked.connect(self.calc_mean_std)
+        self.mean_diag.meanButtonBox.clicked.connect(self.calc_mean_std)
         # powder dialog
         self.powder_diag.datasetComboBox.currentIndexChanged.connect(
             self.update_powder_diag_nframe)
@@ -1431,6 +1431,12 @@ class GUI(QMainWindow):
 # mean dialog
     @pyqtSlot()
     def calc_mean_std(self):
+        if self.calc_mean_thread is not None:
+            self.calc_mean_thread.terminate()
+        self.add_info('Calculating mean/sigma...')
+        self.mean_diag.meanButtonBox.button(
+            QDialogButtonBox.Apply
+        ).setEnabled(False)
         selected_items = self.fileList.selectedItems()
         files = []
         for item in selected_items:
@@ -1448,7 +1454,7 @@ class GUI(QMainWindow):
             self.update_progressbar
         )
         self.calc_mean_thread.finished.connect(
-            self.calc_mean_finished
+            partial(self.calc_mean_finished, output)
         )
         self.calc_mean_thread.start()
 
@@ -1471,8 +1477,8 @@ class GUI(QMainWindow):
         self.mean_diag.progressBar.setValue(val)
 
     @pyqtSlot()
-    def calc_mean_finished(self):
-        self.add_info('Mean/sigma calculation done.')
+    def calc_mean_finished(self, dest_file):
+        self.add_info('Mean/sigma calculation done. File saved to %s.' % dest_file)
 
     @pyqtSlot(int)
     def update_mean_diag_nframe(self, curr_index):
@@ -1521,26 +1527,35 @@ class GUI(QMainWindow):
             files.append(item.data(1))
         powder_diag = self.powder_diag
         tag = powder_diag.datasetComboBox.currentText()
+        if len(tag) == 0:
+            self.add_info('No valid hit configuration.', info_type='WARNING')
+            return
         conf_file = 'conf/hit_finding/%s.yml' % tag
         nb_frame = int(powder_diag.totalFrameLabel.text())
         max_frame = min(int(powder_diag.usedFrameBox.text()), nb_frame)
+        if max_frame == 0:
+            self.add_info('0 frame found.', info_type='WARNING')
         filename = powder_diag.prefixLine.text()
         output = os.path.join('powder', '%s.npz' % filename)
+        self.powder_diag.submitButton.setEnabled(False)
         self.add_info('Submit powder generation job.')
+        self.add_info('Powder calculation will take some time. Please wait '
+                      'until the powder generation done!')
         self.gen_powder_thread = GenPowderThread(
             files, conf_file, self.settings,
             max_frame=max_frame,
             output=output,
         )
         self.gen_powder_thread.info.connect(self.add_info)
-        self.gen_powder_thread.finished.connect(
-            self.gen_powder_finished
-        )
+        # self.gen_powder_thread.finished.connect(
+        #     self.gen_powder_finished
+        # )
         self.gen_powder_thread.start()
 
-    @pyqtSlot()
-    def gen_powder_finished(self):
-        self.add_info('Powder generation submitted.')
+    # @pyqtSlot()
+    # def gen_powder_finished(self):
+    #     self.add_info('Powder calculation will take some time. Please wait '
+    #                   'until the powder file generated!')
 
 # file list related methods
     @pyqtSlot()
@@ -1648,6 +1663,9 @@ class GUI(QMainWindow):
             for dataset, shape in data_shape.items():
                 combo_box.addItem(dataset)
             self.mean_diag.progressBar.setValue(0)
+            self.mean_diag.meanButtonBox.button(
+                QDialogButtonBox.Apply
+            ).setEnabled(True)
             self.mean_diag.exec_()
         elif action == action_gen_powder:
             confs = glob('conf/hit_finding/*.yml')
@@ -1655,6 +1673,7 @@ class GUI(QMainWindow):
             for conf in confs:
                 tag = os.path.basename(conf).split('.')[0]
                 self.powder_diag.datasetComboBox.addItem(tag)
+            self.powder_diag.submitButton.setEnabled(True)
             self.powder_diag.exec_()
         elif action == action_del_file:
             items = self.fileList.selectedItems()
