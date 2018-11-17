@@ -62,6 +62,8 @@ class GUI(QMainWindow):
         loadUi('%s/ui/widgets/peak_table.ui' % dir_, self.peak_table)
         self.mean_diag = QDialog()
         loadUi('%s/ui/dialogs/mean_sigma.ui' % dir_, self.mean_diag)
+        self.proxy_diag = QDialog()
+        loadUi('%s/ui/dialogs/proxy_data.ui' % dir_, self.proxy_diag)
         self.powder_diag = QDialog()
         loadUi('%s/ui/dialogs/powder.ui' % dir_, self.powder_diag)
         self.splitter.setSizes([0.2 * self.height(),
@@ -498,6 +500,9 @@ class GUI(QMainWindow):
         self.actionLoad_Geometry.triggered.connect(self.load_geom_file)
         self.actionSave_Hit_Finding_Conf.triggered.connect(self.save_hit_conf)
         self.actionSave_Mask.triggered.connect(self.save_mask)
+        self.actionCreate_Proxy_Data_LCLS.triggered.connect(
+            self.show_data_proxy_dialog
+        )
         self.actionSettings.triggered.connect(self.show_settings)
         self.actionShow_Calib_Mask_View.triggered.connect(
             self.show_or_hide_mask_view)
@@ -521,6 +526,8 @@ class GUI(QMainWindow):
         self.mean_diag.datasetComboBox.currentIndexChanged.connect(
             self.update_mean_diag_nframe)
         self.mean_diag.meanButtonBox.clicked.connect(self.calc_mean_std)
+        # proxy dialog
+        self.proxy_diag.buttonBox.clicked.connect(self.create_proxy_data)
         # powder dialog
         self.powder_diag.datasetComboBox.currentIndexChanged.connect(
             self.update_powder_diag_nframe)
@@ -872,6 +879,10 @@ class GUI(QMainWindow):
                 return
             np.save(path, self.mask_image)
             self.add_info('Mask saved to %s' % path)
+
+    @pyqtSlot()
+    def show_data_proxy_dialog(self):
+        self.proxy_diag.show()
 
     @pyqtSlot()
     def show_settings(self):
@@ -1458,6 +1469,36 @@ class GUI(QMainWindow):
         )
         self.calc_mean_thread.start()
 
+# data proxy dialog
+    def create_proxy_data(self):
+        exp_id = self.proxy_diag.expID.text()
+        det_name = self.proxy_diag.detName.text()
+        if len(exp_id) == 0:
+            self.add_info('Please specify experiment to generate proxy data.')
+            return
+        if len(det_name) == 0:
+            self.add_info('Please specify detector to generate proxy data.')
+            return
+        run_start = self.proxy_diag.runStart.value()
+        run_end = self.proxy_diag.runEnd.value()
+        clen_str = self.proxy_diag.clenStr.text()
+        event_codes = self.proxy_diag.eventCodes.isChecked()
+        flow_rate = self.proxy_diag.flowRate.text()
+        pressure_str = self.proxy_diag.pressureStr.text()
+        for run in range(run_start, run_end+1):
+            with open('xtc_proxy/r%04d.lcls' % run, 'w') as f:
+                f.write('exp: "%s"\n' % exp_id)
+                f.write('det: "%s"\n' % det_name)
+                if len(clen_str) > 0:
+                    f.write('clen: "%s"\n' % clen_str)
+                if event_codes:
+                    f.write('evr: "evr1"\n')
+                if len(flow_rate) > 0:
+                    f.write('flow_rate: "%s"\n' % flow_rate)
+                if len(pressure_str) > 0:
+                    f.write('pressure: "%s"\n' % pressure_str)
+            self.add_info('proxy data for run %d is created' % run)
+
     @pyqtSlot()
     def choose_dir(self, line_edit=None):
         if line_edit is not None:
@@ -1849,6 +1890,8 @@ def create_project(project_name, facility):
     os.makedirs(os.path.join(project_name, 'conf', 'indexing'))
     copyfile(os.path.join(SOURCE_DIR, 'conf', 'config-%s.yml' % facility),
              os.path.join(project_name, '.click', 'config.yml'))
+    if facility == 'LCLS':
+        os.makedirs(os.path.join(project_name, 'xtc_proxy'))
 
 
 if __name__ == '__main__':

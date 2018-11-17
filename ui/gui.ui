@@ -348,6 +348,8 @@ QTabBar::tab:top, QTabBar::tab:bottom {
     <addaction name="actionSave_Hit_Finding_Conf"/>
     <addaction name="actionSave_Mask"/>
     <addaction name="separator"/>
+    <addaction name="actionCreate_Proxy_Data_LCLS"/>
+    <addaction name="separator"/>
     <addaction name="actionSettings"/>
     <addaction name="separator"/>
    </widget>
@@ -475,6 +477,11 @@ QTabBar::tab:top, QTabBar::tab:bottom {
   <action name="actionLoad_Geometry">
    <property name="text">
     <string>Load Geometry</string>
+   </property>
+  </action>
+  <action name="actionCreate_Proxy_Data_LCLS">
+   <property name="text">
+    <string>Create Proxy Data(LCLS)</string>
    </property>
   </action>
  </widget>

@@ -314,6 +314,13 @@ class JobWindow(QWidget):
             else:
                 print('pal-monitor failed to start, please set raw data '
                       'directory in settings')
+        elif self.settings.facility == 'LCLS':
+            dir_ = os.path.dirname(__file__)
+            monitor_script = os.path.join(dir_, 'monitors', 'lcls.py')
+            raw_lst_dir = 'raw_lst'
+            subprocess.call(
+                [monitor_script, 'xtc_proxy', raw_lst_dir, '--only-once']
+            )
 
     def find_and_submit_jobs(self):
         nb_total_jobs = 0
