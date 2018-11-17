@@ -19,6 +19,7 @@ import time
 
 TIME_GAP = 5 * 60  # 5 min
 
+
 def check_once(data_dir, lst_dir):
     data_files = glob('%s/*/0*.h5' % data_dir)
     curr_time = time.time()
@@ -29,7 +30,7 @@ def check_once(data_dir, lst_dir):
             lst_file = os.path.join(lst_dir, 'r%04d.lst' % run_id)
             if not os.path.exists(lst_file):
                 with open(lst_file, 'w') as f:
-                    f.write('%s\n' % data_file)
+                    f.write('%s\n' % os.path.abspath(data_file))
                 print('Create new lst file %s' % lst_file)
 
 
