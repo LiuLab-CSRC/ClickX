@@ -284,11 +284,13 @@ class JobWindow(QWidget):
                 item.setText(str(row_dict[field]))
             if field in ['compression', 'hit finding', 'peak2cxi']:
                 if row_dict[field] == 'not ready':
-                    item.setBackground(QColor(255, 236, 139))
+                    item.setBackground(QColor(234, 67, 53))
                 elif row_dict[field] == 'done':
                     item.setBackground(QColor(0, 0, 0, 0))
+                elif row_dict[field] == 'ready':
+                    item.setBackground(QColor(52, 168, 83))
                 else:
-                    item.setBackground(QColor(162, 210, 132))
+                    item.setBackground(QColor(251, 188, 5))
 
     @pyqtSlot(bool)
     def change_auto_submit(self, auto_submit):
