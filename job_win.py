@@ -17,7 +17,7 @@ from threads import CompressorThread, HitFinderThread, Peak2CxiThread
 
 
 class JobWindow(QWidget):
-    view_hits = pyqtSignal(str, str)
+    view_stats = pyqtSignal(str, str)
 
     def __init__(self, settings, main_win):
         super(JobWindow, self).__init__()
@@ -215,7 +215,7 @@ class JobWindow(QWidget):
         action_hit_finding = menu.addAction('run hit finder')
         action_peak2cxi = menu.addAction('save all to cxi')
         menu.addSeparator()
-        action_view_hits = menu.addAction('view hits')
+        action_view_stats = menu.addAction('view stats')
         menu.addSeparator()
         action_sum = menu.addAction('calc sum')
         action = menu.exec_(self.jobTable.mapToGlobal(pos))
@@ -254,13 +254,13 @@ class JobWindow(QWidget):
                           tag_id=tag_id)
                 self.jobs.append(job)
                 job.submit()
-        elif action == action_view_hits:
+        elif action == action_view_stats:
             row = self.jobTable.currentRow()
             job = self.jobTable.item(
                 row, self.header_labels.index('job id')).text()
             tag = self.jobTable.item(
                 row, self.header_labels.index('tag id')).text()
-            self.view_hits.emit(job, tag)
+            self.view_stats.emit(job, tag)
         elif action == action_sum:
             s = 0
             for item in items:

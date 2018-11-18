@@ -517,7 +517,7 @@ class GUI(QMainWindow):
         self.actionStats_Viewer.triggered.connect(
             partial(self.show_stats_win, job=None, tag=None))
         # job table
-        self.job_win.view_hits.connect(self.show_stats_win)
+        self.job_win.view_stats.connect(self.show_stats_win)
         # peak table
         self.peak_table.peak_table.cellDoubleClicked.connect(
             self.zoom_in_on_peak
