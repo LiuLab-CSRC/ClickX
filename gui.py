@@ -1410,7 +1410,7 @@ class GUI(QMainWindow):
         if job is not None and tag is not None:
             stats_file = os.path.join(
                 '.', 'cxi_hit', job, tag, '%s.npy' % job)
-            self.stats_win.hitFile.setText(stats_file)
+            self.stats_win.statsFile.setText(stats_file)
             self.stats_win.load_stats(stats_file)
         self.stats_win.show()
 

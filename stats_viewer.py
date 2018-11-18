@@ -155,6 +155,7 @@ class StatsViewer(QWidget):
 
     def plot(self):
         self.primary_plot.clear()
+        self.secondary_plot.clear()
 
         primary_dataset = self.primaryData.currentText()
         primary_data = self.data_dict[primary_dataset]
