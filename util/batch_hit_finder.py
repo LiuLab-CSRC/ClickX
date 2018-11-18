@@ -201,7 +201,7 @@ def worker_run(args):
     h5_obj = None
     buffer_size = int(args['--buffer-size'])
     flush = args['--flush']
-    min_max_intensity = float(args['min_max_intensity'])
+    min_max_intensity = float(args['--min-max-intensity'])
 
     # hit finding parameters
     with open(args['<conf-file>']) as f:
