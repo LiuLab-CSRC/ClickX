@@ -1604,7 +1604,7 @@ class GUI(QMainWindow):
         path = self.addFileLine.text()
         files = glob(path)
         for f in files:
-            self.maybe_add_file(f)
+            self.maybe_add_file(os.path.abspath(f))
 
     @pyqtSlot(QPoint)
     def show_file_list_menu(self, pos):
