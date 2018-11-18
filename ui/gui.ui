@@ -372,7 +372,7 @@ QTabBar::tab:top, QTabBar::tab:bottom {
     <addaction name="separator"/>
     <addaction name="actionJob_Table"/>
     <addaction name="separator"/>
-    <addaction name="actionHit_Table"/>
+    <addaction name="actionStats_Viewer"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -439,9 +439,9 @@ QTabBar::tab:top, QTabBar::tab:bottom {
     <string>Powder Fit</string>
    </property>
   </action>
-  <action name="actionHit_Table">
+  <action name="actionStats_Viewer">
    <property name="text">
-    <string>Hit Table</string>
+    <string>Stats Viewer</string>
    </property>
   </action>
   <action name="actionXFEL_Calculator">

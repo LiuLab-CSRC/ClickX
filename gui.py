@@ -33,7 +33,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QListWidgetItem, \
 from PyQt5.uic import loadUi
 from pyqtgraph.parametertree import Parameter
 
-from hit_win import HitWindow
+from stats_viewer import StatsViewer
 from job_win import JobWindow
 from powder_win import PowderWindow
 from settings import Settings, SettingDialog
@@ -87,7 +87,7 @@ class GUI(QMainWindow):
 
         # other windows
         self.job_win = JobWindow(main_win=self, settings=self.settings)
-        self.hit_win = HitWindow(main_win=self, settings=self.settings)
+        self.stats_win = StatsViewer(main_win=self, settings=self.settings)
         self.powder_win = PowderWindow(settings=self.settings)
 
         # fixed attributes
@@ -514,10 +514,10 @@ class GUI(QMainWindow):
         self.actionPeak_Table.triggered.connect(self.show_peak_table)
         self.actionPowder_Fit.triggered.connect(self.show_powder_win)
         self.actionJob_Table.triggered.connect(self.show_job_win)
-        self.actionHit_Table.triggered.connect(
-            partial(self.show_hit_win, job=None, tag=None))
+        self.actionStats_Viewer.triggered.connect(
+            partial(self.show_stats_win, job=None, tag=None))
         # job table
-        self.job_win.view_hits.connect(self.show_hit_win)
+        self.job_win.view_hits.connect(self.show_stats_win)
         # peak table
         self.peak_table.peak_table.cellDoubleClicked.connect(
             self.zoom_in_on_peak
@@ -1406,13 +1406,13 @@ class GUI(QMainWindow):
 
 # job table
     @pyqtSlot(str, str)
-    def show_hit_win(self, job, tag):
+    def show_stats_win(self, job, tag):
         if job is not None and tag is not None:
-            hit_file = os.path.join(
-                '.', 'cxi_hit', job, tag, '%s.csv' % job)
-            self.hit_win.hitFile.setText(hit_file)
-            self.hit_win.load_hits(hit_file)
-        self.hit_win.show()
+            stats_file = os.path.join(
+                '.', 'cxi_hit', job, tag, '%s.npy' % job)
+            # self.stats_win.hitFile.setText(hit_file)
+            # self.stats_win.load_hits(hit_file)
+        self.stats_win.show()
 
 # peak table
     @pyqtSlot(int, int)
