@@ -643,9 +643,23 @@
             </spacer>
            </item>
            <item>
+            <widget class="QLabel" name="label_35">
+             <property name="text">
+              <string>Skip event if max intensity &lt;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="maxIntensity">
+             <property name="maximum">
+              <number>99999</number>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QLabel" name="label_20">
              <property name="text">
-              <string>A hit should have at least</string>
+              <string>;  A hit should have at least</string>
              </property>
             </widget>
            </item>

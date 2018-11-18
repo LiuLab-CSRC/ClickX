@@ -154,14 +154,19 @@ class HitFinderThread(QThread):
         conf = 'conf/hit_finding/%s.yml' % self.tag
         job = self.job
         min_peaks = str(self.settings.min_peaks)
+        min_max_intensity = str(self.settings.min_max_intensity)
         hit_dir = os.path.join('cxi_hit', self.job, self.tag)
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/engines/%s/run_hit_finder' % \
                        (dir_, self.settings.engine)
         python_script = '%s/util/batch_hit_finder.py' % dir_
         subprocess.call(
-            [shell_script, job, python_script, cxi_lst, conf,
-             hit_dir, '--min-peaks', min_peaks])
+            [
+                shell_script, job, python_script, cxi_lst, conf, hit_dir,
+                '--min-peaks', min_peaks,
+                '--min-max-intensity', min_max_intensity
+            ]
+        )
 
 
 class Peak2CxiThread(QThread):

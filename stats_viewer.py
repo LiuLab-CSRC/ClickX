@@ -9,7 +9,6 @@ import pyqtgraph as pg
 import os
 
 import numpy as np
-from functools import partial
 
 
 PRIMARY_LABEL_STYLE = {

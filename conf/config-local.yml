@@ -25,5 +25,6 @@ cxi_size: 100
 job_pool_size: 3
 max_info: 1000
 min_peaks: 15
+min_max_intensity: 0
 mpi_batch_size: 5
 update_period: 5  # in sec

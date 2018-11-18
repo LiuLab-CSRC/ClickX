@@ -10,6 +10,7 @@ Usage:
 Options:
     -h --help               Show this screen.
     --min-peaks NUM         Specify min peaks for a hit [default: 20].
+    --min-max-intensity NUM Specify min max intensity [default: 0].
     --batch-size SIZE       Specify batch size in a job [default: 10].
     --buffer-size SIZE      Specify buffer size in MPI communication
                             [default: 500000].
@@ -200,6 +201,7 @@ def worker_run(args):
     h5_obj = None
     buffer_size = int(args['--buffer-size'])
     flush = args['--flush']
+    min_max_intensity = float(args['min_max_intensity'])
 
     # hit finding parameters
     with open(args['<conf-file>']) as f:
@@ -270,7 +272,7 @@ def worker_run(args):
                 image = image_data['image'] * mask if mask is not None else image_data['image']
                 total_intensity = np.sum(image)
                 max_intensity = np.max(image)
-            if max_intensity > 0.:
+            if max_intensity > min_max_intensity:
                 peaks_dict = util.find_peaks(
                     image_data['image'], center,
                     adu_per_photon=adu_per_photon,

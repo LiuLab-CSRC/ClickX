@@ -92,6 +92,10 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='min_peaks', widget=self.minPeaks)
         )
+        self.maxIntensity.valueChanged.connect(
+            partial(self.update_attribute,
+                    attr='min_max_intensity', widget=self.maxIntensity)
+        )
         self.cxiRawDataPath.editingFinished.connect(
             partial(self.update_attribute,
                     attr='cxi_raw_data_path',
@@ -182,6 +186,8 @@ class SettingDialog(QDialog):
             self.mpiBatchSize.setValue(kwargs['mpi_batch_size'])
         if 'min_peaks' in kwargs:
             self.minPeaks.setValue(kwargs['min_peaks'])
+        if 'min_max_intensity' in kwargs:
+            self.maxIntensity.setValue(kwargs['min_max_intensity'])
         if 'hit_conf_tags' in kwargs:
             self.hitTags.clear()
             for tag in kwargs['hit_conf_tags']:
@@ -258,7 +264,7 @@ class Settings(object):
         'compress_raw_data', 'raw_dataset', 'compressed_dataset',
         'compressed_batch_size', 'cxi_raw_data_path', 'cxi_peak_info_path',
         'cxi_size', 'cheetah_datasets', 'mpi_batch_size',
-        'min_peaks', 'max_info', 'job_pool_size', 'update_period',
+        'min_peaks', 'min_max_intensity', 'max_info', 'job_pool_size', 'update_period',
         'curr_hit_tag'
     )
 
@@ -290,6 +296,7 @@ class Settings(object):
         self.job_pool_size = None
         self.update_period = None
         self.min_peaks = None
+        self.min_max_intensity = None
         self.max_info = None
 
         self.load_settings()
@@ -334,6 +341,7 @@ class Settings(object):
         self.update(job_pool_size=settings.get('job_pool_size'))
         self.update(update_period=settings.get('update_period'))
         self.update(min_peaks=settings.get('min_peaks'))
+        self.update(min_max_intensity=settings.get('min_max_intensity'))
         self.update(max_info=settings.get('max_info'))
         self.update(hit_conf_tags=get_all_hit_tags())
         self.update(curr_hit_tag=settings.get('curr_hit_tag'))
