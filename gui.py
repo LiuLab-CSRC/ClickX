@@ -1633,6 +1633,16 @@ class GUI(QMainWindow):
                 self.curr_frame = 0
                 self.dataset = 'None'
                 self.add_info("Load %s" % path)
+            elif ext == 'lcls':
+                dataset = 'lcls-data'
+                lcls_data = util.get_lcls_data(path)
+                data_shape = util.get_data_shape(path)
+                nb_frame = data_shape[dataset][0]
+                self.path = path
+                self.dataset = dataset
+                self.total_frames = nb_frame
+                self.lcls_data = lcls_data
+                self.shape = data_shape[dataset][1:]
             elif ext in ('npz', 'h5', 'cxi'):
                 data_shape = util.get_data_shape(path)
                 dataset = self.select_dataset(path)
