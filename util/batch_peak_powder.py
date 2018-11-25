@@ -12,6 +12,7 @@ Options:
     -h --help               Show this screen.
     -o FILE                 Specify output filename [default: powder.npz].
     --batch-size SIZE       Specify batch size in a job [default: 10].
+    --max-frames NUM        Specify max number of frames to process [default: -1].
     --buffer-size SIZE      Specify buffer size in MPI communication
                             [default: 500000].
     --flush                 Flush output of print.
@@ -54,8 +55,11 @@ def master_run(args):
     # collect jobs
     dataset = conf['dataset']
     batch_size = int(args['--batch-size'])
+    max_frames = int(args['--max-frames'])
     buffer_size = int(args['--buffer-size'])
-    jobs, nb_frames = util.collect_jobs(files, dataset, batch_size)
+    jobs, nb_frames = util.collect_jobs(
+        files, dataset, batch_size, max_frames=max_frames
+    )
     nb_jobs = len(jobs)
     print('%d frames, %d jobs to be processed' %
           (nb_frames, nb_jobs), flush=flush)

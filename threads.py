@@ -102,6 +102,8 @@ class GenPowderThread(QThread):
                 shell_script, python_script,
                 file_lst, conf_file,
                 '-o', output,
+                '--max-frames', str(self.max_frame),
+                '--flush'
             ]
         )
 

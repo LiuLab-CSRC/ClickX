@@ -806,10 +806,12 @@ def get_size(obj, seen=None):
     return size
 
 
-def collect_jobs(files, dataset, job_size):
+def collect_jobs(files, dataset, job_size, max_frames=-1):
     jobs = []
     job = []
     frames = 0
+    if max_frames == -1:
+        max_frames = np.inf
     print('collecting jobs...')
     for f in files:
         data_shape = get_data_shape(f)
@@ -823,6 +825,8 @@ def collect_jobs(files, dataset, job_size):
                 if len(job) == job_size:
                     jobs.append(job)
                     job = []
+                if frames > max_frames:
+                    break
         else:
             job.append(
                 {'filepath': f, 'dataset': dataset, 'frame': 0}
@@ -831,6 +835,8 @@ def collect_jobs(files, dataset, job_size):
             if len(job) == job_size:
                 jobs.append(job)
                 job = []
+        if frames > max_frames:
+            break
     if len(job) > 0:
         jobs.append(job)
     return jobs, frames
