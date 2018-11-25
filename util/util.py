@@ -77,7 +77,10 @@ def read_image(path, frame=0,
             data_dict['flow_rate'] = lcls_data['flow_rate'](event)
         if 'pressure' in lcls_data:
             data_dict['pressure'] = lcls_data['pressure'](event)
-        ebeam = event.get(psana.Bld.BldDataEBeamV7, psana.Source(str('BldInfo(EBeam)')))
+        ebeam = event.get(
+            psana.Bld.BldDataEBeamV7,
+            psana.Source(str('BldInfo(EBeam)'))
+        )
         if ebeam is not None:
             data_dict['photon_energy'] = ebeam.ebeamPhotonEnergy()
         else:
@@ -89,6 +92,10 @@ def read_image(path, frame=0,
             fiducial = event_id.fiducials()
         except:
             fiducial = 0
+        if 'epics-PV' in lcls_data:
+            data_dict['epics-PV'] = lcls_data['epics'].value(
+                lcls_data['epics-PV']
+            )
         data_dict['fiducial'] = fiducial
     elif ext == 'tif':
         image = plt.imread(path)[:, :, 0]
@@ -1192,4 +1199,6 @@ def get_lcls_data(path):
     if 'clen' in data:
         lcls_data['epics'] = datasource.env().epicsStore()
         lcls_data['clen_str'] = data['clen']
+    if 'epics-PV' in data:
+        lcls_data['epics-PV'] = data['epics-PV']
     return lcls_data

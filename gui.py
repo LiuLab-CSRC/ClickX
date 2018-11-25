@@ -1243,14 +1243,30 @@ class GUI(QMainWindow):
     def change_image(self):
         if self.path is None:
             return
-        raw_image = util.read_image(
+        image_data = util.read_image(
             self.path, frame=self.curr_frame,
             h5_obj=self.h5_obj, dataset=self.dataset,
             lcls_data=self.lcls_data,
-        )['image']
+        )
+        raw_image = image_data['image']
         if raw_image is None:  # skip None image
             self.add_info('NoneType image found', info_type='WARNING')
             return
+        raw_image = image_data['image']
+        if 'event_codes' in image_data:
+            self.add_info('event codes: %s' % str(image_data['event_codes']))
+        if 'flow_rate' in image_data:
+            self.add_info('flow rate: %.3f' % image_data['flow_rate'])
+        if 'pressure' in image_data:
+            self.add_info('pressure: %.3f' % image_data['pressure'])
+        if 'photon_energy' in image_data:
+            self.add_info('photon energy: %.3f' % image_data['photon_energy'])
+        if 'clen' in image_data:
+            self.add_info('clen: %.3f' % image_data['clen'])
+        if 'fiducial' in image_data:
+            self.add_info('fiducial: %d' % image_data['fiducial'])
+        if 'epics-PV' in image_data:
+            self.add_info('epics PV: %.3f' % image_data['epics-PV'])
         self.raw_image = raw_image.astype(np.float)
         self.mask_image = util.make_simple_mask(
             self.raw_image, self.mask_thres, erosion1=self.erosion1_size,
