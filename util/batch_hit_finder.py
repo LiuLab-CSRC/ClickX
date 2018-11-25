@@ -267,6 +267,8 @@ def worker_run(args):
                     data_dict['clen'] = image_data['clen']
                 if 'fiducial' in image_data:
                     data_dict['fiducial'] = image_data['fiducial']
+                if 'epics-PV' in image_data:
+                    data_dict['epics-PV'] = image_data['epics-PV']
             total_intensity, max_intensity = 0., 0.
             if image_data['image'] is not None:
                 image = image_data['image'] * mask if mask is not None else image_data['image']

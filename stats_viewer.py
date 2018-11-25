@@ -118,7 +118,8 @@ class StatsViewer(QWidget):
                 'fiducial',
                 'photon_energy',
                 'flow_rate',
-                'pressure'
+                'pressure',
+                'epics-PV'
             }
         )
 

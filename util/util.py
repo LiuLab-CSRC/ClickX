@@ -85,17 +85,16 @@ def read_image(path, frame=0,
             data_dict['photon_energy'] = ebeam.ebeamPhotonEnergy()
         else:
             data_dict['photon_energy'] = 0.
+        epics = lcls_data['datasource'].env().epicsStore()
         if 'clen_str' in lcls_data:
-            data_dict['clen'] = lcls_data['epics'].value(lcls_data['clen_str'])
+            data_dict['clen'] = epics.value(lcls_data['clen_str'])
         try:
             event_id = event.get(psana.EventId)
             fiducial = event_id.fiducials()
         except:
             fiducial = 0
         if 'epics-PV' in lcls_data:
-            data_dict['epics-PV'] = lcls_data['epics'].value(
-                lcls_data['epics-PV']
-            )
+            data_dict['epics-PV'] = epics.value(lcls_data['epics-PV'])
         data_dict['fiducial'] = fiducial
     elif ext == 'tif':
         image = plt.imread(path)[:, :, 0]
@@ -1197,7 +1196,6 @@ def get_lcls_data(path):
     if 'evr' in data:
         lcls_data['evr'] = psana.Detector(data['evr'])
     if 'clen' in data:
-        lcls_data['epics'] = datasource.env().epicsStore()
         lcls_data['clen_str'] = data['clen']
     if 'epics-PV' in data:
         lcls_data['epics-PV'] = data['epics-PV']

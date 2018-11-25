@@ -1501,6 +1501,7 @@ class GUI(QMainWindow):
         event_codes = self.proxy_diag.eventCodes.isChecked()
         flow_rate = self.proxy_diag.flowRate.text()
         pressure_str = self.proxy_diag.pressureStr.text()
+        epics_PV = self.proxy_diag.epicsPV.text()
         for run in range(run_start, run_end+1):
             with open('xtc_proxy/r%04d.lcls' % run, 'w') as f:
                 f.write('exp: "%s"\n' % exp_id)
@@ -1513,6 +1514,8 @@ class GUI(QMainWindow):
                     f.write('flow_rate: "%s"\n' % flow_rate)
                 if len(pressure_str) > 0:
                     f.write('pressure: "%s"\n' % pressure_str)
+                if len(epics_PV) > 0:
+                    f.write('epics-PV: "%s"\n' % epics_PV)
             self.add_info('proxy data for run %d is created' % run)
 
     @pyqtSlot()
