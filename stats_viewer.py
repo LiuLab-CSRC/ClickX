@@ -118,7 +118,8 @@ class StatsViewer(QWidget):
                 'fiducial',
                 'photon_energy',
                 'flow_rate',
-                'pressure'
+                'pressure',
+                'epics-PV'
             }
         )
 
@@ -141,8 +142,11 @@ class StatsViewer(QWidget):
         for key, value in self.data_dict.items():
             self.data_dict[key] = np.array(value)
 
+        self.primaryData.clear()
+        self.secondaryData.clear()
         self.primaryData.addItems(scalar_fields + ['nb_peak'])
         self.secondaryData.addItems([''] + scalar_fields + ['nb_peak'])
+        self.plot()
 
     def update_views(self):
         self.secondary_plot.setGeometry(
