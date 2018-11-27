@@ -50,7 +50,7 @@ class StatsViewer(QWidget):
         self.main_win = main_win
         self.data_dict = {}
 
-        self.browseButton.clicked.connect(self.choose_and_load_hits)
+        self.browseButton.clicked.connect(self.choose_and_load_stats)
         self.plotButton.clicked.connect(self.plot)
         self.primary_plot.vb.sigResized.connect(self.update_views)
         self.primary_plot_item.sigPointsClicked.connect(self.view_event)
@@ -66,7 +66,7 @@ class StatsViewer(QWidget):
         return p1, p2
 
     @pyqtSlot()
-    def choose_and_load_hits(self):
+    def choose_and_load_stats(self):
         stats_file, _ = QFileDialog.getOpenFileName(
             self, "Open Stats File", 'cxi_hit', "(*.npy)"
         )
