@@ -3,6 +3,7 @@
 
 import csv
 import os
+import sys
 from glob import glob
 import yaml
 import time
@@ -10,7 +11,7 @@ import operator
 import subprocess
 
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QPoint, Qt, QTimer
-from PyQt5.QtWidgets import QWidget, QMenu, QTableWidgetItem
+from PyQt5.QtWidgets import QWidget, QMenu, QTableWidgetItem, QMessageBox
 from PyQt5.QtGui import QColor
 from PyQt5.uic import loadUi
 from threads import CompressorThread, HitFinderThread, Peak2CxiThread
@@ -235,13 +236,27 @@ class JobWindow(QWidget):
                 job_id = self.jobTable.item(
                     row, self.header_labels.index('job id')
                 ).text()
-                job = Job(job_type='hit finding',
-                          settings=self.settings,
-                          job_id=job_id,
-                          tag_id=self.hit_tag,
-                          compressed=self.settings.compress_raw_data)
-                self.jobs.append(job)
-                job.submit()
+                if self.hit_tag is None:
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Critical)
+                    msg.setText("Alert")
+                    msg.setInformativeText(
+                        "Click can not perform hit finding jobs since you do "
+                        "not have hit finding configuration files in "
+                        "conf/hit_finding folder.\n"
+                        "Please prepare hit finding conf files and save it in "
+                        "main window and choose a proper one in settings."
+                    )
+                    msg.setStandardButtons(QMessageBox.Close)
+                    msg.exec_()
+                else:
+                    job = Job(job_type='hit finding',
+                              settings=self.settings,
+                              job_id=job_id,
+                              tag_id=self.hit_tag,
+                              compressed=self.settings.compress_raw_data)
+                    self.jobs.append(job)
+                    job.submit()
         elif action == action_peak2cxi:
             for row in rows:
                 job_id = self.jobTable.item(
