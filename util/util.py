@@ -5,6 +5,7 @@ import os
 import sys
 
 import numpy as np
+from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.linalg import eig, inv, det
@@ -411,7 +412,7 @@ def refine_peaks(image, peaks, crop_size=7, mode='gradient'):
         raise ValueError('only support gradient and mean mode.')
     ids = (np.indices((crop_size, crop_size)) - half_crop).astype(np.float)
     weight = np.sum(np.sum(calib_crops * hot_masks, axis=1), axis=1)
-    weight = weight.astype(np.float32)
+    weight = weight.astype(np.float32) + 1E-5  # avoid divide by 0 error
     opt_peaks[:, 0] += np.sum(np.sum(
         calib_crops * hot_masks * ids[0], axis=1), axis=1) / weight
     opt_peaks[:, 1] += np.sum(np.sum(
@@ -579,6 +580,7 @@ def calc_snr(image,
     val_total_intensity = np.array(val_total_intensity)
     nb_signal_pixels = np.array(nb_signal_pixels)
     nb_bg_pixels = np.array(nb_bg_pixels)
+    val_noise += 1E-5  # avoid divided by 0 error
     snr = val_signal / val_noise
 
     if label_pixels:
@@ -849,8 +851,7 @@ def collect_jobs(files, dataset, job_size, max_frames=-1):
 
 
 def save_full_cxi(batch, cxi_file,
-                  raw_data_path='data',
-                  peak_info_path='peak_info',
+                  cxi_entry_id=1,
                   mask_file=None,
                   extra_datasets=None,
                   cxi_dtype='auto',
@@ -959,7 +960,7 @@ def save_full_cxi(batch, cxi_file,
     f = h5py.File(cxi_file, 'w')
     # save patterns
     f.create_dataset(
-        raw_data_path,
+        '/entry_%d/data_%d/data' % (cxi_entry_id, cxi_entry_id),
         shape=(n, x, y),
         dtype=cxi_dtype,
         data=images,
@@ -972,11 +973,11 @@ def save_full_cxi(batch, cxi_file,
     if mask_file is not None:
         n, x, y = images.shape
         del images
-        mask = np.load(mask_file)
+        mask = 1 - np.load(mask_file).astype(np.uint32)  # set valid pixel as 0
         mask = np.expand_dims(mask, axis=0)
         mask = np.repeat(mask, n, axis=0)
         f.create_dataset(
-            'mask',
+            '/entry_%d/data_%d/mask' % (cxi_entry_id, cxi_entry_id),
             shape=(n, x, y),
             data=mask,
             compression='gzip',
@@ -987,6 +988,7 @@ def save_full_cxi(batch, cxi_file,
     if 'mask' in locals():
         del mask
     # save peak info
+    peak_info_path = '/entry_%d/result_%d' % (cxi_entry_id, cxi_entry_id)
     f.create_dataset('%s/nPeaks' % peak_info_path, data=nb_peaks)
     f.create_dataset('%s/peakXPosRaw' % peak_info_path, data=peaks_y)  # fs
     f.create_dataset('%s/peakYPosRaw' % peak_info_path, data=peaks_x)  # ss
@@ -1064,54 +1066,48 @@ def fit_ellipse(x, y):
     return ellipse
 
 
-def fit_circle(x, y, tol=3.0, init_center=(0, 0), init_radius=1.):
+def fit_circle(points, init_center, init_radius, tol=3.0):
     """
     Fit circle to scattered points with specified tolerance.
-    :param x: x coordinates, 1d array.
-    :param y: y coordinates, 1d array.
-    :param tol: fitting tolerance in sigma.
+    :param points: circle points, NX2 array.
     :param init_center: initial center for optimization, 2 elements array.
     :param init_radius: initial center for optimization.
+    :param tol: fitting tolerance in sigma.
     :return: circle parameters, including center, radius, radius_std,
              radius_min, radius_max, fitting points num
     """
-    x, y = np.array(x), np.array(y)
+    points = np.array(points)
     center = np.array(init_center).reshape(-1)
     radius = init_radius
-    if x.size != y.size:
-        raise ValueError('x and y must have the same length.')
-    if center.size != 2:
-        raise ValueError('init_center must have 2 elements: x, y.')
     while True:
         def target(variables):
             x0, y0, r = variables
             return np.mean(
                 (np.sqrt(
-                    (x - x0) ** 2 + (y - y0) ** 2
+                    (points[:, 0] - x0) ** 2 + (points[:, 1] - y0) ** 2
                 ) - r) ** 2
             )
 
         in_vars = np.array([center[0], center[1], radius])
-        ret = minimize(target, in_vars, method='CG')
+        ret = minimize(target, in_vars, method='Nelder-Mead')
         center = ret.x[0:2]
-        radii = np.sqrt((x - center[0])**2 + (y - center[1])**2)
+        radii = np.sqrt((points[:, 0] - center[0])**2 + (points[:, 1] - center[1])**2)
         radii_mean = radii.mean()
         radii_std = radii.std()
         valid_idx = np.where(np.abs(radii - radii_mean) < tol * radii_std)[0]
-        if len(valid_idx) == x.size:
+        if len(valid_idx) == points.shape[0]:
             break
-        elif len(x) <= 10:  # exit if not enough points to fit
+        elif len(points) <= 10:  # exit if not enough points to fit
             break
         else:
-            x = x[valid_idx]
-            y = y[valid_idx]
+            points = points[valid_idx]
     circle = {
         'center': center,
         'radius': radii_mean,
         'radius_std': radii_std,
         'radius_min': radii.min(),
         'radius_max': radii.max(),
-        'fitting peaks num': len(x)
+        'fitting peaks num': len(points)
     }
     return circle
 
@@ -1200,3 +1196,26 @@ def get_lcls_data(path):
     if 'epics-PV' in data:
         lcls_data['epics-PV'] = data['epics-PV']
     return lcls_data
+
+
+def axis_angle_to_rotation_matrix(axis, angle):
+    """Calculate rotation matrix from axis/angle form.
+
+    Args:
+        axis (1d-ndarray): 3-element axis vector.
+        angle (float): angle in rad.
+
+    Returns:
+        2d-ndarray: Rotation matrix.
+    """
+    if norm(axis) < 1E-99:  # dummy case
+        return np.identity(3)
+    x, y, z = axis / norm(axis)
+    c, s = np.cos(angle), np.sin(angle)
+    R = [[c + x ** 2. * (1 - c), x * y * (1 - c) - z * s,
+          x * z * (1 - c) + y * s],
+         [y * x * (1 - c) + z * s, c + y ** 2. * (1 - c),
+          y * z * (1 - c) - x * s],
+         [z * x * (1 - c) - y * s, z * y * (1 - c) + x * s,
+          c + z ** 2. * (1 - c)]]
+    return np.array(R)

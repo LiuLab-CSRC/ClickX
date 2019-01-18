@@ -12,7 +12,7 @@ Options:
     --min-peaks NUM             Specify min peaks for a hit [default: 20].
     --cxi-size SIZE             Specify max frame in one single cxi file
                                 [default: 100].
-    --raw-data-path PATH        Specify path of raw data [default: data].
+    --cxi-entry-id ID           Specify CXI entry id [default: 1].
     --peak-info-path PATH       Specify path of peak info [default: peak_info].
     --cxi-dtype DATATYPE        Specify datatype of patterns in compressed cxi
                                 file [default: auto].
@@ -153,8 +153,7 @@ def worker_run(args):
     hit_dir = args['<hit-dir>']
     min_peaks = int(args['--min-peaks'])
     cxi_size = int(args['--cxi-size'])
-    raw_data_path = args['--raw-data-path']
-    peak_info_path = args['--peak-info-path']
+    cxi_entry_id = int(args['--cxi-entry-id'])
     cxi_dtype = args['--cxi-dtype']
     extra_datasets = args['--extra-datasets']
     mask_file = args['--mask-file']
@@ -180,8 +179,7 @@ def worker_run(args):
                 )
                 util.save_full_cxi(
                     batch, cxi_file,
-                    raw_data_path=raw_data_path,
-                    peak_info_path=peak_info_path,
+                    cxi_entry_id=cxi_entry_id,
                     mask_file=mask_file,
                     extra_datasets=extra_datasets,
                     cxi_dtype=cxi_dtype,
@@ -200,8 +198,7 @@ def worker_run(args):
         )
         util.save_full_cxi(
             batch, cxi_file,
-            raw_data_path=raw_data_path,
-            peak_info_path=peak_info_path,
+            cxi_entry_id=cxi_entry_id,
             mask_file=mask_file,
             extra_datasets=extra_datasets,
             cxi_dtype=cxi_dtype,

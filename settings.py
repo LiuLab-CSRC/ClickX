@@ -96,16 +96,20 @@ class SettingDialog(QDialog):
             partial(self.update_attribute,
                     attr='min_max_intensity', widget=self.maxIntensity)
         )
-        self.cxiRawDataPath.editingFinished.connect(
+        self.cxiEntryID.valueChanged.connect(
             partial(self.update_attribute,
-                    attr='cxi_raw_data_path',
-                    widget=self.cxiRawDataPath)
+                    attr='cxi_entry_id', widget=self.cxiEntryID)
         )
-        self.cxiPeakInfoPath.editingFinished.connect(
-            partial(self.update_attribute,
-                    attr='cxi_peak_info_path',
-                    widget=self.cxiPeakInfoPath)
-        )
+        # self.cxiRawDataPath.editingFinished.connect(
+        #     partial(self.update_attribute,
+        #             attr='cxi_raw_data_path',
+        #             widget=self.cxiRawDataPath)
+        # )
+        # self.cxiPeakInfoPath.editingFinished.connect(
+        #     partial(self.update_attribute,
+        #             attr='cxi_peak_info_path',
+        #             widget=self.cxiPeakInfoPath)
+        # )
         self.cxiSize.valueChanged.connect(
             partial(self.update_attribute,
                     attr='cxi_size',
@@ -203,10 +207,8 @@ class SettingDialog(QDialog):
                 if len(hit_conf_tags) > 0:
                     self.update_attribute('curr_hit_tag', self.hitTags)
             self.hitTags.setCurrentIndex(tag_id)
-        if 'cxi_raw_data_path' in kwargs:
-            self.cxiRawDataPath.setText(kwargs['cxi_raw_data_path'])
-        if 'cxi_peak_info_path' in kwargs:
-            self.cxiPeakInfoPath.setText(kwargs['cxi_peak_info_path'])
+        if 'cxi_entry_id' in kwargs:
+            self.cxiEntryID.setValue(kwargs['cxi_entry_id'])
         if 'cxi_size' in kwargs:
             self.cxiSize.setValue(kwargs['cxi_size'])
         if 'cheetah_datasets' in kwargs:
@@ -262,9 +264,9 @@ class Settings(object):
         'photon_energy', 'detector_distance', 'pixel_size',
         'image_width', 'image_height', 'center_x', 'center_y',
         'compress_raw_data', 'raw_dataset', 'compressed_dataset',
-        'compressed_batch_size', 'cxi_raw_data_path', 'cxi_peak_info_path',
-        'cxi_size', 'cheetah_datasets', 'mpi_batch_size',
-        'min_peaks', 'min_max_intensity', 'max_info', 'job_pool_size', 'update_period',
+        'compressed_batch_size', 'cxi_entry_id', 'cxi_size',
+        'cheetah_datasets', 'mpi_batch_size', 'min_peaks', 'min_max_intensity',
+        'max_info', 'job_pool_size', 'update_period',
         'curr_hit_tag'
     )
 
@@ -289,8 +291,7 @@ class Settings(object):
         self.raw_dataset = None
         self.compressed_dataset = None
         self.mpi_batch_size = None
-        self.cxi_raw_data_path = None
-        self.cxi_peak_info_path = None
+        self.cxi_entry_id = None
         self.cxi_size = None
         self.cheetah_datasets = None  # extra datasets from cheetah data
         self.job_pool_size = None
@@ -330,10 +331,7 @@ class Settings(object):
             'compressed_dataset'))
         self.update(mpi_batch_size=settings.get(
             'mpi_batch_size'))
-        self.update(cxi_raw_data_path=settings.get(
-            'cxi_raw_data_path'))
-        self.update(cxi_peak_info_path=settings.get(
-            'cxi_peak_info_path'))
+        self.update(cxi_entry_id=settings.get('cxi_entry_id'))
         self.update(cxi_size=settings.get(
             'cxi_size'))
         self.update(cheetah_datasets=settings.get(

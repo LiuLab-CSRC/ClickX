@@ -19,8 +19,7 @@ compressed_batch_size: 100
 compressed_dataset: data
 cheetah_datasets: ""
 curr_hit_tag: null
-cxi_peak_info_path: peak_info
-cxi_raw_data_path: data
+cxi_entry_id: 1
 cxi_size: 100
 job_pool_size: 3
 max_info: 1000

@@ -731,38 +731,16 @@
            <item>
             <widget class="QLabel" name="label_11">
              <property name="text">
-              <string>CXI Raw Data Path:</string>
+              <string>CXI Entry ID:</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="cxiRawDataPath"/>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_15">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QLabel" name="label_16">
-             <property name="text">
-              <string>CXI Peak Info Path:</string>
+            <widget class="QSpinBox" name="cxiEntryID">
+             <property name="minimum">
+              <number>1</number>
              </property>
             </widget>
-           </item>
-           <item>
-            <widget class="QLineEdit" name="cxiPeakInfoPath"/>
            </item>
            <item>
             <spacer name="horizontalSpacer_24">
@@ -796,6 +774,19 @@
               <number>100</number>
              </property>
             </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_15">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
            </item>
           </layout>
          </item>

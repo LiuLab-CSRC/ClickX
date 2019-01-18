@@ -1283,7 +1283,7 @@ class GUI(QMainWindow):
         mask = np.ones_like(self.raw_image, dtype=np.float)
         if self.mask_on and self.mask is not None:
             mask *= self.mask
-        if self.mask_image is not None:
+        if self.mask_on and self.mask_image is not None:
             mask *= self.mask_image
         raw_image = self.raw_image * mask
         # apply geom

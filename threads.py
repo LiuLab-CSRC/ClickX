@@ -186,8 +186,7 @@ class Peak2CxiThread(QThread):
             options += ['--mask-file', mask_file]
         peak_file = os.path.join(hit_dir, '%s.npy' % self.job)
         min_peaks = str(self.settings.min_peaks)
-        raw_data_path = self.settings.cxi_raw_data_path
-        peak_info_path = self.settings.cxi_peak_info_path
+        cxi_entry_id = str(self.settings.cxi_entry_id)
         extra_datasets = self.settings.cheetah_datasets
         if len(extra_datasets) > 0:
             options += ['--extra-datasets', extra_datasets]
@@ -195,8 +194,7 @@ class Peak2CxiThread(QThread):
         cxi_size = str(self.settings.cxi_size)
         options += ['--min-peaks', min_peaks,
                     '--batch-size', batch_size,
-                    '--raw-data-path', raw_data_path,
-                    '--peak-info-path', peak_info_path,
+                    '--cxi-entry-id', cxi_entry_id,
                     '--cxi-size', cxi_size]
         dir_ = os.path.dirname(__file__)
         shell_script = '%s/engines/%s/run_peak2cxi' % \
