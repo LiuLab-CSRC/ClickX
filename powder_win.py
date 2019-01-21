@@ -157,12 +157,6 @@ class PowderWindow(QWidget):
         self.highlight_ring_center_item = pg.ScatterPlotItem(
             symbol='+', size=15, pen='y', brush=(255, 255, 255, 0)
         )
-        self.opt_center_item = pg.ScatterPlotItem(
-            symbol='star', size=20, pen='g', brush=(255, 255, 255, 0)
-        )
-        # self.center_line_item = pg.PlotDataItem(
-        #     pen=pg.mkPen('g', width=1, style=Qt.DotLine)
-        # )
 
         # add plot item to image view
         self.peaks_view.getView().addItem(self.peak_item)
@@ -170,7 +164,6 @@ class PowderWindow(QWidget):
         self.peaks_view.getView().addItem(self.highlight_peak_item)
         self.peaks_view.getView().addItem(self.ring_center_item)
         self.peaks_view.getView().addItem(self.highlight_ring_center_item)
-        self.peaks_view.getView().addItem(self.opt_center_item)
         self.update_peaks_view()
 
         # slots
@@ -228,7 +221,6 @@ class PowderWindow(QWidget):
     @pyqtSlot(float)
     def change_photon_energy(self, photon_energy):
         self.photon_energy = photon_energy
-        print(photon_energy)
 
     @pyqtSlot(float)
     def change_eps(self, eps):
@@ -365,7 +357,7 @@ class PowderWindow(QWidget):
             }
             self.fill_table_row(row_dict, i)
         # draw cluster centers
-        self.opt_center_item.setData(pos=cluster_centers + 0.5)
+        self.ring_center_item.setData(pos=cluster_centers + 0.5)
 
     @pyqtSlot()
     def refine(self):
@@ -394,7 +386,7 @@ class PowderWindow(QWidget):
                 args=(self.opt_result['clusters'], self.pixel_size),
                 method='Nelder-Mead')
         # update refinement results
-        self.refiDetDist.setText('%.2f' % res.x[0])
+        self.refiDetDist.setText('%.2f' % (res.x[0] * 1000))
         self.refiCenterX.setText('%.2f' % res.x[1])
         self.refiCenterY.setText('%.2f' % res.x[2])
         self.refiThetaT.setText('%.2f' % np.rad2deg(res.x[3]))
@@ -412,20 +404,6 @@ class PowderWindow(QWidget):
         resolution = float(item.text())
         self.opt_result['clusters'][row].d_spacing = resolution
         return
-        # item = self.powder_table.item(row, col)
-        # if item is None:
-        #     return
-        # resolution = float(item.text())
-        # label = int(self.powder_table.item(row, 0).text())
-        # wavelength = get_photon_wavelength(self.photon_energy)
-        # theta = math.asin(wavelength/(2. * resolution))
-        # ring_radius = self.real_radii[label] * self.pixel_size
-        # det_dist = ring_radius / math.tan(2.0 * theta) * 1E-3
-        # det_dist_col = self.header_labels.index('opt det dist')
-        # item = self.powder_table.item(row, det_dist_col)
-        # if item is not None:
-        #     item.setText('%.2f' % det_dist)
-        # self.powder_table.repaint()
 
     def fill_table_row(self, row_dict, row):
         row_count = self.powder_table.rowCount()
