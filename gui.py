@@ -108,6 +108,7 @@ class GUI(QMainWindow):
         self.dataset = ''  # current dataset
         self.total_frames = 0  # total frames of current dataset
         self.raw_image = None  # current raw image for display
+        self.disp_image = None  # current displaeyd image
         self.shape = None
         self.new_shape = None  # new shape after geometry applied
         self.mask_image = None
@@ -1141,8 +1142,9 @@ class GUI(QMainWindow):
         else:
             return
         x, y = int(mouse_point.x()), int(mouse_point.y())
-        if 0 <= x < self.raw_image.shape[0] and 0 <= y < self.raw_image.shape[1]:
-            message = 'x:%d y:%d, I(raw): %.2E;' % (x, y, self.raw_image[x, y])
+        if 0 <= x < self.disp_image.shape[0] and 0 <= y < self.disp_image.shape[1]:
+            message = 'x:%d y:%d, I(raw): %.2E;' % (
+                x, y, self.disp_image[x, y])
             if self.show_mask_view and self.mask_image is not None:
                 message += 'I(calib/mask): %.2E' % self.mask_image[x, y]
             if self.show_debug_view and self.debug_image is not None:
@@ -1152,9 +1154,9 @@ class GUI(QMainWindow):
             return
         if self.inspector.isVisible():  # show data inspector
             # out of bound check
-            if x - 3 < 0 or x + 4 > self.raw_image.shape[0]:
+            if x - 3 < 0 or x + 4 > self.disp_image.shape[0]:
                 return
-            elif y - 3 < 0 or y + 4 > self.raw_image.shape[1]:
+            elif y - 3 < 0 or y + 4 > self.disp_image.shape[1]:
                 return
             # calculate snr
             pos = np.reshape((x, y), (-1, 2))
@@ -1163,7 +1165,7 @@ class GUI(QMainWindow):
             else:
                 snr_mode = self.snr_mode
             snr_info = util.calc_snr(
-                self.raw_image, pos,
+                self.disp_image, pos,
                 mode=snr_mode,
                 signal_radius=self.sig_radius,
                 bg_inner_radius=self.bg_inner_radius,
@@ -1194,7 +1196,7 @@ class GUI(QMainWindow):
             sig_pixels = (snr_info['signal pixels'] - pos + 3).tolist()
             bg_pixels = (snr_info['background pixels'] - pos + 3).tolist()
             if self.inspector.rawButton.isChecked():
-                inspector_image = self.raw_image
+                inspector_image = self.disp_image
             elif self.inspector.maskButton.isChecked():
                 inspector_image = self.mask_image
             else:
@@ -1285,13 +1287,13 @@ class GUI(QMainWindow):
             mask *= self.mask
         if self.mask_on and self.mask_image is not None:
             mask *= self.mask_image
-        raw_image = self.raw_image * mask
+        self.disp_image = self.raw_image * mask
         # apply geom
         if self.apply_geom and self.geom is not None:
-            raw_image = self.geom.raw2assembled(raw_image)
+            self.disp_image = self.geom.raw2assembled(self.disp_image)
             mask = self.geom.raw2assembled(mask)
         self.rawView.setImage(
-            raw_image, autoRange=self.auto_range,
+            self.disp_image, autoRange=self.auto_range,
             autoLevels=self.auto_level,
             autoHistogramRange=self.auto_histogram_range)
         if self.maskView.isVisible():
@@ -1311,7 +1313,7 @@ class GUI(QMainWindow):
 
         if self.hit_finding_on:
             peaks_dict = util.find_peaks(
-                raw_image, self.center,
+                self.disp_image, self.center,
                 adu_per_photon=self.adu_per_photon,
                 epsilon=self.epsilon,
                 bin_size=self.bin_size,
