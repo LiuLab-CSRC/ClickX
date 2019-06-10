@@ -269,6 +269,9 @@ def worker_run(args):
                     data_dict['fiducial'] = image_data['fiducial']
                 if 'epics-PV' in image_data:
                     data_dict['epics-PV'] = image_data['epics-PV']
+            elif ext == 'h5':
+                if 'pump_on' in image_data:
+                    data_dict['pump_on'] = image_data['pump_on']
             total_intensity, max_intensity = 0., 0.
             if image_data['image'] is not None:
                 image = image_data['image'] * mask if mask is not None else image_data['image']

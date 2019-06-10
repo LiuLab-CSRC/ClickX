@@ -46,6 +46,7 @@ def read_image(path, frame=0,
         first_group = list(h5_obj.keys())[0]
         if 'R' == first_group[0] and 'scan_dat' in h5_obj[first_group].keys():  # PAL specific h5 file
             image = h5_obj['%s/scan_dat/raymx_data' % first_group][frame]
+            data_dict['pump_on'] = h5_obj['%s/scan_dat/laser_on' % first_group][frame]
         elif len(h5_obj[dataset].shape) == 3:
             image = h5_obj[dataset][frame]
         else:
@@ -902,6 +903,8 @@ def save_full_cxi(batch, cxi_file,
         clens = np.zeros(nb_frame, dtype=np.float)
     if 'photon_energy' in batch[0]['data_dict']:
         photon_energy = np.zeros(nb_frame, dtype=np.float)
+    if 'pump_on' in batch[0]['data_dict']:
+        pump_on = np.zeros(nb_frame, dtype=np.int8)
     for i in range(len(batch)):
         record = batch[i]
         filepath, image_dataset, frame = \
@@ -945,6 +948,8 @@ def save_full_cxi(batch, cxi_file,
             clens[i] = data_dict['clen']
         if 'photon_energy' in data_dict:
             photon_energy[i] = data_dict['photon_energy']
+        if 'pump_on' in data_dict:
+            pump_on[i] = data_dict['pump_on']
 
         images.append(image)
 
@@ -1013,6 +1018,9 @@ def save_full_cxi(batch, cxi_file,
         f.create_dataset('clen', data=clens)
     if 'photon_energy' in locals():
         f.create_dataset('photon_energy', data=photon_energy)
+    # save PAL data
+    if 'pump_on' in locals():
+        f.create_dataset('pump_on', data=pump_on)
     f.close()
 
 
