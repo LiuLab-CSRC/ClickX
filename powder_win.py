@@ -391,7 +391,10 @@ class PowderWindow(QWidget):
         self.refiCenterY.setText('%.2f' % res.x[2])
         self.refiThetaT.setText('%.2f' % np.rad2deg(res.x[3]))
         self.refiPhiT.setText('%.2f' % np.rad2deg(res.x[4]))
-        self.refiPhotonEnergy.setText('%.2f' % res.x[5])
+        if not self.fixPhotonEnergy.isChecked():
+            self.refiPhotonEnergy.setText('%.2f' % res.x[5])
+        else:
+            self.refiPhotonEnergy.setText('%.2f' % self.photon_energy)
         self.refiResidue.setText('%.3e' % res.fun)
 
     @pyqtSlot(int, int)
